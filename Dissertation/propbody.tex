@@ -14,14 +14,13 @@
 \vfil
 
 \subsection*{Special Resources Required}
-File space on Thor -- 25Mbytes\\
-Account on the DEC Workstations -- 15Mbytes\\
-An account on Ouse\\
-The use of my own IBM PC (1000GHz Pentium, 200Mb RAM and 40Gb Disk).
+Machine with the Erlang VM installed \\
+Virtual Servers running on Amazon EC2 and Cloudsigma \\
+The use of my own laptop.
 \vspace{0.2in}
 
 \noindent
-{\bf Project Supervisors:} Dr David Eyers and David Evans
+{\bf Project Supervisors:} Dr David Eyers and Dr David Evans
 \vspace{0.2in}
 
 \noindent
@@ -39,32 +38,53 @@ The use of my own IBM PC (1000GHz Pentium, 200Mb RAM and 40Gb Disk).
 
 \section*{Introduction}
 
-Many students write their CST and Diploma dissertations in \LaTeX\ and
-spend a fair amount of time learning just how to do that. The purpos of 
-this project is to write a demonsatration dissertation that explains in
-detail how it done and how the result can be given to the Bookshop
-on an MSDOS floppy disk for printing and binding.
+It is hard to get started using distributed independent social networks as it is almost impossible to find and connect with your existing friends, not knowing where and in which social network they host their profiles. The purpose of this project is to lay the foundation for a decentralized and distributed friend search engine that can be hosted alongside installations of independent social networks allowing users to easily reconstruct their social graph in the social network of their choice. The focus of the project will be on the data storage layer of the search engine, implementing, evaluating and comparing different Distributed Hash Tables implemented in Erlang. A front end, allowing basic searches to be performed, will also be created, but mainly to provide a way of rapidly testing the data storage layer. More user oriented functionality needed to allow the project to succeed on a larger scale will be left out to limit the scope of the project.
 
 \section*{Work that has to be done}
 
-The project breaks down into the following main sections:-
+There are a great number of distributed hash tables available\footnote{Wikipedia currently lists 8 different protocols}. I have decided to implement and compare the following three: Chord, Kademilia and Pastry. They all support the same basic operations of setting and retrieving key-value pairs, but use different heuristics in the way they route traffic, which makes it interesting to compare them against each other using amonst others, nodes that are geographically spread out.
+
+The main parts of the project are to:
 
 \begin{enumerate}
+  \item Implement the data structure layer in Chord, Kademilia and Pastry using a uniform API that allows the system to use any one of the three without additional changes.
+  
+  \item Implement infrastructure that facilitates testing and monitoring of the system. More specifically it should allow:
 
-\item The construction of a skeleton dissertation with the required 
-structure. This involves writing the Makefile and makeing dummy files
-for the title page, the proforma, chapters 1 to 5, the appendices and
-the proposal.
+  \begin{enumerate}
+    \item Starting and stoping virtual servers accross the different service providers for testing purposes
+    \item Start and stop search nodes accross the physical servers
+    \item Display how many search nodes are available in the system, and how they are geographically distributed
+    \item Add and remove test data from the system
+    \item Perform repetable load testing on the system
+    \item Count the number of jumps and time a key lookup needs to do to find a data item and calculate average and median times of lookups for fixed larger key-value datasets
+    \item Being able to eliminate and add subsets of storage nodes in a repeateble fashion to test how the different Distributed Hash Tables cope with nodes dynamically dissapearing and appearing
+  \end{enumerate}
 
-\item Filling in the details required in the cover page and proforma.
+  \item Setup Linux image that can be run accross Infrastructure as a Service providers\footnote{I will use Vagrant (http://vagrantup.com) and Chef for this}
 
-\item Writing the contents of chapters 1 to 5, including examples
-of common \LaTeX\ constructs.
-
-\item Adding a example of how to use floating figures and encapsulated
-postscript diagrams.
+  \item Implement web front end to allow users to perform basic searches accross data storage layer.
 
 \end{enumerate}
+
+Please note that the following aspects of the search server are secondary to the project and are not part of what will be implemented:
+
+\begin{enumerate}
+  \item Fuzzy searches allowing the user to misspell names
+  \item Predictive searches
+  \item Searches taking social circles or similar metadata into account
+  \item Protecting against spam
+\end{enumerate}
+
+
+\section*{Starting Point}
+
+I have a reasonable working knowledge of Erlang and linux and development of web based systems. The algorithms that will be implemented have all previously been implemented in other languages, and are used in production systems, so finding information about them should be possible. I have never used Amazon EC2 or any of the other Infrastructure as a Service (IaaS) providers I plan to use, but have used similar services in the past and don't see this as being a problem.
+
+
+\section*{Success criterion}
+
+I regard the project as successful if I have working implementations of the three Distributed Hash Tables that allow me to set and retrieve values based on keys accross a distributed network of machines. Additionally I should have metrics for how the performance of key-lookup varies by node count and distributed hash table type.
 
 \section*{Difficulties to Overcome}
 
@@ -73,57 +93,50 @@ the project can be started:
 
 \begin{itemize}
 
-\item To learn \LaTeX\ and its use on Thor.
+\item To learn and fully understand the Chord, Kademilia and Pastry algorithms.
 
-\item To discover how to incorporate encapsulated postscript into
-a \LaTeX\ document, and to find a suitable drawing package on Thor
-to recommend.
+\item To learn how to do network communication in Erlang other than the built in message passing.
 
-\item To discover what format the Bookshop would like for the finished
-dissertation, and how to deal with postscript files that are too
-large to fit on a single floppy disk.
+\item To learn how to use the OverSim\footnote{http://en.wikipedia.org/wiki/OverSim} simulation tool to test and verify my implementations of the Distributed Hash Tables.
+
+\item To learn how to use Amazon EC2 and similar Infrastructure as a Service providers.
 
 \end{itemize}
 
 
-
-\section*{Starting Point}
-
-I have a reasonable working knowledge of \LaTeX\ and have convenient
-access to Thor using an IBM PC in my office. Writing MSDOS disks is no 
-problem.
-
 \section*{Resources}
 
-This project requires little file space so 25Mbytes of disk space on Thor
-should be sufficient. I plan to use my own IBM PC to write floppy disks, 
-but could use the PWF PCs if my own machine breaks down. 
+Some aspects of this project (amongst other the heuristics in Pastry which take locality into account when routing) are more interesting to test in nodes that are in geographically distinct areas. For this reason I will use server instances running on commercial Infrastructure as a Service providers like Amazon AWS and Cloudsigma. For the majority of the development cycle, local testing will be just as interesting and can be done on my development machine.
 
-Backup will be on floppy disks.
+This project requires no additional file space on University machines. I will be hosting the project source code and dissertation files in a repository on github\footnote{http://github.com/sebastian/Part-2-project}.
+If my machine breaks down, the development can be continued on any Unix based machine that has the Erlang VM installed.
 
 \section*{Work Plan}
 
-Planned starting date is 01/12/2000.
+Planned starting date is 15/10/2000. 
+
+Below follows a list of tasks that need to be done:
+
+\begin{enumerate}
+  \item Work through the theory behind Chord, Kademilia and Pastry and other items listed under \emph{difficulties to overcome} (2 weeks).
+  \item Implement initial version of Chord, Kademilia and Pastry in Erlang (4 weeks)
+  \item Implement test harness to perform testing of the system (4 weeks)
+  \item Implement search server using one of the Data Storage Layers implemented (2 weeks)
+  \item Write dissertation (6 weeks).
+\end{enumerate}
 
 \subsection*{Michaelmas Term} 
 
-By the end of this term I intend to have completed the learning tasks 
-outlined in the relevant section.
+By the end of this term I intend to have completed the research and learning tasks and have finished the first implementations of the Distributed Hash Tables in Erlang. In the vacation that follows I intend to get a good start on the testing harness and do a little work on the search server.
 
 
 \subsection*{Lent Term}
 
-By the division of term the overall structure of the dissertation
-will have been written and tested.
+In the first half of this term I intend to finish the test harness and search server and spend time testing the system and solving problems.
 
-By the end of term, example figures using encapsulated postscript
-will have been included.
- 
+In the second half of this term I tend to get an initial draft of my dissertation written.
+
 
 \subsection*{Easter Term}
 
-On completion of the exams I will incorporate final details into 
-the dissertation including a bibliography using bibtex and a table of contents.
-The estimated completion date being 25/07/2001 to allow 
-plenty of time should any unforeseen problems arise.
-
+In this term I plan to polish the dissertation. The estimated completion date is the 15th of May, leaving a couple of days to let the dissertation rest before giving it a final read and correcting last minute mistakes befor the due date on the 20th of May.
