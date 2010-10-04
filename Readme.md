@@ -10,4 +10,5 @@ In the near future I will focus on implementing Distributed Hash Tables (Pastry,
 - How can one incorporate metadata like the a users social circles and friends of friends to give better prioritization in the search result when all the data is decentralized?
 
 ## Contact
-If you have any questions, please contact me on: sebastian () probst () eide at gmail () com
+If you have any questions, please contact me on:
+sebastian.probst.eide@gmail.com
