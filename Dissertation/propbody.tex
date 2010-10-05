@@ -38,11 +38,11 @@ The use of my own laptop.
 
 \section*{Introduction}
 
-It is hard to get started using distributed independent social networks as it is almost impossible to find and connect with your existing friends, not knowing where and in which social network they host their profiles. The purpose of this project is to lay the foundation for a decentralized and distributed friend search engine that can be hosted alongside installations of independent social networks allowing users to easily reconstruct their social graph in the social network of their choice. The focus of the project will be on the data storage layer of the search engine, implementing, evaluating and comparing different Distributed Hash Tables implemented in Erlang. A front end, allowing basic searches to be performed, will also be created, but mainly to provide a way of rapidly testing the data storage layer. More user oriented functionality needed to allow the project to succeed on a larger scale will be left out to limit the scope of the project.
+It is hard to get started using distributed independent social networks as it is almost impossible to find and connect with your existing friends, not knowing where and in which social network they host their profiles. The purpose of this project is to lay the foundation for a decentralized and distributed friend search engine that can be hosted alongside installations of independent social networks allowing users to easily reconstruct their social graph in the social network of their choice. The focus of the project will be on the data storage layer of the search engine. I will compare and contrast different Distributed Hash Tables that I implement in Erlang. A front end, allowing basic searches to be performed, will also be created, but mainly to provide a way of rapidly testing the data storage layer. More user oriented functionality needed to allow the project to succeed on a larger scale will be left out to limit the scope of the project.
 
 \section*{Work that has to be done}
 
-There are a great number of distributed hash tables available\footnote{Wikipedia currently lists 8 different protocols}. I have decided to implement and compare the following three: Chord, Kademilia and Pastry. They all support the same basic operations of setting and retrieving key-value pairs, but use different heuristics in the way they route traffic, which makes it interesting to compare them against each other using amonst others, nodes that are geographically spread out.
+There are a great number of distributed hash tables available \footnote{ Wikipedia currently lists 8 different protocols }. I have decided to implement and compare the following three: Chord, Kademilia and Pastry. They all support the same basic operations of setting and retrieving key-value pairs, but differ in the way they route traffic and which heuristics they use for chosing nodes to route traffic to.
 
 The main parts of the project are to:
 
@@ -57,13 +57,13 @@ The main parts of the project are to:
     \item Display how many search nodes are available in the system, and how they are geographically distributed
     \item Add and remove test data from the system
     \item Perform repetable load testing on the system
-    \item Count the number of jumps and time a key lookup needs to do to find a data item and calculate average and median times of lookups for fixed larger key-value datasets
-    \item Being able to eliminate and add subsets of storage nodes in a repeateble fashion to test how the different Distributed Hash Tables cope with nodes dynamically dissapearing and appearing
+    \item Count the number of jumps and time a key lookup needs to find a data item, in addition to calculating average and median times of lookups for fixed larger key-value datasets
+    \item Being able to eliminate and add subsets of storage nodes in a repeateble fashion to test how the different Distributed Hash Tables cope with nodes dissapearing and appearing
   \end{enumerate}
 
-  \item Setup Linux image that can be run accross Infrastructure as a Service providers\footnote{I will use Vagrant (http://vagrantup.com) and Chef for this}
+  \item Setup a Linux image that can be run accross Infrastructure as a Service providers\footnote{I will use Vagrant (http://vagrantup.com) and Chef for this}
 
-  \item Implement web front end to allow users to perform basic searches accross data storage layer.
+  \item Implement a web front end to allow users to perform basic searches accross the data storage layer.
 
 \end{enumerate}
 
@@ -72,8 +72,8 @@ Please note that the following aspects of the search server are secondary to the
 \begin{enumerate}
   \item Fuzzy searches allowing the user to misspell names
   \item Predictive searches
-  \item Searches taking social circles or similar metadata into account
-  \item Protecting against spam
+  \item Searches taking social circles or other metadata into account
+  \item Protecting against spam or malicious attacks like denial of service attacks
 \end{enumerate}
 
 
