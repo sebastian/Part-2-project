@@ -14,9 +14,9 @@
 \vfil
 
 \subsection*{Special Resources Required}
-Machine with the Erlang VM installed \\
-Virtual Servers running on Amazon EC2 and Cloudsigma \\
-The use of my own laptop.
+Personal laptop for development and initial testing \\
+CL machine with the Erlang VM installed as a backup \\
+Virtual Server infrastructure, the like of Amazon EC2, for parts of the evaluation \\
 \vspace{0.2in}
 
 \noindent
@@ -38,53 +38,57 @@ The use of my own laptop.
 
 \section*{Introduction}
 
-It is hard to get started using distributed independent social networks as it is almost impossible to find and connect with your existing friends, not knowing where and in which social network they host their profiles. The purpose of this project is to lay the foundation for a decentralized and distributed friend search engine that can be hosted alongside installations of independent social networks allowing users to easily reconstruct their social graph in the social network of their choice. The focus of the project will be on the data storage layer of the search engine. I will compare and contrast different Distributed Hash Tables that I implement in Erlang. A front end, allowing basic searches to be performed, will also be created, but mainly to provide a way of rapidly testing the data storage layer. More user oriented functionality needed to allow the project to succeed on a larger scale will be left out to limit the scope of the project.
+It is hard to get started using independent distributed online social networks as it is frequently difficult to find and connect with your existing friends, not knowing in which social networking system(s) they host their profiles and where those networks are hosted. The purpose of this project is to lay the foundation for a decentralised and distributed friend search engine that can be offered alongside installations of independent social networks allowing users to easily reconstruct their social graph in the online social network of their choice. The focus of the project will be on the data storage layer of the search engine. I will compare and contrast different Distributed Hash Tables that I implement in Erlang. Erlang is chosen because it is known to be well suited for developing concurrent and fault tolerant systems.
+
+A front end, allowing basic searches to be performed, will also be created, but mainly to provide a way to rapidly exercise the data storage layer. More user-oriented functionality needed to allow the project to succeed on a larger scale will be left out so as to limit the scope of the project.
 
 \section*{Work that has to be done}
 
-There are a great number of distributed hash tables available \footnote{ Wikipedia currently lists 8 different protocols }. I have decided to implement and compare the following three: Chord, Kademilia and Pastry. They all support the same basic operations of setting and retrieving key-value pairs, but differ in the way they route traffic and which heuristics they use for chosing nodes to route traffic to.
+There are a number of distributed hash tables available.\footnote{ Wikipedia currently lists 8 different protocols } I have decided to implement and compare the following three, chosen because they are all well documented algorithms but importantly differ in the way they perform their routing: Chord, Kademilia and Pastry. As an example in how they differ, consider how Pastry allows for heuristics based on anything from ping to available bandwidth or combinations thereof, while Kademilia uses XOR arithmetic to determine the distance between nodes as a routing heuristic. These different approaches to the same problem make the algorithms excellent candidates to compare.
 
 The main parts of the project are to:
 
-\begin{enumerate}
-  \item Implement the data structure layer in Chord, Kademilia and Pastry using a uniform API that allows the system to use any one of the three without additional changes.
+\begin{itemize}
+  \item Implement the data storage layer of the search engine in Chord, Kademilia and Pastry using a uniform API that allows the system to use any one of the three without additional changes.
   
   \item Implement infrastructure that facilitates testing and monitoring of the system. More specifically it should allow:
 
-  \begin{enumerate}
-    \item Starting and stoping virtual servers accross the different service providers for testing purposes
-    \item Start and stop search nodes accross the physical servers
-    \item Display how many search nodes are available in the system, and how they are geographically distributed
-    \item Add and remove test data from the system
-    \item Perform repetable load testing on the system
-    \item Count the number of jumps and time a key lookup needs to find a data item, in addition to calculating average and median times of lookups for fixed larger key-value datasets
+  \begin{itemize}
+    \item Starting and stoping virtual servers across the different service providers being used to test different aspect of the distributed hash tables
+    \item Start and stop search nodes across the physical servers
+    \item Display how many search nodes are available in the system, and potentially some metric for how they are interconnected in terms of latency and bandwidth
+    \item Add and remove test data from the system. Here it would make sense to use commonly avalable datasets like \emph{DB of names} from Facebook, or \emph{the Californian DB of patent names}. Both are of significant size and importantly contain keys that have a non-random distributions helping simulate realistic datasets
+    \item Perform repeatable load testing on the system where tests as an example could compare read/write performance for different key and value sizes and different number of key-value pairs
+    \item Count the number of jumps and the time a key lookup needs in order to find a data item, in addition to calculating any other appropriate descriptive statisctical measures for for writes and lookups for fixed key-value datasets
     \item Being able to eliminate and add subsets of storage nodes in a repeateble fashion to test how the different Distributed Hash Tables cope with nodes dissapearing and appearing
-  \end{enumerate}
+  \end{itemize}
 
-  \item Setup a Linux image that can be run accross Infrastructure as a Service providers\footnote{I will use Vagrant (http://vagrantup.com) and Chef for this}
+  \item Setup a Linux image that can be run across Infrastructure as a Service providers\footnote{I will use Vagrant (http://vagrantup.com) and Chef for this}
 
-  \item Implement a web front end to allow users to perform basic searches accross the data storage layer.
+  \item Implement a web front end to allow users to perform basic searches across the data storage layer
 
-\end{enumerate}
+\end{itemize}
 
-Please note that the following aspects of the search server are secondary to the project and are not part of what will be implemented:
+Please note that while the following aspects of the search server are secondary to the project and will not initially be implemented, they all serve as excellent project extensions, should time permit:
 
-\begin{enumerate}
-  \item Fuzzy searches allowing the user to misspell names
+\begin{itemize}
+  \item Fuzzy searches allowing the user to misspell names. Composite keys seem like an interesting way to approach this problem
   \item Predictive searches
-  \item Searches taking social circles or other metadata into account
-  \item Protecting against spam or malicious attacks like denial of service attacks
-\end{enumerate}
+  \item Searches taking knowledge about social circles or similar metadata from social networks into account to be able to prioritize and order the search results returned to the user more intelligently
+  \item Protecting against all sorts of malicious use of the storage network like broadcasting data, attempting to overload nodes with requests or using the network to store spam or polute the namespace with spammy records
+\end{itemize}
 
 
 \section*{Starting Point}
 
-I have a reasonable working knowledge of Erlang and linux and development of web based systems. The algorithms that will be implemented have all previously been implemented in other languages, and are used in production systems, so finding information about them should be possible. I have never used Amazon EC2 or any of the other Infrastructure as a Service (IaaS) providers I plan to use, but have used similar services in the past and don't see this as being a problem.
+I have a reasonable working knowledge of Erlang and Linux and development of web based systems. The algorithms that will be implemented have all previously been implemented in other languages, and are used in production systems, so finding information about them should be possible. I have not yet used Amazon EC2 or any of the other Infrastructure as a Service (IaaS) providers that could be used to perform testing on the system in a distributed manner.
 
 
 \section*{Success criterion}
 
-I regard the project as successful if I have working implementations of the three Distributed Hash Tables that allow me to set and retrieve values based on keys accross a distributed network of machines. Additionally I should have metrics for how the performance of key-lookup varies by node count and distributed hash table type.
+I regard the project as successful if I have working implementations of the three Distributed Hash Tables that allow me to set and retrieve values based on keys across a distributed network of machines, and also metrics for how the performance of key-lookup varies by node-, key-count and distributed hash table type.
+
+The search part of the project has been left out of the success criterion due to it being harder to quantify and evaluate well.
 
 \section*{Difficulties to Overcome}
 
@@ -95,35 +99,33 @@ the project can be started:
 
 \item To learn and fully understand the Chord, Kademilia and Pastry algorithms.
 
-\item To learn how to do network communication in Erlang other than the built in message passing.
+\item To learn how to do network communication in Erlang other than the built in message passing. I prefer the individual nodes to communicate over TCP or UDP as that frees the design from assumptions regarding the language of implementation, and also removes the substantial overhead incurred by having the Erlang VM keep track of the state and availability of potentially hundreds of thousands of nodes. Additionally there are security issues when allowing Erlang VMs to connect directly in untrusted networks, which the one I am building certainly is
 
-\item To learn how to use the OverSim\footnote{http://en.wikipedia.org/wiki/OverSim} simulation tool to test and verify my implementations of the Distributed Hash Tables.
-
-\item To learn how to use Amazon EC2 and similar Infrastructure as a Service providers.
+\item To find a way to test the system on geographically distributed nodes.
 
 \end{itemize}
 
 
 \section*{Resources}
 
-Some aspects of this project (amongst other the heuristics in Pastry which take locality into account when routing) are more interesting to test in nodes that are in geographically distinct areas. For this reason I will use server instances running on commercial Infrastructure as a Service providers like Amazon AWS and Cloudsigma. For the majority of the development cycle, local testing will be just as interesting and can be done on my development machine.
+Some aspects of this project (amongst others the heuristics in Pastry which take locality into account when routing) are more interesting to test in nodes that are geographically disributed. For this reason using server instances from a provider like Amazon AWS or PlanetLab seem like good and viable solutions. Ways of getting access to time for academic purposes on such infrastructure is currently being looked into. For the majority of the development cycle local testing will be just as interesting and can be done on my development machine.
 
-This project requires no additional file space on University machines. I will be hosting the project source code and dissertation files in a repository on github\footnote{http://github.com/sebastian/Part-2-project}.
+This project requires no additional file space on University machines. I will be hosting the project source code and dissertation files in a repository on github.\footnote{http://github.com/sebastian/Part-2-project}
 If my machine breaks down, the development can be continued on any Unix based machine that has the Erlang VM installed.
 
 \section*{Work Plan}
 
-Planned starting date is 15/10/2000. 
+Planned starting date is 15/10/2010. 
 
 Below follows a list of tasks that need to be done:
 
-\begin{enumerate}
+\begin{itemize}
   \item Work through the theory behind Chord, Kademilia and Pastry and other items listed under \emph{difficulties to overcome} (2 weeks).
   \item Implement initial version of Chord, Kademilia and Pastry in Erlang (4 weeks)
   \item Implement test harness to perform testing of the system (4 weeks)
   \item Implement search server using one of the Data Storage Layers implemented (2 weeks)
   \item Write dissertation (6 weeks).
-\end{enumerate}
+\end{itemize}
 
 \subsection*{Michaelmas Term} 
 
@@ -139,4 +141,4 @@ In the second half of this term I tend to get an initial draft of my dissertatio
 
 \subsection*{Easter Term}
 
-In this term I plan to polish the dissertation. The estimated completion date is the 15th of May, leaving a couple of days to let the dissertation rest before giving it a final read and correcting last minute mistakes befor the due date on the 20th of May.
+In this term I plan to polish the dissertation. The estimated completion date is the 15th of May, leaving a couple of days to let the dissertation rest before giving it a final read and correcting last minute mistakes before the due date on the 20th of May.
