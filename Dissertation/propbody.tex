@@ -44,12 +44,12 @@ A front end, allowing basic searches to be performed, will also be created, but 
 
 \section*{Work that has to be done}
 
-There are a number of distributed hash tables available.\footnote{ Wikipedia currently lists 8 different protocols } I have decided to implement and compare the following three, chosen because they are all well documented algorithms but importantly differ in the way they perform their routing: Chord, Kademilia and Pastry. As an example in how they differ, consider how Pastry allows for heuristics based on anything from ping to available bandwidth or combinations thereof, while Kademilia uses XOR arithmetic to determine the distance between nodes as a routing heuristic. These different approaches to the same problem make the algorithms excellent candidates to compare.
+There are a number of distributed hash tables available.\footnote{ Wikipedia currently lists 8 different protocols } I have decided to implement and compare the following three, chosen because they are well documented algorithms but importantly differ in the way they perform their routing: Chord, Kademilia and Pastry. As an example in how they differ, consider how Pastry allows for heuristics based on anything from ping to available bandwidth or combinations thereof, while Kademilia uses XOR arithmetic to determine the distance between nodes as a routing heuristic. These different approaches to the same problem make the algorithms excellent candidates to compare.
 
 The main parts of the project are to:
 
 \begin{itemize}
-  \item Implement the data storage layer of the search engine in Chord, Kademilia and Pastry using a uniform API that allows the system to use any one of the three without additional changes.
+  \item Implement the data storage layer of the search engine in Chord, Kademilia and Pastry using a uniform API that allows the system to use any one of the three without additional changes
   
   \item Implement infrastructure that facilitates testing and monitoring of the system. More specifically it should allow:
 
@@ -57,25 +57,25 @@ The main parts of the project are to:
     \item Starting and stoping virtual servers across the different service providers being used to test different aspect of the distributed hash tables
     \item Start and stop search nodes across the physical servers
     \item Display how many search nodes are available in the system, and potentially some metric for how they are interconnected in terms of latency and bandwidth
-    \item Add and remove test data from the system. Here it would make sense to use commonly avalable datasets like \emph{DB of names} from Facebook, or \emph{the Californian DB of patent names}. Both are of significant size and importantly contain keys that have a non-random distributions helping simulate realistic datasets
+    \item Add and remove test data from the system. Here it would make sense to use publicly avalable datasets like \emph{DB of names} from Facebook, or \emph{the Californian DB of patent names}. Both are of significant size and importantly contain keys with non-random distributions making for more realistic datasets
     \item Perform repeatable load testing on the system where tests as an example could compare read/write performance for different key and value sizes and different number of key-value pairs
-    \item Count the number of jumps and the time a key lookup needs in order to find a data item, in addition to calculating any other appropriate descriptive statisctical measures for for writes and lookups for fixed key-value datasets
+    \item Count the number of jumps and the time a key lookup needs in order to find a data item, in addition other appropriate descriptive statisctical measures for writes and lookups in fixed key-value datasets
     \item Being able to eliminate and add subsets of storage nodes in a repeateble fashion to test how the different Distributed Hash Tables cope with nodes dissapearing and appearing
   \end{itemize}
 
-  \item Setup a Linux image that can be run across Infrastructure as a Service providers\footnote{I will use Vagrant (http://vagrantup.com) and Chef for this}
+  \item Setup a Linux image that can be run across Infrastructure as a Service providers\footnote{Vagrant seems like a likely candidate to help automate this (http://vagrantup.com)}
 
   \item Implement a web front end to allow users to perform basic searches across the data storage layer
 
 \end{itemize}
 
-Please note that while the following aspects of the search server are secondary to the project and will not initially be implemented, they all serve as excellent project extensions, should time permit:
+Please note that while the following aspects of the search server are secondary to the project and will not initially be implemented, they all, should time permit, serve as excellent project extensions:
 
 \begin{itemize}
   \item Fuzzy searches allowing the user to misspell names. Composite keys seem like an interesting way to approach this problem
   \item Predictive searches
-  \item Searches taking knowledge about social circles or similar metadata from social networks into account to be able to prioritize and order the search results returned to the user more intelligently
-  \item Protecting against all sorts of malicious use of the storage network like broadcasting data, attempting to overload nodes with requests or using the network to store spam or polute the namespace with spammy records
+  \item Searches taking knowledge about social circles or similar metadata from social networks into account in order to more intelligently prioritize and order the search results returned to the user
+  \item Protections against malicious use of the storage network like broadcasting data, attempting to overload nodes with requests or using the network to store spam or polute the namespace with spammy records
 \end{itemize}
 
 
@@ -99,7 +99,7 @@ the project can be started:
 
 \item To learn and fully understand the Chord, Kademilia and Pastry algorithms.
 
-\item To learn how to do network communication in Erlang other than the built in message passing. I prefer the individual nodes to communicate over TCP or UDP as that frees the design from assumptions regarding the language of implementation, and also removes the substantial overhead incurred by having the Erlang VM keep track of the state and availability of potentially hundreds of thousands of nodes. Additionally there are security issues when allowing Erlang VMs to connect directly in untrusted networks, which the one I am building certainly is
+\item To learn how to do network communication in Erlang other than the built in message passing. I prefer the individual nodes to communicate over TCP or UDP as that frees the design from assumptions regarding the language of implementation, and also removes the substantial overhead incurred by having the Erlang VM keep track of the state and availability of potentially hundreds of thousands of nodes. Additionally there are security issues when allowing Erlang VMs to connect directly in untrusted networks
 
 \item To find a way to test the system on geographically distributed nodes.
 
@@ -108,10 +108,10 @@ the project can be started:
 
 \section*{Resources}
 
-Some aspects of this project (amongst others the heuristics in Pastry which take locality into account when routing) are more interesting to test in nodes that are geographically disributed. For this reason using server instances from a provider like Amazon AWS or PlanetLab seem like good and viable solutions. Ways of getting access to time for academic purposes on such infrastructure is currently being looked into. For the majority of the development cycle local testing will be just as interesting and can be done on my development machine.
+Some aspects of this project (amongst others the heuristics in Pastry which take locality into account when routing) are more interesting to test in nodes that are geographically disributed. For this reason using server instances from a provider like Amazon AWS or PlanetLab seem like a good idea. Ways of getting access to time on such infrastructure for academic purposes is currently being looked into. For the majority of the development cycle local testing will be just as interesting and can be done on my development machine.
 
 This project requires no additional file space on University machines. I will be hosting the project source code and dissertation files in a repository on github.\footnote{http://github.com/sebastian/Part-2-project}
-If my machine breaks down, the development can be continued on any Unix based machine that has the Erlang VM installed.
+If my machine breaks down, the development can be continued on any Unix based machine that has VIM, git and the Erlang VM installed.
 
 \section*{Work Plan}
 
