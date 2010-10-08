@@ -14,7 +14,7 @@
 \vfil
 
 \subsection*{Special Resources Required}
-Personal laptop for development and initial testing \\
+Personal laptop for development and initial testing (1.86 Ghz, 2GB Ram) \\
 CL machine with the Erlang VM installed as a backup \\
 Virtual Server infrastructure, the like of Amazon EC2, for parts of the evaluation \\
 \vspace{0.2in}
@@ -38,13 +38,13 @@ Virtual Server infrastructure, the like of Amazon EC2, for parts of the evaluati
 
 \section*{Introduction}
 
-It is hard to get started using independent, distributed online social networks as it is frequently difficult to find and connect with your existing friends, not knowing in which social networking system(s) they host their profiles and where those networks are hosted. The purpose of this project is to lay the foundation for a decentralised and distributed friend search engine that can be offered alongside installations of independent social networks allowing users to easily reconstruct their social graph in the online social network(s) of their choice. The focus of the project will be on the data storage layer of the search engine. I will compare and contrast different Distributed Hash Tables that I implement in Erlang. Erlang is chosen because it is known to be well suited for developing concurrent, distributed and fault tolerant systems.
+It is hard to get started using independent, distributed online social networks as it is frequently difficult to find and connect with your existing friends, not knowing in which social networking system(s) they host their profiles and where those networks are hosted. The purpose of this project is to lay the foundation for a decentralised and distributed friend search engine that can be offered alongside installations of independent social networks allowing users to easily reconstruct their social graph in the online social network(s) of their choice. The focus of the project will be on the data storage layer of the search engine. I will compare and contrast different Distributed Hash Tables that I implement in Erlang. Erlang is chosen because it is known to be well suited for developing concurrent and distributed systems.
 
 A front end, allowing basic searches to be performed, will also be created, but mainly to provide a way to rapidly exercise the data storage layer. More user-oriented functionality needed to allow the project to be used on a larger scale will be left out so as to limit the scope of the project.
 
 \section*{Work that has to be done}
 
-There are a number of distributed hash table designs available.\footnote{ Wikipedia currently lists 8 different protocols } I have decided to implement and compare the following three, chosen because they are well documented algorithms but importantly differ in the way they perform their routing: Chord, Kademilia and Pastry. As an example in how they differ, consider how Pastry allows for heuristics based on anything from ping to available bandwidth or combinations thereof, while Kademilia uses XOR arithmetic to determine the distance between nodes as a routing heuristic. These different approaches to the same problem make the algorithms excellent candidates to compare.
+There are a number of distributed hash table designs available.\footnote{ Wikipedia currently lists 8 different protocols } I have decided to implement and compare the following three, chosen because they are well documented algorithms but importantly differ in the way they perform their routing: Chord, Kademilia and Pastry. As an example in how they differ, consider how Pastry allows for heuristics based on anything from ping to available bandwidth or combinations thereof, Kademilia uses XOR arithmetic to determine the distance between nodes as a routing heuristic, while Chord has none of the above, using simplicity as its strength. These different approaches to the same problem make the algorithms excellent candidates to compare.
 
 The main parts of the project are to:
 
