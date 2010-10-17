@@ -1,0 +1,23 @@
+<html>
+  <head>
+    <title>Social Friend Search : Demo</title>
+  </head>
+
+  <body>
+    <div id="search_box">
+      <input type="text" name="q" placeholder="My friends name" />
+      <input type="submit" />
+    </div>
+    <div id="search_results">
+      {{#results?}}
+      <ul>
+        {{results}}
+        <li>
+          {{name}}
+        </li>
+        {{/results}}
+      </ul>
+      {{/#results?}}
+    </div>
+  </body>
+</html>
