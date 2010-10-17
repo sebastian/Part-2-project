@@ -2,6 +2,7 @@ Planned structure of app:
 
 ## Search app
 Should have:
+
 * a web component (using webmachine) interacting with a backend.
 * a backend using the DHT as a data storage to find values given a key
 
