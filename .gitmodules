@@ -1,6 +1,3 @@
 [submodule "Code/Mustache"]
-	path = Code/Mustache
+	path = vendor/Mustache
 	url = http://github.com/mojombo/mustache.erl.git
-[submodule "Code/ErlangOTP"]
-	path = Code/ErlangOTP
-	url = http://github.com/erlang/otp.git
