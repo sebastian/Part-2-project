@@ -9,28 +9,31 @@ Should have:
 The web component should be a website with a simple form communicating via JSON or another suitable format with the server. API of backend server is still to be determined.
 
 The server should support the following actions:
-1. Adding or removing user entries that should be stored in the index
-2. querying the global search index
+1. Adding, listing and removing local users
+2. Performing searches
 
+### Adding or removing user entries that should be stored in the index
 1a. Adding user entries:
-[POST] /local_entries
+[POST] /entries
   Structured JSON data following pattern discussed below
 
 1b. Removing a user entry
-[DELETE] /local_entries/{KEY}
+[DELETE] /entries/{KEY}
   Always returns OK regardless of it the entry exists or not
 
 1c. Listing user entries
-[GET] /local_entries
+[GET] /entries
   Returns a list of structured data of all the user entries maintained
   by the local search system
 
 1d. Get a particular user entry
-[GET] user/{KEY}
+[GET] /entries/{KEY}
   Returns user entry either from local or remote store
 
-2. Search for user
-[GET] s/?q={URL encoded search query}
+### querying the global search index
+
+1. Search for user
+[GET] /search?q={URL encoded search query}
   Returns a (potentially empty) list of results.
 
 
