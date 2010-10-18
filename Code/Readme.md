@@ -13,20 +13,20 @@ The server should support the following actions:
 2. Performing searches
 
 ### Adding or removing user entries that should be stored in the index
-1a. Adding user entries:
+1. Adding user entries:
 [POST] /entries
   Structured JSON data following pattern discussed below
 
-1b. Removing a user entry
+1. Removing a user entry
 [DELETE] /entries/{KEY}
   Always returns OK regardless of it the entry exists or not
 
-1c. Listing user entries
+1. Listing user entries
 [GET] /entries
   Returns a list of structured data of all the user entries maintained
   by the local search system
 
-1d. Get a particular user entry
+1. Get a particular user entry
 [GET] /entries/{KEY}
   Returns user entry either from local or remote store
 
