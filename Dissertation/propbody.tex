@@ -1,3 +1,4 @@
+% This is an empty document
 
 % Draft #1 (final?)
 
@@ -16,7 +17,7 @@
 \subsection*{Special Resources Required}
 Personal laptop for development and initial testing (1.86 Ghz, 2GB Ram) \\
 CL machine with the Erlang VM installed as a backup \\
-Virtual Server infrastructure, the like of Amazon EC2, for parts of the evaluation \\
+Virtual Server infrastructure, the likes of Amazon EC2, for parts of the evaluation \\
 \vspace{0.2in}
 
 \noindent
@@ -29,7 +30,7 @@ Virtual Server infrastructure, the like of Amazon EC2, for parts of the evaluati
 \noindent
  
 \noindent
-{\bf Project Overseers:} Unknown ********** PLEASE UPDATE! ***********
+{\bf Project Overseers:} Prof. Jon Crowcroft and Dr Simone Teufel
 
 \vfil
 \pagebreak
@@ -38,13 +39,13 @@ Virtual Server infrastructure, the like of Amazon EC2, for parts of the evaluati
 
 \section*{Introduction}
 
-It is hard to get started using independent, distributed online social networks as it is frequently difficult to find and connect with your existing friends, not knowing in which social networking system(s) they host their profiles and where those networks are hosted. The purpose of this project is to lay the foundation for a decentralised and distributed friend search engine that can be offered alongside installations of independent social networks allowing users to easily reconstruct their social graph in the online social network(s) of their choice. The focus of the project will be on the data storage layer of the search engine. I will compare and contrast different Distributed Hash Tables that I implement in Erlang. Erlang is chosen because it is known to be well suited for developing concurrent and distributed systems.
+It is hard to get started using independent, distributed online social networks as it is frequently difficult to find and connect with your existing friends, not knowing in which social networking system(s) they have their profiles and where those networks are hosted. The purpose of this project is to lay the foundation for a decentralised and distributed friend search engine that can be offered alongside installations of independent social networks allowing users to easily reconstruct their social graph in the online social network(s) of their choice. The focus of the project will be on the data storage layer of the search engine. I will compare and contrast different Distributed Hash Tables that I implement in Erlang. Erlang is chosen because it is known to be well suited for developing concurrent and distributed systems.
 
 A front end, allowing basic searches to be performed, will also be created, but mainly to provide a way to rapidly exercise the data storage layer. More user-oriented functionality needed to allow the project to be used on a larger scale will be left out so as to limit the scope of the project.
 
 \section*{Work that has to be done}
 
-There are a number of distributed hash table designs available.\footnote{ Wikipedia currently lists 8 different protocols } I have decided to implement and compare the following three, chosen because they are well documented algorithms but importantly differ in the way they perform their routing: Chord, Kademilia and Pastry. As an example in how they differ, consider how Pastry allows for heuristics based on anything from ping to available bandwidth or combinations thereof, Kademilia uses XOR arithmetic to determine the distance between nodes as a routing heuristic, while Chord has none of the above, using simplicity as its strength. These different approaches to the same problem make the algorithms excellent candidates to compare.
+There are a number of distributed hash table designs available.\footnote{ Wikipedia currently lists 8 different protocols } I have decided to implement and compare the following three: Chord, Kademilia and Pastry. They were chosen because they are well documented algorithms, but differ in the way they perform their routing. As an example, consider how Pastry allows for heuristics based on anything from ping to available bandwidth or combinations thereof, Kademilia uses XOR arithmetic to determine the distance between nodes as a routing heuristic, while Chord has none of the above. These different approaches to the same problem make the algorithms excellent candidates to compare.
 
 The main parts of the project are to:
 
@@ -57,7 +58,7 @@ The main parts of the project are to:
     \item Starting and stopping virtual servers across the different service providers to minimize server rental costs between testing sessions. The servers will be used to test different aspects of the distributed hash tables
     \item Start and stop search nodes across the physical servers
     \item Display how many search nodes are available in the system, and potentially some metric for how they are interconnected in terms of latency and bandwidth
-    \item Add and remove test data from the system. The system will be tested with \emph{Database of names} from Facebook which I have access to. It is of significant size and importantly, contain keys with non-random distributions making for a more realistic dataset
+    \item Add and remove test data from the system. The system will be tested with \emph{Database of names} from Facebook which I have access to. It is of significant size and importantly, contains keys with non-random distributions making for a more realistic dataset
     \item Perform repeatable load testing on the system where tests as an example could compare read/write performance for different key and value sizes and different numbers of key-value pairs
     \item Count the number of jumps and the time a key lookup needs in order to find a data item, in addition other appropriate descriptive statistical measures for writes and lookups in fixed key-value datasets
     \item Being able to eliminate and add subsets of storage nodes in a repeatable fashion to test how the different Distributed Hash Tables cope with nodes disappearing and appearing
@@ -72,7 +73,7 @@ The main parts of the project are to:
 Please note that while the following aspects of the search server are secondary to the project and will not initially be implemented, they all, should time permit, serve as excellent project extensions:
 
 \begin{itemize}
-  \item Fuzzy searches allowing the user to misspell names. 
+  \item Fuzzy searches allowing the user to misspell names.
   \item Support composite keys to allow searching for different attributes of a record
   \item Predictive searches
   \item Searches taking knowledge about social circles from online social networks, or similar metadata, into account in order to more intelligently prioritise and order the search results returned to the user
@@ -93,14 +94,14 @@ The search component of the project, which is the application part that uses the
 
 \section*{Difficulties to Overcome}
 
-The following main learning tasks will have to be undertaken before 
+The following main learning tasks will have to be undertaken before
 the project can be started:
 
 \begin{itemize}
 
 \item To learn and fully understand the Chord, Kademilia and Pastry algorithms.
 
-\item To learn how to do network communication in Erlang other than the built in message passing. I prefer the individual nodes to communicate over TCP or UDP as that frees the design from assumptions regarding the language of implementation, and also removes the substantial overhead incurred by having each Erlang VM keep track of the state and availability of all the other nodes network wide, which would be in stark contrast with the distributed hash tables need to only maintain rather minimalistic routing tables. Additionally there are security issues when allowing Erlang VMs to connect directly in untrusted networks as any node is allowed to execute arbitrary code on any other connected node
+\item To learn how to do network communication in Erlang other than the built in message passing. I prefer the individual nodes to communicate over TCP or UDP as that frees the design from assumptions regarding the language of implementation. Additionally there are security issues when allowing Erlang VMs to connect directly in untrusted networks as any node is allowed to execute arbitrary code on any other connected node
 
 \item To find a way to test the system on geographically distributed nodes.
 
@@ -116,7 +117,7 @@ If my machine breaks down, the development can be continued on any Unix based ma
 
 \section*{Work Plan}
 
-Planned starting date is 15/10/2010. 
+Planned starting date is 15/10/2010.
 
 Below follows a list of tasks that need to be done:
 
@@ -128,7 +129,7 @@ Below follows a list of tasks that need to be done:
   \item Write dissertation (6 weeks).
 \end{itemize}
 
-\subsection*{Michaelmas Term} 
+\subsection*{Michaelmas Term}
 
 By the end of this term I intend to have completed the research and learning tasks and have finished the first implementations of the Distributed Hash Tables in Erlang. In the vacation that follows I intend to make a good start on the testing harness and do a little work on the search server.
 
@@ -143,3 +144,5 @@ In the second half of this term I tend to get an initial draft of my dissertatio
 \subsection*{Easter Term}
 
 In this term I plan to polish the dissertation. The estimated completion date is the 15th of May, leaving a couple of days to let the dissertation rest before giving it a final read and correcting last minute mistakes before the due date on the 20th of May.
+
+
