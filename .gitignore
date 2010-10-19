@@ -1,2 +1,5 @@
 *.un
+*.swo
 *.swp
+*/log/*
+Code/webmachine/*

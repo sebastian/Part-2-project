@@ -1,27 +1,27 @@
 <!DOCTYPE HTML>
-<html>
+<html xmlns:ng="http://angularjs.org">
   <head>
     <meta http-equiv="content-type" content="text/html; charset=utf-8" />
 
     <title>Social Friend Finder : Demo</title>
     <link rel="stylesheet" href="/css/master.css" type="text/css" media="screen" charset="utf-8" />    
-    
+    <!-- jQuery (because it is awesome) --> 
     <script type="text/javascript" charset="utf-8" src="http://code.jquery.com/jquery-1.4.3.js"></script>
     <!--<script type="text/javascript" charset="utf-8" src="http://code.jquery.com/jquery-1.4.3.min.js"></script>-->
+    <!-- Angular for databindings -->
+    <script type="text/javascript" src="http://angularjs.org/ng/js/angular-debug.js" ng:autobind></script>
+    <!-- App spesific javascript -->
     <script type="text/javascript" charset="utf-8" src="/javascripts/search.js"></script>
   </head>
 
   <body>
     <div id="search_box">
-      <input id="search" type="text" name="q" placeholder="My friends name" />
-      <input id="searchBtn" type="submit" />
+      <input id="searchField" type="text" name="q" placeholder="My friends name" />
     </div>
-    <div id="search_results">
-      <ul>
-        <li>
-          Search result
-        </li>
-      </ul>
+    <div id="search_results" ng:controller="SearchController">
+      <div class="search_result" ng:repeat="person in searchResults">
+        {{person.name}} 
+      </div>
     </div>
   </body>
 </html>
