@@ -1,20 +1,13 @@
 %% @author Sebastian Probst Eide
 %% @doc DataStore module for storing and retrieving values.
-
 -module(datastore).
 
-%% @todo Add proper export statement
--compile([export_all]).
-
-%% -behaviour(gen_server).
+-export([set/3, get/2, clean/1]).
 
 -include("records.hrl").
 
-%% Private API for data store
-
 %% @doc Adds a value for a key. A key can contain several entries
--spec(set(Key::key(), Value::#entry{}, State::dict()) ->
-    {ok, dict()}).
+-spec(set(Key::key(), Value::#entry{}, State::dict()) -> {ok, dict()}).
 set(Key, Value, State) ->
   case dict:find(Key, State) of
     {ok, Record} ->
@@ -25,8 +18,7 @@ set(Key, Value, State) ->
 
 %% @doc Returns a list of values for a given key. The list
 %%     might potentially be empty.
--spec(get(Key::key(), State::dict()) ->
-    {[#entry{}], dict()}).
+-spec(get(Key::key(), State::dict()) -> {[#entry{}], dict()}).
 get(Key, State) ->
   case dict:find(Key, State) of
     {ok, ValueList} ->
@@ -35,6 +27,12 @@ get(Key, State) ->
       {[], State}
   end.
 
+%% @doc Filters out all items that have expired.
+-spec(clean(State::dict()) -> {ok, dict()}).
+clean(State) ->
+  %% @todo: implement functionality that
+  %%     removes all items that are too old.
+  {ok, State}.
 
 
 %%
@@ -64,7 +62,8 @@ get_missing_key_test() ->
   {ok, Dict2} = datastore:set(<<"Key2">>, #entry{}, dict:new()),
   ?assertEqual({[], Dict2}, datastore:get(<<"Key">>, Dict2)).
       
-
-
+clean_test() ->
+  %% @todo: implement test that ensures old items are removed.
+  ok.
 
 -endif.
