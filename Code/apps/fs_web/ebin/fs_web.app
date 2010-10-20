@@ -15,7 +15,10 @@
              entries_resource,
 
              % Resource serving static content
-             static_resource
+             static_resource,
+
+             % Datastore
+             datastore
             ]},
   {registered, []},
   {applications, [
