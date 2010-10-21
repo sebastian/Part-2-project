@@ -7,7 +7,7 @@
 -include("records.hrl").
 
 %% @doc Adds a value for a key. A key can contain several entries
--spec(set(Key::key(), Value::#entry{}, State::dict()) -> {ok, dict()}).
+-spec(set/3::(Key::key(), Value::#entry{}, State::dict()) -> {ok, dict()}).
 set(Key, Value, State) ->
   case dict:find(Key, State) of
     {ok, Record} ->
@@ -18,7 +18,7 @@ set(Key, Value, State) ->
 
 %% @doc Returns a list of values for a given key. The list
 %%     might potentially be empty.
--spec(get(Key::key(), State::dict()) -> {[#entry{}], dict()}).
+-spec(get/2::(Key::key(), State::dict()) -> {[#entry{}], dict()}).
 get(Key, State) ->
   case dict:find(Key, State) of
     {ok, ValueList} ->
@@ -28,7 +28,7 @@ get(Key, State) ->
   end.
 
 %% @doc Filters out all items that have expired.
--spec(clean(State::dict()) -> {ok, dict()}).
+-spec(clean/1::(State::dict()) -> {ok, dict()}).
 clean(State) ->
   %% @todo: implement functionality that
   %%     removes all items that are too old.
