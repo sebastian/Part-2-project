@@ -18,7 +18,12 @@
              static_resource,
 
              % Datastore
-             datastore
+             datastore,
+
+             %% The DHT's
+             %
+             % Pastry
+             dht_pastry_server
             ]},
   {registered, []},
   {applications, [
