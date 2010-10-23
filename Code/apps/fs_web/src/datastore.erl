@@ -50,7 +50,7 @@ set_get_test() ->
   Dict = dict:new(),
   Key = <<"Key">>,
   Value1 = test_utils:test_person_entry_1a(),
-  Value2 = test_utils:test_person_entry_2a(),
+  Value2 = test_utils:test_person_entry_1b(),
 
   {ok, NewDict} = datastore:set(Key, Value1, Dict),
   ?assertEqual({[Value1], NewDict}, datastore:get(Key, NewDict)),
@@ -65,9 +65,5 @@ get_missing_key_test() ->
 
   {ok, Dict2} = datastore:set(<<"Key2">>, #entry{}, dict:new()),
   ?assertEqual({[], Dict2}, datastore:get(<<"Key">>, Dict2)).
-      
-clean_test() ->
-  %% @todo: implement test that ensures old items are removed.
-  ok.
 
 -endif.

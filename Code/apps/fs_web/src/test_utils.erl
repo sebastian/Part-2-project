@@ -31,4 +31,11 @@ test_person_entry_1b() ->
     data = test_person_sebastianB()
   }.
 
+test_link1() ->
+  #link{
+    name_fragment = <<"seb">>,
+    name = <<"Sebastian Probst Eide">>,
+    profile_key = <<"some key">>
+  }.
+
 -endif.

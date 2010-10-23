@@ -1,8 +1,12 @@
--type(key() :: binary()).
--type(binary_string() :: binary()).
+-type(key() :: bitstring()).
+-type(binary_string() :: bitstring()).
+-define(ENTRY_TIMEOUT, 60*60*5).
 
 -record(link,
   {
+    % The name fragment used to match search results
+    name_fragment :: binary_string(),
+
     % The full name of the user this link points to.
     name :: binary_string(),
 
@@ -38,7 +42,7 @@
     %     The server that stores the record is
     %     responsible for decrementing the value
     %     and delete expired records.
-    timeout :: integer(),
+    timeout = ?ENTRY_TIMEOUT :: integer(),
 
     % The data part of the record. The record can
     %     either be a link to a full record, or
