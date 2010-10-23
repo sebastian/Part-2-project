@@ -1,10 +1,11 @@
 *.un
 *.swo
 *.swp
+*.beam
 */log/*
 Code/webmachine/*
 Code/apps/fs_web/logs/*
 Code/apps/fs_web/deps/webmachine/.eunit/*
 Code/apps/fs_web/deps/mochiweb/.eunit/*
 Code/apps/fs_web/.eunit/*
-Code/apps/fs_web/ebin/*.beam
+Code/apps/fs_web/ebin/.*.beam

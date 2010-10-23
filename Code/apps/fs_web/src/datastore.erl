@@ -6,6 +6,10 @@
 
 -include("records.hrl").
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Public API
+%%
+
 %% @doc Adds a value for a key. A key can contain several entries
 -spec(set/3::(Key::key(), Value::#entry{}, State::dict()) -> {ok, dict()}).
 set(Key, Value, State) ->
@@ -35,7 +39,7 @@ clean(State) ->
   {ok, State}.
 
 
-%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Tests
 %%
 
@@ -45,8 +49,8 @@ clean(State) ->
 set_get_test() ->
   Dict = dict:new(),
   Key = <<"Key">>,
-  Value1 = #entry{key = Key, name = <<"Name1">>},
-  Value2 = #entry{key = Key, name = <<"Name2">>},
+  Value1 = test_utils:test_person_entry_1a(),
+  Value2 = test_utils:test_person_entry_2a(),
 
   {ok, NewDict} = datastore:set(Key, Value1, Dict),
   ?assertEqual({[Value1], NewDict}, datastore:get(Key, NewDict)),

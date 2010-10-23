@@ -1,25 +1,29 @@
 -module(dht_pastry_server).
 -behaviour(gen_server).
 
+-include("records.hrl").
+
 % Gen server functionality
 -export([init/1, handle_call/3, terminate/2, code_change/3]).
+% gen_server functionality not being used
+-export([handle_cast/2, handle_info/2]).
 
 % Public exported DHT api
 -export([get/1, set/2]).
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Public API
 %%
 
--spec(get/1::(Key::key()) -> [#entry]).
+-spec(get/1::(Key::key()) -> [#entry{}]).
 get(Key) ->
   gen_server:call({get, Key}).
 
--spec(set/2::(Key::key(), Entry::#entry) -> ok | {error, server}).
+-spec(set/2::(Key::key(), Entry::#entry{}) -> ok | {error, server}).
 set(Key, Entry) ->
   gen_server:call({set, Key, Entry}).
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Gen server functionality
 %%
 
@@ -35,18 +39,23 @@ init(_Args) ->
 handle_call(stop, _From, State) ->
   {stop, stop_signal, ok, State};
 
-handle_call({get, Key}, _From, State) ->
+handle_call({get, _Key}, _From, State) ->
   % Do lookup
   Results = some_call,
   {reply, Results, State};
 
-handle_call({set, Key, Entry}, _From, State) ->
+handle_call({set, _Key, _Entry}, _From, State) ->
   % Store value in network
   {reply, ok, State}.
 
 
 %% Server doesn't handle async request.
+handle_cast(_Msg, State) ->
+  {noreply, State}.
+
 %% Server doens't handle info messages.
+handle_info(_Info, State) ->
+  {noreply, State}.
 
 %% Termination of the server
 terminate(_Reason, _State) ->
@@ -58,10 +67,10 @@ code_change(_OldVsn, State, _Extra) ->
   NewState = State,
   {ok, NewState}.
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Private API
 %%
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Tests
 %%
