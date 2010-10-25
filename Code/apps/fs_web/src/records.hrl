@@ -1,5 +1,6 @@
 -type(key() :: bitstring()).
 -type(binary_string() :: bitstring()).
+-type(port_number() :: integer()).
 -define(ENTRY_TIMEOUT, 60*60*5).
 
 -record(link,

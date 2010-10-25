@@ -4,7 +4,9 @@
 -module(utilities).
 -compile(export_all). 
 
+-include_lib("kernel/include/inet.hrl").
 -include("records.hrl").
+
 
 -spec(downcase_str/1::(binary() | 'undefined') -> binary()).
 downcase_str('undefined') ->
@@ -49,6 +51,24 @@ entry_for_record(#link{name_fragment = NameFrag} = Link) ->
     data = Link
   }.
 
+-spec(get_ip/0::() -> {ok, ip_address()} | {error, instance}).
+get_ip() ->
+  case inet:gethostname() of
+    {ok, HostName} ->
+      case inet:gethostbyname(HostName) of
+        {ok, Hostent} ->
+          {ok, hd(Hostent#hostent.h_addr_list)};
+        _ -> {error, instance}
+      end;
+    _ -> 
+      {error, instance}
+  end.
+     
+-spec(key_for_node/2::(Ip::ip_address(), Port::port_number()) -> binary()).
+key_for_node(Ip, Port) ->
+  term_to_sha({Ip, Port}).
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Tests
 %%
@@ -91,5 +111,19 @@ entry_for_link_test() ->
   #entry{key = Key, timeout = Timeout, data = Link } = entry_for_record(Link),
   ?assertEqual(EntryHash, Key),
   ?assertEqual(Timeout, ?ENTRY_TIMEOUT).
+
+get_ip_test() ->
+  % Should return a set of IP values
+  {ok, {_A, _B, _C, _D}} = get_ip().
+
+key_for_node_test() ->
+  IP1 = {1,2,3,4},
+  IP2 = {2,3,4,5},
+  Port1 = 1234,
+  Port2 = 2345,
+  ?assert(key_for_node(IP1, Port1) =/= key_for_node(IP2, Port1)),
+  ?assert(key_for_node(IP1, Port1) =/= key_for_node(IP2, Port2)),
+  ?assert(key_for_node(IP1, Port1) =/= key_for_node(IP1, Port2)),
+  ?assert(key_for_node(IP1, Port1) =:= key_for_node(IP1, Port1)).
 
 -endif.

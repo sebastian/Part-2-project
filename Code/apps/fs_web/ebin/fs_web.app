@@ -23,7 +23,13 @@
              %% The DHT's
              %
              % Pastry
-             dht_pastry_server
+             dht_pastry_server,
+
+             % Test utilities
+             test_utils,
+
+             % General utilities
+             utilities
             ]},
   {registered, []},
   {applications, [

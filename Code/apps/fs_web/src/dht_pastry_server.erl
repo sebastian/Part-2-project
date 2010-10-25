@@ -3,6 +3,12 @@
 
 -include("records.hrl").
 
+% Chord specific configuration parameters:
+% ParamB should be a number that evenly divides 160.
+%     It affects the number of rows in the routing table
+%     and how many records are kept in each row.
+-define(ParamB, 4).
+
 % Gen server functionality
 -export([init/1, handle_call/3, terminate/2, code_change/3]).
 % gen_server functionality not being used
@@ -29,6 +35,9 @@ set(Key, Entry) ->
 
 %% Invoked by start and start_link to start the server
 init(_Args) -> 
+  % Check that the B parameter is valid.
+  0 = 160 rem ?ParamB,
+
   % initialize DHT server
   State = some_state,
   {ok, State}.

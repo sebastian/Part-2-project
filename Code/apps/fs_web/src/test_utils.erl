@@ -1,5 +1,5 @@
--ifdef(TEST).
 -module(test_utils).
+-ifdef(TEST).
 -compile([export_all]).
 
 -include("records.hrl").
