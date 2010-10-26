@@ -42,24 +42,24 @@ def compile(fileName)
   compile_output = `erlc -D TEST -pa ebin -Wall #{ERLC_FLAGS} -o ebin #{fileName}`
   
   # Remembers if there is an error or warning
-  errorOrWarning = false
+  error = false
 
   compile_output.each_line do |line|
     case line
     when /.*Warning.*/
       print yellow(line)
-      errorOrWarning = true
     else
-      print line
+      print red(line)
+      error = true
     end
   end
   
-  errorOrWarning
+  error
 end
 
 def runTestOn(fileName)
   moduleName = File.basename(fileName, ".erl")
-  test_output = `erl -noshell -pa ebin -eval 'eunit:test([#{moduleName}], [verbose])' -s init stop`
+  test_output = `erl -noshell -pa ebin -eval 'eunit:test([{inparallel, #{moduleName}}], [verbose])' -s init stop`
   
   test_output.each_line do |line|
     case line

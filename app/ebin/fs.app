@@ -4,27 +4,27 @@
   {description, "Friend Search application"},
   {vsn, "1"},
   {modules, [
-			 %%
-			 %% Main application and general utilities
+			       %%
+			       %% Main application and general utilities
              fs,
              utilities,
              test_utils,
 
-			 %%
-			 %% The web frontend part of the application
+			       %%
+			       %% The web frontend part of the application
              fs_web_app,
              fs_web_sup,
              search_resource,
              entries_resource,
              static_resource,
 
-			 %%
+			       %%
              %% Datastore
              datastore,
 
-			 %%
+			       %%
              %% The DHT's
-             pastry_srv
+             chord_srv
 
             ]},
   {registered, []},
