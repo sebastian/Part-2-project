@@ -1,0 +1,6 @@
+Chord:
+maintain predecessor pointer
+upon joining:
+	initialize the predecessor and fingers of node n
+	update the fingers and predecessors of existing nodes to reflect the addition of n
+	notify the higher layer software so that it can transfer state e.g. values associated with keys that node n is now responsible for

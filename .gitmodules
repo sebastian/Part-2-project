@@ -1,3 +1,0 @@
-[submodule "Code/Mustache"]
-	path = vendor/Mustache
-	url = http://github.com/mojombo/mustache.erl.git

@@ -1,0 +1,17 @@
+=== Suite started at 2010-10-20 20:28:55
+=== Starting test, 0 test cases
+=cases         0
+=user          seb
+=host          spe24.st-edmunds.private.cam.ac.uk
+=hosts         spe24.st-edmunds.private.cam.ac.uk 
+=emulator_vsn  5.8
+=emulator      beam
+=otp_release   R14A
+=started       2010-10-20 20:28:55
+=== TEST COMPLETE, 0 ok, 0 failed of 0 test cases
+
+=finished      2010-10-20 20:28:55
+=failed        0
+=successful    0
+=user_skipped  0
+=auto_skipped  0
