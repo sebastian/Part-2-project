@@ -1,9 +1,9 @@
 %% @author Sebastian Probst Eide <sebastian.probst.eide@gmail.com>
 %% @copyright 2010 Sebastian Probst Eide.
 
-%% @doc fs_web startup code
+%% @doc Starts up the Friend Search application
 
--module(fs_web).
+-module(fs).
 -author('Sebastian Probst Eide <sebastian.probst.eide@gmail.com').
 -export([start/0, start_link/0, stop/0]).
 
@@ -26,19 +26,19 @@ start_link() ->
     fs_web_sup:start_link().
 
 %% @spec start() -> ok
-%% @doc Start the fs_web server.
+%% @doc Start the fs server.
 start() ->
     ensure_started(crypto),
     ensure_started(mochiweb),
     application:set_env(webmachine, webmachine_logger_module, 
                         webmachine_logger),
     ensure_started(webmachine),
-    application:start(fs_web).
+    application:start(fs).
 
 %% @spec stop() -> ok
 %% @doc Stop the fs_web server.
 stop() ->
-    Res = application:stop(fs_web),
+    Res = application:stop(fs),
     application:stop(webmachine),
     application:stop(mochiweb),
     application:stop(crypto),

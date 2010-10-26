@@ -5,7 +5,7 @@
 -compile(export_all). 
 
 -include_lib("kernel/include/inet.hrl").
--include("records.hrl").
+-include("fs.hrl").
 
 
 -spec(downcase_str/1::(binary() | 'undefined') -> binary()).
@@ -69,9 +69,9 @@ key_for_node(Ip, Port) ->
   term_to_sha({Ip, Port}).
 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% ------------------------------------------------------------------
 %% Tests
-%%
+%% ------------------------------------------------------------------
 
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").

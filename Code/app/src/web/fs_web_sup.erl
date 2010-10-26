@@ -4,7 +4,7 @@
 %% @doc Supervisor for the fs_web application.
 
 -module(fs_web_sup).
--author('author <author@example.com>').
+-author('Sebastian Probst Eide sebastian.probst.eide@gmail.com').
 
 -behaviour(supervisor).
 

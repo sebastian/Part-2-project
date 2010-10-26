@@ -1,35 +1,31 @@
 %%-*- mode: erlang -*-
-{application, fs_web,
+{application, fs,
  [
-  {description, "fs_web"},
+  {description, "Friend Search application"},
   {vsn, "1"},
   {modules, [
-             fs_web,
-             fs_web_app,
-             fs_web_sup,
-
-             % Search resource
-             search_resource,
-
-             % Entry resource
-             entries_resource,
-
-             % Resource serving static content
-             static_resource,
-
-             % Datastore
-             datastore,
-
-             %% The DHT's
-             %
-             % Pastry
-             dht_pastry_server,
-
-             % Test utilities
+			 %%
+			 %% Main application and general utilities
+             fs,
+             utilities,
              test_utils,
 
-             % General utilities
-             utilities
+			 %%
+			 %% The web frontend part of the application
+             fs_web_app,
+             fs_web_sup,
+             search_resource,
+             entries_resource,
+             static_resource,
+
+			 %%
+             %% Datastore
+             datastore,
+
+			 %%
+             %% The DHT's
+             pastry_srv
+
             ]},
   {registered, []},
   {applications, [

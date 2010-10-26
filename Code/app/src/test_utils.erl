@@ -2,7 +2,7 @@
 -ifdef(TEST).
 -compile([export_all]).
 
--include("records.hrl").
+-include("fs.hrl").
 
 test_person_sebastianA() ->
   #person{
