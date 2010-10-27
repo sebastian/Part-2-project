@@ -2,31 +2,15 @@
 {application, fs,
  [
   {description, "Friend Search application"},
-  {vsn, "1"},
+  {vsn, "0.0.1"},
   {modules, [
-			       %%
-			       %% Main application and general utilities
-             fs,
-             utilities,
-             test_utils,
-
-			       %%
-			       %% The web frontend part of the application
-             fs_web_app,
-             fs_web_sup,
-             search_resource,
-             entries_resource,
-             static_resource,
-
-			       %%
-             %% Datastore
-             datastore,
-
-			       %%
-             %% The DHT's
-             chord_srv
-
-            ]},
+    fs, fs_app, fs_sup,
+ 	fs_web_sup, entries_resource, search_resource, static_resource,
+	chord, chord_sup, chord_tcp, 
+	gen_listener_tcp,
+	datastore,
+	utilities, test_utils
+  ]},
   {registered, []},
   {applications, [
                   kernel,
@@ -35,6 +19,6 @@
                   mochiweb,
                   webmachine
                  ]},
-  {mod, { fs_web_app, []}},
+  {mod, { fs_app, []}},
   {env, []}
  ]}.

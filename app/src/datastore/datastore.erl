@@ -4,7 +4,7 @@
 
 -export([set/3, get/2, clean/1]).
 
--include("fs.hrl").
+-include("../fs.hrl").
 
 %% ------------------------------------------------------------------
 %% Public API

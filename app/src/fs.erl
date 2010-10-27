@@ -23,7 +23,7 @@ start_link() ->
     application:set_env(webmachine, webmachine_logger_module, 
                         webmachine_logger),
     ensure_started(webmachine),
-    fs_web_sup:start_link().
+    fs_sup:start_link().
 
 %% @spec start() -> ok
 %% @doc Start the fs server.

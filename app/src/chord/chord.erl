@@ -1,4 +1,4 @@
--module(chord_srv).
+-module(chord).
 -behaviour(gen_server).
 -define(SERVER, ?MODULE).
 
@@ -6,7 +6,7 @@
 -include_lib("eunit/include/eunit.hrl").
 -endif.
 
--include("fs.hrl").
+-include("../fs.hrl").
 
 -record(finger_entry, {
     start :: integer(),
@@ -26,7 +26,7 @@
 %% API Function Exports
 %% ------------------------------------------------------------------
 
--export([start_link/1]).
+-export([start_link/0]).
 -export([get/1, set/2]).
 
 %% ------------------------------------------------------------------
@@ -39,8 +39,8 @@
 %% API Function Definitions
 %% ------------------------------------------------------------------
 
-start_link(Args) ->
-  gen_server:start_link({local, ?SERVER}, ?MODULE, Args, []).
+start_link() ->
+  gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
 -spec(get/1::(Key::key()) -> [#entry{}]).
 get(Key) ->
