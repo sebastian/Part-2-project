@@ -127,20 +127,21 @@ code_change(_OldVsn, State, _Extra) ->
 %% Internal Function Definitions
 %% ------------------------------------------------------------------
 
--spec(find_predecessor/2::(Key::key(), #chord_state{} | #node{})
-    -> {ok, key()} | {error, instance}).
-find_predecessor(Key, #chord_state{self = #node{key = NodeId}, successor = Succ}) ->
+-spec(find_successor/2::(Key::key(), #chord_state{} | #node{})
+    -> {ok, #node{}} | {error, instance}).
+find_successor(Key, 
+    #chord_state{self = #node{key = NodeId}, successor = Succ}) ->
   case ((Key > NodeId) and (Key =< Succ#node.key)) of
-    true  -> {ok, NodeId};
-    false -> find_predecessor(Key, Succ)
+    true  -> {ok, Succ};
+    false -> find_successor(Key, Succ)
   end;
 
-find_predecessor(Key, #node{key = NKey, ip = NIp, port = NPort}) ->
+find_successor(Key, #node{key = NKey, ip = NIp, port = NPort}) ->
   case chord_tcp:get_closest_preceding_finger(Key, NIp, NPort) of
     {ok, {NextFinger, NSucc}} ->
       case ((Key > NKey) and (Key =< NSucc)) of
-        true  -> {ok, NKey};
-        false -> find_predecessor(Key, NextFinger)
+        true  -> {ok, NSucc};
+        false -> find_successor(Key, NextFinger)
       end;
     {error, Reason} ->
       {error, Reason}
@@ -203,17 +204,25 @@ find_closest_preceding_finger_test() ->
   ?assertEqual(nForKey(3), closest_preceding_finger(n2b(6), test_get_state())),
   ?assertEqual(nForKey(3), closest_preceding_finger(n2b(7), test_get_state())).
 
-find_predecessor_on_same_node_test() ->
+find_successor_on_same_node_test() ->
   State = test_get_state(),
-  ?assertEqual({ok, (State#chord_state.self)#node.key}, find_predecessor(n2b(1), State)).
+  ?assertEqual({ok, State#chord_state.successor}, find_successor(n2b(1), State)).
 
-find_predecessor_on_other_node_test() ->
-  chord_tcp:start(),
-  start(), 
-  set_state(test_get_run_state()),
-
-  ?assertEqual({ok, n2b(1)}, find_predecessor(n2b(2), test_get_state())),
+find_successor_on_other_node_test_() ->
+  {setup,
+    fun() ->
+      chord_tcp:start(),
+      start(),
+      set_state(test_get_run_state())
+    end,
+    fun(_) ->
+      chord:stop(), 
+      chord_tcp:stop()
+    end,
+    fun() ->
+      State = test_get_run_state(),
+      ?assertEqual({ok, State#chord_state.successor}, find_successor(n2b(2), State))
+    end
+  }.
     
-  fun(_) -> chord:stop(), chord_tcp:stop() end.
-
 -endif.

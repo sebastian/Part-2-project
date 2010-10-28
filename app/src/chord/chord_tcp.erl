@@ -41,7 +41,7 @@ get_closest_preceding_finger(Key, Ip, Port) ->
   gen_tcp:send(Socket, term_to_binary({predecing_finger, Key})),
   Ret = receive 
     {tcp, Socket, Data} ->
-      {ok, binary_to_term(Data, [safe])},
+      {ok, binary_to_term(Data, [safe])};
     {tcp_closed, Socket} ->
       {error, instance};
     {tcp_error, Socket, Reason} ->
@@ -57,7 +57,6 @@ get_closest_preceding_finger(Key, Ip, Port) ->
 %% ------------------------------------------------------------------
 
 start() ->
-  ?debugMsg("Starting Chord tcp"),
   gen_listener_tcp:start({local, ?MODULE}, ?MODULE, [], []).
 
 stop() ->
@@ -79,7 +78,6 @@ chord_tcp_client(Socket) ->
     {tcp, Socket, Data} ->
       Message = binary_to_term(Data, [safe]),
       {ok, Value} = handle_msg(Message),
-      ?debugFmt("Got ~p from handle_msg", [Value]),
       error_logger:info_msg("Got Data: ~p", [Data]),
       gen_tcp:send(Socket, term_to_binary(Value)),
       chord_tcp_client(Socket);
@@ -93,7 +91,6 @@ init([]) ->
     port = ?TCP_PORT,
     pending_requests = []
   },
-  ?debugMsg("chord tcp init"),
   {ok, {?TCP_PORT, ?TCP_OPTS}, State}.
 
 handle_accept(Sock, State) ->
