@@ -8,7 +8,7 @@ ERLC_FLAGS = "-Ideps +warn_unused_vars +warn_unused_import"
 # SETUP
 ####
 
-sourceDirs = ['src']
+sourceDirs = ['src', 'src/chord', 'src/web']
 sourceFiles = []
 
 # Get a list of the source files
