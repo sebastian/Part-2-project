@@ -37,39 +37,27 @@
 %% ------------------------------------------------------------------
 
 get_closest_preceding_finger(Key, Ip, Port) ->
-  case try_get_socket(Ip, Port, 3) of
-    {ok, Socket} ->
-      gen_tcp:send(Socket, term_to_binary({predecing_finger, Key})),
-      RVal = case gen_tcp:recv(Socket, 0, 1500) of
-        {ok, Data} ->
-          case binary_to_term(Data) of 
-            {preceding_finger, Key, Finger, Succ} ->
-              {ok, Finger, Succ};
-            _ ->
-              {error, instance}
-          end;
-        {error, _Reason} ->
-          {error, timeout}
-      end,
-      gen_tcp:close(Socket),
-      RVal;
-    error -> 
-      % Failed to open a socket
-      {error, instance}
-  end.
-
-try_get_socket(_Ip, _Port, 0) -> error;
-try_get_socket(Ip, Port, Retries) ->
-  case gen_tcp:connect(Ip, Port, [binary, {packet, 0}]) of
-    {error, _Reason} -> try_get_socket(Ip, Port, Retries - 1);
-    Val -> Val
-  end.
+  {ok, Socket} = gen_tcp:connect(Ip, Port, [binary, {packet, 0}]),
+  gen_tcp:send(Socket, term_to_binary({predecing_finger, Key})),
+  Ret = receive 
+    {tcp, Socket, Data} ->
+      {ok, binary_to_term(Data, [safe])},
+    {tcp_closed, Socket} ->
+      {error, instance};
+    {tcp_error, Socket, Reason} ->
+      {error, Reason}
+  after 2000 ->
+    {error, timeout}
+  end, 
+  gen_tcp:close(Socket),
+  Ret.
 
 %% ------------------------------------------------------------------
 %% gen_listener_tcp Function Definitions
 %% ------------------------------------------------------------------
 
 start() ->
+  ?debugMsg("Starting Chord tcp"),
   gen_listener_tcp:start({local, ?MODULE}, ?MODULE, [], []).
 
 stop() ->
@@ -89,8 +77,9 @@ chord_tcp_client(Socket) ->
       gen_tcp:send(Socket, "Bye now.\r\n"),
       gen_tcp:close(Socket);
     {tcp, Socket, Data} ->
-      Message = binary_to_term(Data),
+      Message = binary_to_term(Data, [safe]),
       {ok, Value} = handle_msg(Message),
+      ?debugFmt("Got ~p from handle_msg", [Value]),
       error_logger:info_msg("Got Data: ~p", [Data]),
       gen_tcp:send(Socket, term_to_binary(Value)),
       chord_tcp_client(Socket);
@@ -104,6 +93,7 @@ init([]) ->
     port = ?TCP_PORT,
     pending_requests = []
   },
+  ?debugMsg("chord tcp init"),
   {ok, {?TCP_PORT, ?TCP_OPTS}, State}.
 
 handle_accept(Sock, State) ->
@@ -134,4 +124,4 @@ code_change(_OldVsn, State, _Extra) ->
 %% ------------------------------------------------------------------
 
 handle_msg({predecing_finger, Key}) ->
-  {ok, chord:preceding_finger(Key)}.
+  chord:preceding_finger(Key).

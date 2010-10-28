@@ -19,12 +19,15 @@
     node :: #node{}
   }).
 -record(chord_state, {
-    port = 4000 :: integer(),
-    id :: key(),
+    self :: #node{},
+    successor :: #node{},
+
     % The finger list is in inverse order from what is described
-    % in the Chord paper. This is due to implementation reasons.
-    fingers = [] :: [#finger_entry{}],
-    successor :: #node{}
+    % in the Chord paper. This is due to implementation reasons,
+    % since the method closest_preceding_finger, which is the
+    % only method using the finger table directly, traverses
+    % it from the back to the front.
+    fingers = [] :: [#finger_entry{}]
   }).
 
 %% ------------------------------------------------------------------
@@ -65,11 +68,11 @@ get(Key) ->
 set(Key, Entry) ->
   gen_server:call(chord, {set, Key, Entry}).
 
--spec(preceding_finger/1::(Key::key()) -> {ok, key()}).
+-spec(preceding_finger/1::(Key::key()) -> {ok, {#node{}, key()}}).
 preceding_finger(Key) ->
   Finger = gen_server:call(chord, {lookup_preceding_finger, Key}),
   Succ = gen_server:call(chord, get_successor),
-  {ok, {Finger, Succ}}.
+  {ok, {Finger, Succ#node.key}}.
 
 %% ------------------------------------------------------------------
 %% gen_server Function Definitions
@@ -78,7 +81,13 @@ preceding_finger(Key) ->
 init(Args) -> 
   Port = proplists:get_value(port, Args, 4000),
   NodeId = utilities:key_for_node(utilities:get_ip(), Port),
-  State = #chord_state{port = Port, id = NodeId },
+  State = #chord_state{self =
+    #node{
+      ip = utilities:get_ip(),
+      port = Port, 
+      key = NodeId 
+    }
+  },
   {ok, State}.
 
 handle_call({set_state, NewState}, _From, _State) ->
@@ -120,7 +129,7 @@ code_change(_OldVsn, State, _Extra) ->
 
 -spec(find_predecessor/2::(Key::key(), #chord_state{} | #node{})
     -> {ok, key()} | {error, instance}).
-find_predecessor(Key, #chord_state{id = NodeId, successor = Succ}) ->
+find_predecessor(Key, #chord_state{self = #node{key = NodeId}, successor = Succ}) ->
   case ((Key > NodeId) and (Key =< Succ#node.key)) of
     true  -> {ok, NodeId};
     false -> find_predecessor(Key, Succ)
@@ -139,22 +148,23 @@ find_predecessor(Key, #node{key = NKey, ip = NIp, port = NPort}) ->
 
 
 -spec(closest_preceding_finger/2::(Key::key(), 
-    State::#chord_state{}) -> key()).
+    State::#chord_state{}) -> #node{}).
 closest_preceding_finger(Key, State) ->
   closest_preceding_finger(Key, 
     State#chord_state.fingers,
-    State#chord_state.id).
+    State#chord_state.self).
 
 -spec(closest_preceding_finger/3::(Key::key(), 
     [#finger_entry{}],
-    CurrentId::key()) -> key()).
-closest_preceding_finger(_Key, [], CurrentId) -> CurrentId;
-closest_preceding_finger(Key, [Finger|Fingers], CurrentId) ->
-  NodeId = (Finger#finger_entry.node)#node.key,
-  case ((CurrentId < NodeId) and (NodeId < Key)) of
+    CurrentNode::key()) -> key()).
+closest_preceding_finger(_Key, [], CurrentNode) -> CurrentNode;
+closest_preceding_finger(Key, [Finger|Fingers], CurrentNode) ->
+  Node = Finger#finger_entry.node,
+  NodeId = Node#node.key,
+  case ((CurrentNode#node.key < NodeId) and (NodeId < Key)) of
     true -> 
-      NodeId;
-    false -> closest_preceding_finger(Key, Fingers, CurrentId)
+      Node;
+    false -> closest_preceding_finger(Key, Fingers, CurrentNode)
   end.
 
 
@@ -171,7 +181,7 @@ test_get_run_state() ->
     fingers = [#finger_entry{start = n2b(4), interval = {n2b(4),n2b(0)}, node = nForKey(0)},
               #finger_entry{start = n2b(2), interval = {n2b(2),n2b(4)}, node = nForKey(3)},
               #finger_entry{start = n2b(1), interval = {n2b(1),n2b(2)}, node = nForKey(1)}],
-    id = n2b(1),
+    self = #node{key = n2b(1)},
     successor = #node{ip = {127,0,0,1}, port = 9234, key = n2b(3)}
   }.
 test_get_state() ->
@@ -179,29 +189,31 @@ test_get_state() ->
     fingers = [#finger_entry{start = n2b(4), interval = {n2b(4),n2b(0)}, node = nForKey(0)},
               #finger_entry{start = n2b(2), interval = {n2b(2),n2b(4)}, node = nForKey(3)},
               #finger_entry{start = n2b(1), interval = {n2b(1),n2b(2)}, node = nForKey(1)}],
-    id = n2b(0),
-    successor = #node{ip = {0,0,0,0}, port = 9234, key = n2b(1)}
+    self = #node{key = n2b(0)},
+    successor = #node{ip = {127,0,0,1}, port = 9234, key = n2b(1)}
   }.
 
 find_closest_preceding_finger_test() ->
-  ?assertEqual(n2b(0), closest_preceding_finger(n2b(0), test_get_state())),
-  ?assertEqual(n2b(0), closest_preceding_finger(n2b(1), test_get_state())),
-  ?assertEqual(n2b(1), closest_preceding_finger(n2b(2), test_get_state())),
-  ?assertEqual(n2b(1), closest_preceding_finger(n2b(3), test_get_state())),
-  ?assertEqual(n2b(3), closest_preceding_finger(n2b(4), test_get_state())),
-  ?assertEqual(n2b(3), closest_preceding_finger(n2b(5), test_get_state())),
-  ?assertEqual(n2b(3), closest_preceding_finger(n2b(6), test_get_state())),
-  ?assertEqual(n2b(3), closest_preceding_finger(n2b(7), test_get_state())).
+  ?assertEqual(nForKey(0), closest_preceding_finger(n2b(0), test_get_state())),
+  ?assertEqual(nForKey(0), closest_preceding_finger(n2b(1), test_get_state())),
+  ?assertEqual(nForKey(1), closest_preceding_finger(n2b(2), test_get_state())),
+  ?assertEqual(nForKey(1), closest_preceding_finger(n2b(3), test_get_state())),
+  ?assertEqual(nForKey(3), closest_preceding_finger(n2b(4), test_get_state())),
+  ?assertEqual(nForKey(3), closest_preceding_finger(n2b(5), test_get_state())),
+  ?assertEqual(nForKey(3), closest_preceding_finger(n2b(6), test_get_state())),
+  ?assertEqual(nForKey(3), closest_preceding_finger(n2b(7), test_get_state())).
 
 find_predecessor_on_same_node_test() ->
   State = test_get_state(),
-  ?assertEqual({ok, State#chord_state.id}, find_predecessor(n2b(1), State)).
+  ?assertEqual({ok, (State#chord_state.self)#node.key}, find_predecessor(n2b(1), State)).
 
-find_predecessor_on_other_node_test_() ->
-  {setup,
-    fun() -> chord_tcp:start(), start(), set_state(test_get_run_state()) end,
-    fun(_) -> chord:stop(), chord_tcp:stop() end,
-    ?assertEqual({ok, n2b(1)}, find_predecessor(n2b(2), test_get_state()))
-  }.
+find_predecessor_on_other_node_test() ->
+  chord_tcp:start(),
+  start(), 
+  set_state(test_get_run_state()),
+
+  ?assertEqual({ok, n2b(1)}, find_predecessor(n2b(2), test_get_state())),
+    
+  fun(_) -> chord:stop(), chord_tcp:stop() end.
 
 -endif.
