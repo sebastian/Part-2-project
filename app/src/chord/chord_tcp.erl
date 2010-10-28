@@ -13,11 +13,6 @@
                    {packet,    raw},
                    {reuseaddr, true}]).
 
--record(state, {
-    ip, port, 
-    pending_requests :: [{bitstring(), pid()}]
-  }).
-
 %% ------------------------------------------------------------------
 %% API Function Exports
 %% ------------------------------------------------------------------
@@ -86,12 +81,7 @@ chord_tcp_client(Socket) ->
   end.
 
 init([]) ->
-  State = #state{
-    ip = utilities:get_ip(),
-    port = ?TCP_PORT,
-    pending_requests = []
-  },
-  {ok, {?TCP_PORT, ?TCP_OPTS}, State}.
+  {ok, {?TCP_PORT, ?TCP_OPTS}, []}.
 
 handle_accept(Sock, State) ->
   Pid = spawn(fun() -> chord_tcp_client(Sock) end),
