@@ -54,7 +54,7 @@ get_closest_preceding_finger(Key, Ip, Port) ->
       gen_tcp:close(Socket),
       RVal;
     error -> 
-      ?debugMsg("Failed to open socket"),
+      % Failed to open a socket
       {error, instance}
   end.
 

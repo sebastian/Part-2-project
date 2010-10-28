@@ -133,8 +133,8 @@ find_predecessor(Key, #node{key = NKey, ip = NIp, port = NPort}) ->
         true  -> {ok, NKey};
         false -> find_predecessor(Key, NextFinger)
       end;
-    {error, _Reason} ->
-      {error, instance}
+    {error, Reason} ->
+      {error, Reason}
   end.
 
 
