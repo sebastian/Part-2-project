@@ -1,6 +1,7 @@
 -module(chord).
 -behaviour(gen_server).
 -define(SERVER, ?MODULE).
+-define(NUMBER_OF_FINGERS, 160).
 
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
@@ -81,13 +82,23 @@ preceding_finger(Key) ->
 init(Args) -> 
   Port = proplists:get_value(port, Args, 4000),
   NodeId = utilities:key_for_node(utilities:get_ip(), Port),
+
+  % We initialize the finger table with 160 records.
+  % Since we are using 160-bit keys, we will also use
+  % 160 entries for the table.
+  % We reverse the list since find predecessor accesses them
+  % from the end.
+  FingerTable = lists:reverse(create_finger_table(NodeId)),
+  
   State = #chord_state{self =
     #node{
       ip = utilities:get_ip(),
       port = Port, 
       key = NodeId 
-    }
+    },
+    fingers = FingerTable
   },
+
   {ok, State}.
 
 handle_call({set_state, NewState}, _From, _State) ->
@@ -126,6 +137,39 @@ code_change(_OldVsn, State, _Extra) ->
 %% ------------------------------------------------------------------
 %% Internal Function Definitions
 %% ------------------------------------------------------------------
+
+-spec(create_finger_table/1::(NodeKey::key()) -> [#finger_entry{}]).
+create_finger_table(NodeKey) ->
+  StartEntries = create_finger_table_start_entry(NodeKey, ?NUMBER_OF_FINGERS),
+  add_interval(StartEntries, NodeKey).
+
+-spec(create_finger_table_start_entry/2::(NodeKey::key(), N::integer()) -> 
+    [#finger_entry{}]).
+create_finger_table_start_entry(_NodeKey, 0) -> [];
+create_finger_table_start_entry(NodeKey, N) ->
+  [#finger_entry{
+    % Get start entry for each node from 1 upto and including 160
+    start = get_start(NodeKey, ?NUMBER_OF_FINGERS - N + 1)
+  } | create_finger_table_start_entry(NodeKey, N-1)].
+
+-spec(get_start/2::(NodeKey::key(), N::integer()) -> key()).
+get_start(NodeKey, N) ->
+  (NodeKey + (1 bsl (N-1))) rem (1 bsl 160).
+
+-spec(add_interval/2::(Entries::[#finger_entry{}], CurrentKey::key()) ->
+    [#finger_entry{}]).
+add_interval([Last], CurrentKey) ->
+  [Last#finger_entry{
+    interval = {
+      Last#finger_entry.start, CurrentKey 
+    }
+  }];
+add_interval([Current, Next | Rest], CurrentKey) ->
+  [Current#finger_entry{
+    interval = {
+      Current#finger_entry.start, Next#finger_entry.start 
+    }}
+   | add_interval([Next | Rest], CurrentKey)].
 
 -spec(find_successor/2::(Key::key(), #chord_state{} | #node{})
     -> {ok, #node{}} | {error, instance}).
@@ -208,21 +252,37 @@ find_successor_on_same_node_test() ->
   State = test_get_state(),
   ?assertEqual({ok, State#chord_state.successor}, find_successor(n2b(1), State)).
 
-find_successor_on_other_node_test_() ->
-  {setup,
-    fun() ->
-      chord_tcp:start(),
-      start(),
-      set_state(test_get_run_state())
-    end,
-    fun(_) ->
-      chord:stop(), 
-      chord_tcp:stop()
-    end,
-    fun() ->
-      State = test_get_run_state(),
-      ?assertEqual({ok, State#chord_state.successor}, find_successor(n2b(2), State))
-    end
-  }.
     
+% Test data from Chord paper.
+get_start_test_() ->
+  {inparallel,
+   [
+    ?_assertEqual(1, get_start(0, 1)),
+    ?_assertEqual(2, get_start(0, 2)),
+    ?_assertEqual(4, get_start(0, 3)),
+
+    ?_assertEqual(2, get_start(1, 1)),
+    ?_assertEqual(3, get_start(1, 2)),
+    ?_assertEqual(5, get_start(1, 3)),
+    
+    ?_assertEqual(4, get_start(3, 1)),
+    ?_assertEqual(5, get_start(3, 2)),
+    ?_assertEqual(7, get_start(3, 3))
+  ]}.
+
+create_finger_table_start_entry_test() ->
+  NodeId = 0,
+  [E1,E2 | _Rest] = create_finger_table_start_entry(NodeId, ?NUMBER_OF_FINGERS),
+  ?assertEqual(get_start(NodeId, 1), E1#finger_entry.start),
+  ?assertEqual(get_start(NodeId, 2), E2#finger_entry.start).
+
+add_interval_test() ->
+  CurrentNodeId = 0,
+  CreateEntry = fun(N) -> #finger_entry{ start = N } end,
+  FingerEntries = [CreateEntry(1), CreateEntry(2), CreateEntry(4)],
+  [E1, E2, E3] = add_interval(FingerEntries, CurrentNodeId),
+  ?assertEqual({1,2}, E1#finger_entry.interval),
+  ?assertEqual({2,4}, E2#finger_entry.interval),
+  ?assertEqual({4,0}, E3#finger_entry.interval).
+
 -endif.

@@ -1,4 +1,4 @@
--type(key() :: bitstring()).
+-type(key() :: number()).
 -type(binary_string() :: bitstring()).
 -type(port_number() :: integer()).
 -type(ip() :: {integer(), integer(), integer(), integer()}).

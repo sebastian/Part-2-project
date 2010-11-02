@@ -7,6 +7,48 @@
 -include_lib("kernel/include/inet.hrl").
 -include("fs.hrl").
 
+-ifdef(TEST).
+-include_lib("eunit/include/eunit.hrl").
+-endif.
+
+-spec(add_bitstrings/2::(Bin1::bitstring(), Bin2::bitstring()) -> bitstring()).
+add_bitstrings(Bin1, Bin2) when bit_size(Bin1) =:= bit_size(Bin2) ->
+  add_bit_with_carry(bit_size(Bin1), Bin1, Bin2, false).
+
+add_bit_with_carry(0, Acc, _Bin, _Carry) -> Acc;
+add_bit_with_carry(BitNumber, AccBin1, Bin2, Carry) ->
+  Bit = BitNumber - 1,
+  <<Beginning:Bit/bitstring, B1:1/bitstring, Rest/bitstring>> = AccBin1,
+  <<_DontYetCare:Bit/bitstring, B2:1/bitstring, _Rest/bitstring>> = Bin2,
+  {NextBit, NextCarry} = case {B1, B2, Carry} of
+    {<<0:1>>, <<0:1>>, true}  -> {1, false};
+    {<<0:1>>, <<0:1>>, false} -> {0, false};
+    {<<0:1>>, <<1:1>>, true}  -> {0, true};
+    {<<0:1>>, <<1:1>>, false} -> {1, false};
+    {<<1:1>>, <<0:1>>, true}  -> {0, true};
+    {<<1:1>>, <<0:1>>, false} -> {1, false};
+    {<<1:1>>, <<1:1>>, true}  -> {1, true};
+    {<<1:1>>, <<1:1>>, false} -> {0, true}
+  end,
+  <<_:7/bitstring, B:1/bitstring>> = <<NextBit>>,
+  add_bit_with_carry(Bit, 
+      <<Beginning:Bit/bitstring, B:1/bitstring, Rest/bitstring>>, 
+      Bin2, NextCarry).
+  
+-spec(bitstring_to_number/1::(BitString::bitstring()) -> number()).
+bitstring_to_number(BitString) ->
+  bitstring_to_number(BitString, bit_size(BitString), 0).
+
+bitstring_to_number(_BitString, 0, Acc) -> Acc;
+bitstring_to_number(BitString, CurrBitNum, Acc) ->
+  BitsToSkip = bit_size(BitString) - CurrBitNum,
+  <<_:BitsToSkip/bitstring, CurrentBit:1/bitstring, _/bitstring>> = BitString,
+  Addition = case CurrentBit of
+    <<1:1>> -> 1 bsl (CurrBitNum - 1);
+    _ -> 0
+  end,
+  bitstring_to_number(BitString, CurrBitNum - 1, Acc + Addition).
+  
 
 -spec(downcase_str/1::(binary() | 'undefined') -> binary()).
 downcase_str('undefined') ->
@@ -32,21 +74,17 @@ downcase_person(Person = #person{}) ->
 term_to_sha(Term) ->
   crypto:sha(term_to_binary(Term)).
 
--spec(key_for_record/1::(Person::#person{}) -> binary()).
-key_for_record(Person) ->
-  crypto:sha(term_to_binary(Person)).
-
 -spec(entry_for_record/1::(#person{} | #link{}) -> #entry{}).
 entry_for_record(#person{} = Person) ->
   DowncasePerson = downcase_person(Person),
   #entry{
-    key = key_for_record(DowncasePerson),
+    key = key_for_data(DowncasePerson),
     timeout = ?ENTRY_TIMEOUT,
     data = Person
   };
 entry_for_record(#link{name_fragment = NameFrag} = Link) ->
   #entry{
-    key = key_for_record(downcase_str(NameFrag)),
+    key = key_for_data(downcase_str(NameFrag)),
     timeout = ?ENTRY_TIMEOUT,
     data = Link
   }.
@@ -66,8 +104,11 @@ get_ip() ->
      
 -spec(key_for_node/2::(Ip::ip_address(), Port::port_number()) -> binary()).
 key_for_node(Ip, Port) ->
-  term_to_sha({Ip, Port}).
+  key_for_data({Ip, Port}).
 
+-spec(key_for_data/1::(Data::term()) -> number()).
+key_for_data(Data) ->
+  bitstring_to_number(term_to_sha(Data)).
 
 %% ------------------------------------------------------------------
 %% Tests
@@ -75,6 +116,29 @@ key_for_node(Ip, Port) ->
 
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
+
+key_for_data_test() ->
+  Data = {some, random, data},
+  CalculatedKey = key_for_data(Data),
+  ?assert(is_number(CalculatedKey)),
+  ManuallyCreatedKey = bitstring_to_number(term_to_sha(Data)),
+  ?assertEqual(ManuallyCreatedKey, CalculatedKey).
+
+add_bitstrings_test_() ->
+  {inparallel,
+  [?_assertEqual(<<2>>, add_bitstrings(<<1>>, <<1>>)),
+   ?_assertEqual(<<1>>, add_bitstrings(<<0>>, <<1>>)),
+   ?_assertEqual(<<1>>, add_bitstrings(<<1>>, <<0>>)),
+   ?_assertEqual(<<0>>, add_bitstrings(<<255>>, <<1>>))]}.
+
+bitstring_to_num_test_() ->
+  {inparallel,
+    [?_assertEqual(1, bitstring_to_number(<<1>>)),
+     ?_assertEqual(2, bitstring_to_number(<<2>>)),
+     ?_assertEqual(255, bitstring_to_number(<<255>>)),
+     ?_assertEqual(65535, bitstring_to_number(<<255,255>>)),
+     ?_assertEqual(1461501637330902918203684832716283019655932542975, bitstring_to_number(<<255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255>>))
+   ]}.
 
 lowercase_string_test() ->
   ?assertEqual(<<"seb">>, downcase_str(<<"Seb">>)),
@@ -93,21 +157,16 @@ term_to_sha_test() ->
   Person = test_utils:test_person_sebastianA(),
   ?assertEqual(crypto:sha(term_to_binary(Person)), term_to_sha(Person)).
 
-key_for_record_test() ->
-  Person = test_utils:test_person_sebastianA(),
-  Hash = crypto:sha(term_to_binary(Person)),
-  ?assertEqual(Hash, key_for_record(Person)).
-
 entry_for_person_test() ->
   Person = test_utils:test_person_sebastianA(),
-  EntryHash = term_to_sha(downcase_person(Person)),
+  EntryHash = bitstring_to_number(term_to_sha(downcase_person(Person))),
   #entry{key = Key, timeout = Timeout, data = Person } = entry_for_record(Person),
   ?assertEqual(EntryHash, Key),
   ?assertEqual(Timeout, ?ENTRY_TIMEOUT).
 
 entry_for_link_test() ->
   Link = test_utils:test_link1(),
-  EntryHash = term_to_sha(Link#link.name_fragment),
+  EntryHash = bitstring_to_number(term_to_sha(Link#link.name_fragment)),
   #entry{key = Key, timeout = Timeout, data = Link } = entry_for_record(Link),
   ?assertEqual(EntryHash, Key),
   ?assertEqual(Timeout, ?ENTRY_TIMEOUT).
