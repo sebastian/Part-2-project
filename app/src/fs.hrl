@@ -15,7 +15,6 @@
     % The key under which the users full profile can be found.
     profile_key :: key()
   }).
-
 -record(person,
   {
     % The persons full name
@@ -35,8 +34,6 @@
     %     alongside search results.
     avatar_url :: binary_string()
   }).
-
-
 -record(entry, {
     key :: key(),
     
@@ -53,4 +50,3 @@
     %     multiple keys.
     data :: #person{} | #link{}
   }).
-

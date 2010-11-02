@@ -140,21 +140,24 @@ code_change(_OldVsn, State, _Extra) ->
 
 -spec(create_finger_table/1::(NodeKey::key()) -> [#finger_entry{}]).
 create_finger_table(NodeKey) ->
-  StartEntries = create_finger_table_start_entry(NodeKey, ?NUMBER_OF_FINGERS),
+  StartEntries = create_start_entry(NodeKey, ?NUMBER_OF_FINGERS),
   add_interval(StartEntries, NodeKey).
 
--spec(create_finger_table_start_entry/2::(NodeKey::key(), N::integer()) -> 
+
+-spec(create_start_entry/2::(NodeKey::key(), N::integer()) -> 
     [#finger_entry{}]).
-create_finger_table_start_entry(_NodeKey, 0) -> [];
-create_finger_table_start_entry(NodeKey, N) ->
+create_start_entry(_NodeKey, 0) -> [];
+create_start_entry(NodeKey, N) ->
   [#finger_entry{
     % Get start entry for each node from 1 upto and including 160
     start = get_start(NodeKey, ?NUMBER_OF_FINGERS - N + 1)
-  } | create_finger_table_start_entry(NodeKey, N-1)].
+  } | create_start_entry(NodeKey, N-1)].
+
 
 -spec(get_start/2::(NodeKey::key(), N::integer()) -> key()).
 get_start(NodeKey, N) ->
   (NodeKey + (1 bsl (N-1))) rem (1 bsl 160).
+
 
 -spec(add_interval/2::(Entries::[#finger_entry{}], CurrentKey::key()) ->
     [#finger_entry{}]).
@@ -171,6 +174,7 @@ add_interval([Current, Next | Rest], CurrentKey) ->
     }}
    | add_interval([Next | Rest], CurrentKey)].
 
+
 -spec(find_successor/2::(Key::key(), #chord_state{} | #node{})
     -> {ok, #node{}} | {error, instance}).
 find_successor(Key, 
@@ -179,7 +183,6 @@ find_successor(Key,
     true  -> {ok, Succ};
     false -> find_successor(Key, Succ)
   end;
-
 find_successor(Key, #node{key = NKey, ip = NIp, port = NPort}) ->
   case chord_tcp:get_closest_preceding_finger(Key, NIp, NPort) of
     {ok, {NextFinger, NSucc}} ->
@@ -198,6 +201,7 @@ closest_preceding_finger(Key, State) ->
   closest_preceding_finger(Key, 
     State#chord_state.fingers,
     State#chord_state.self).
+
 
 -spec(closest_preceding_finger/3::(Key::key(), 
     [#finger_entry{}],
@@ -252,7 +256,6 @@ find_successor_on_same_node_test() ->
   State = test_get_state(),
   ?assertEqual({ok, State#chord_state.successor}, find_successor(n2b(1), State)).
 
-    
 % Test data from Chord paper.
 get_start_test_() ->
   {inparallel,
@@ -270,9 +273,9 @@ get_start_test_() ->
     ?_assertEqual(7, get_start(3, 3))
   ]}.
 
-create_finger_table_start_entry_test() ->
+create_start_entry_test() ->
   NodeId = 0,
-  [E1,E2 | _Rest] = create_finger_table_start_entry(NodeId, ?NUMBER_OF_FINGERS),
+  [E1,E2 | _Rest] = create_start_entry(NodeId, ?NUMBER_OF_FINGERS),
   ?assertEqual(get_start(NodeId, 1), E1#finger_entry.start),
   ?assertEqual(get_start(NodeId, 2), E2#finger_entry.start).
 

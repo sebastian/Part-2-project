@@ -15,6 +15,9 @@
 add_bitstrings(Bin1, Bin2) when bit_size(Bin1) =:= bit_size(Bin2) ->
   add_bit_with_carry(bit_size(Bin1), Bin1, Bin2, false).
 
+
+-spec(add_bit_with_carry/4::(integer(), bitstring(), bitstring(), atom()) ->
+    bitstring()).
 add_bit_with_carry(0, Acc, _Bin, _Carry) -> Acc;
 add_bit_with_carry(BitNumber, AccBin1, Bin2, Carry) ->
   Bit = BitNumber - 1,
@@ -35,10 +38,11 @@ add_bit_with_carry(BitNumber, AccBin1, Bin2, Carry) ->
       <<Beginning:Bit/bitstring, B:1/bitstring, Rest/bitstring>>, 
       Bin2, NextCarry).
   
+
 -spec(bitstring_to_number/1::(BitString::bitstring()) -> number()).
 bitstring_to_number(BitString) ->
   bitstring_to_number(BitString, bit_size(BitString), 0).
-
+-spec(bitstring_to_number/3::(bitstring(), integer(), number()) -> number()).
 bitstring_to_number(_BitString, 0, Acc) -> Acc;
 bitstring_to_number(BitString, CurrBitNum, Acc) ->
   BitsToSkip = bit_size(BitString) - CurrBitNum,
@@ -56,6 +60,7 @@ downcase_str('undefined') ->
 downcase_str(BitStr) ->
   list_to_bitstring(string:to_lower(bitstring_to_list(BitStr))).
 
+
 %% @doc Before a person record is being used to make a key
 %%     it is normalised to ensure that small changes in
 %%     otherwise identical profiles, don't affect its location
@@ -70,9 +75,11 @@ downcase_person(Person = #person{}) ->
     avatar_url = downcase_str(Person#person.avatar_url)
   }.
 
+
 -spec(term_to_sha/1::(Term::any()) -> binary()).
 term_to_sha(Term) ->
   crypto:sha(term_to_binary(Term)).
+
 
 -spec(entry_for_record/1::(#person{} | #link{}) -> #entry{}).
 entry_for_record(#person{} = Person) ->
@@ -89,6 +96,7 @@ entry_for_record(#link{name_fragment = NameFrag} = Link) ->
     data = Link
   }.
 
+
 -spec(get_ip/0::() -> {ok, ip_address()} | {error, instance}).
 get_ip() ->
   case inet:gethostname() of
@@ -102,9 +110,11 @@ get_ip() ->
       {error, instance}
   end.
      
+
 -spec(key_for_node/2::(Ip::ip_address(), Port::port_number()) -> binary()).
 key_for_node(Ip, Port) ->
   key_for_data({Ip, Port}).
+
 
 -spec(key_for_data/1::(Data::term()) -> number()).
 key_for_data(Data) ->
