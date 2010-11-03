@@ -256,6 +256,23 @@ find_successor_on_same_node_test() ->
   State = test_get_state(),
   ?assertEqual({ok, State#chord_state.successor}, find_successor(n2b(1), State)).
 
+find_successor_on_other_node_test_() ->
+  {setup,
+    fun() ->
+      chord_tcp:start(),
+      start(),
+      set_state(test_get_run_state())
+    end,
+    fun(_) ->
+      chord:stop(), 
+      chord_tcp:stop()
+    end,
+    fun() ->
+      State = test_get_run_state(),
+      ?assertEqual({ok, State#chord_state.successor}, find_successor(n2b(2), State))
+    end
+  }.
+
 % Test data from Chord paper.
 get_start_test_() ->
   {inparallel,
@@ -287,5 +304,6 @@ add_interval_test() ->
   ?assertEqual({1,2}, E1#finger_entry.interval),
   ?assertEqual({2,4}, E2#finger_entry.interval),
   ?assertEqual({4,0}, E3#finger_entry.interval).
+
 
 -endif.
