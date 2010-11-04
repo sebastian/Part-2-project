@@ -8,29 +8,7 @@
 -endif.
 
 -include("../fs.hrl").
-
--record(node, {
-    ip :: ip(),
-    port :: port_number(),
-    key :: key()
-  }).
--record(finger_entry, {
-    start :: key(),
-    interval :: {key(), key()},
-    node :: #node{}
-  }).
--record(chord_state, {
-    self :: #node{},
-    successor :: #node{},
-    predecessor :: #node{},
-
-    % The finger list is in inverse order from what is described
-    % in the Chord paper. This is due to implementation reasons,
-    % since the method closest_preceding_finger, which is the
-    % only method using the finger table directly, traverses
-    % it from the back to the front.
-    fingers = [] :: [#finger_entry{}]
-  }).
+-include("chord.hrl").
 
 %% ------------------------------------------------------------------
 %% API Function Exports
@@ -185,7 +163,7 @@ find_successor(Key,
     false -> find_successor(Key, Succ)
   end;
 find_successor(Key, #node{key = NKey, ip = NIp, port = NPort}) ->
-  case chord_tcp:get_closest_preceding_finger(Key, NIp, NPort) of
+  case chord_tcp:rpc_get_closest_preceding_finger(Key, NIp, NPort) of
     {ok, {NextFinger, NSucc}} ->
       case ((Key > NKey) and (Key =< NSucc)) of
         true  -> {ok, NSucc};
@@ -229,8 +207,8 @@ join(State, NodeToAsk) ->
   OwnKey = (State#chord_state.self)#node.key,
 
   % Find the successor node
-  case chord_tcp:get_closest_preceding_finger(OwnKey, NIp, NPort) of
-    {ok, {_Finger, Succ}} ->
+  case chord_tcp:rpc_find_successor(OwnKey, NIp, NPort) of
+    {ok, Succ} ->
       {ok, PredState#chord_state{successor = Succ}};
     {error, Reason} ->
       {error, Reason, PredState}

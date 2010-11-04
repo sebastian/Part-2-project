@@ -1,6 +1,9 @@
 -module(chord_tcp).
 -behaviour(gen_listener_tcp).
 
+-include("../fs.hrl").
+-include("chord.hrl").
+
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
 -endif.
@@ -18,7 +21,7 @@
 %% ------------------------------------------------------------------
 
 -export([start_link/0, start/0, stop/0]).
--export([get_closest_preceding_finger/3, remote_find_successor/3]).
+-export([rpc_get_closest_preceding_finger/3, rpc_find_successor/3]).
 
 %% ------------------------------------------------------------------
 %% gen_listener_tcp Function Exports
@@ -31,13 +34,19 @@
 %% API Function Definitions
 %% ------------------------------------------------------------------
 
-get_closest_preceding_finger(Key, Ip, Port) ->
-  do_remote_call({preceding_finger, Key}, Ip, Port).
+-spec(rpc_get_closest_preceding_finger/3::(Key::key(), Ip::ip(), Port::port()) ->
+    {ok, {#node{}, key()}} | {error, term()}).
+rpc_get_closest_preceding_finger(Key, Ip, Port) ->
+  perform_rpc({preceding_finger, Key}, Ip, Port).
 
-remote_find_successor(Key, Ip, Port) ->
-  do_remote_call({find_successor, Key}, Ip, Port).
+-spec(rpc_find_successor/3::(Key::key(), Ip::ip(), Port::port()) ->
+    {ok, #node{}} | {error, term()}).
+rpc_find_successor(Key, Ip, Port) ->
+  perform_rpc({find_successor, Key}, Ip, Port).
 
-do_remote_call(Message, Ip, Port) ->
+-spec(perform_rpc/3::(Message::term(), Ip::ip(), Port::port()) ->
+    {ok, term()} | {error, insatnce} | {error, timeout} | {error, atom()}).
+perform_rpc(Message, Ip, Port) ->
   {ok, Socket} = gen_tcp:connect(Ip, Port, [binary, {packet, 0}]),
   gen_tcp:send(Socket, term_to_binary(Message)),
   Ret = receive 
@@ -117,7 +126,7 @@ code_change(_OldVsn, State, _Extra) ->
 %% ------------------------------------------------------------------
 
 handle_msg({predecing_finger, Key}) ->
-  chord:preceding_finger(Key).
+  chord:preceding_finger(Key);
 
 handle_msg({find_successor, Key}) ->
   % @todo: Implement function
