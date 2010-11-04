@@ -80,7 +80,13 @@ init(Args) ->
     fingers = FingerTable
   },
 
-  {ok, State}.
+  % Join chord network!
+  % First we need to get a seed node:
+  % SeedNode = ...
+  % Now connect to it:
+  {ok, ConnectedState} = {ok, State}, %join(State, SeedNode),
+
+  {ok, ConnectedState}.
 
 handle_call({set_state, NewState}, _From, _State) ->
   {reply, ok, NewState};
@@ -172,7 +178,6 @@ find_successor(Key,
     false -> find_successor(Key, Succ)
   end;
 find_successor(Key, #node{key = NKey, ip = NIp, port = NPort}) ->
-  ?debugFmt("Calling get_closest_preceding_finger for key ~p", [Key]),
   case chord_tcp:rpc_get_closest_preceding_finger(Key, NIp, NPort) of
     {ok, {NextFinger, NSucc}} ->
       case succ_check(Key, NKey, NSucc#node.key) of
@@ -191,7 +196,6 @@ succ_check(Key, NodeId, SuccId) ->
 -spec(closest_preceding_finger/2::(Key::key(), 
     State::#chord_state{}) -> #node{}).
 closest_preceding_finger(Key, State) ->
-  ?debugFmt("Getting closest_preceding_finger for ~p", [Key]),
   closest_preceding_finger(Key, 
     State#chord_state.fingers,
     State#chord_state.self).
@@ -204,7 +208,6 @@ closest_preceding_finger(_Key, [], CurrentNode) -> CurrentNode;
 closest_preceding_finger(Key, [Finger|Fingers], CurrentNode) ->
   Node = Finger#finger_entry.node,
   NodeId = Node#node.key,
-  ?debugFmt("CurrentNode (~p) < NodeId (~p) < Key (~p)?", [CurrentNode#node.key, NodeId, Key]),
   case ((CurrentNode#node.key < NodeId) and (NodeId < Key)) of
     true -> 
       Node;

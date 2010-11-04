@@ -126,7 +126,6 @@ code_change(_OldVsn, State, _Extra) ->
 %% ------------------------------------------------------------------
 
 handle_msg({preceding_finger, Key}) ->
-  ?debugFmt("In handle_msg preceding_finger ~p", [Key]),
   chord:preceding_finger(Key);
 
 handle_msg({find_successor, Key}) ->
