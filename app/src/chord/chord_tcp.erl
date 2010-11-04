@@ -18,7 +18,7 @@
 %% ------------------------------------------------------------------
 
 -export([start_link/0, start/0, stop/0]).
--export([get_closest_preceding_finger/3]).
+-export([get_closest_preceding_finger/3, remote_find_successor/3]).
 
 %% ------------------------------------------------------------------
 %% gen_listener_tcp Function Exports
@@ -32,8 +32,14 @@
 %% ------------------------------------------------------------------
 
 get_closest_preceding_finger(Key, Ip, Port) ->
+  do_remote_call({preceding_finger, Key}, Ip, Port).
+
+remote_find_successor(Key, Ip, Port) ->
+  do_remote_call({find_successor, Key}, Ip, Port).
+
+do_remote_call(Message, Ip, Port) ->
   {ok, Socket} = gen_tcp:connect(Ip, Port, [binary, {packet, 0}]),
-  gen_tcp:send(Socket, term_to_binary({predecing_finger, Key})),
+  gen_tcp:send(Socket, term_to_binary(Message)),
   Ret = receive 
     {tcp, Socket, Data} ->
       {ok, binary_to_term(Data, [safe])};
@@ -112,3 +118,8 @@ code_change(_OldVsn, State, _Extra) ->
 
 handle_msg({predecing_finger, Key}) ->
   chord:preceding_finger(Key).
+
+handle_msg({find_successor, Key}) ->
+  % @todo: Implement function
+  % chord:preceding_finger(Key).
+  ok.
