@@ -53,7 +53,7 @@ perform_rpc(Message, Ip, Port) ->
     {tcp, Socket, Data} ->
       {ok, binary_to_term(Data, [safe])};
     {tcp_closed, Socket} ->
-      {error, instance};
+      {error, tcp_closed};
     {tcp_error, Socket, Reason} ->
       {error, Reason}
   after 2000 ->
@@ -87,8 +87,8 @@ chord_tcp_client(Socket) ->
       gen_tcp:close(Socket);
     {tcp, Socket, Data} ->
       Message = binary_to_term(Data, [safe]),
+      error_logger:info_msg("Got Data: ~p", [Message]),
       {ok, Value} = handle_msg(Message),
-      error_logger:info_msg("Got Data: ~p", [Data]),
       gen_tcp:send(Socket, term_to_binary(Value)),
       chord_tcp_client(Socket);
     {tcp_closed, Socket} ->
@@ -125,10 +125,9 @@ code_change(_OldVsn, State, _Extra) ->
 %% Internal Function Definitions
 %% ------------------------------------------------------------------
 
-handle_msg({predecing_finger, Key}) ->
+handle_msg({preceding_finger, Key}) ->
+  ?debugFmt("In handle_msg preceding_finger ~p", [Key]),
   chord:preceding_finger(Key);
 
 handle_msg({find_successor, Key}) ->
-  % @todo: Implement function
-  % chord:preceding_finger(Key).
-  ok.
+  chord:find_successor(Key).
