@@ -18,5 +18,9 @@
     % since the method closest_preceding_finger, which is the
     % only method using the finger table directly, traverses
     % it from the back to the front.
-    fingers = [] :: [#finger_entry{}]
+    fingers = [] :: [#finger_entry{}],
+
+    % Administrative information
+    pidStabilizer :: pid(),
+    pidFixFingers :: pid()
   }).

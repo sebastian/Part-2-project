@@ -22,6 +22,7 @@
 
 -export([start_link/0, start/0, stop/0]).
 -export([rpc_get_closest_preceding_finger/3, rpc_find_successor/3]).
+-export([notify_successor/2, get_predecessor/2]).
 
 %% ------------------------------------------------------------------
 %% gen_listener_tcp Function Exports
@@ -43,6 +44,16 @@ rpc_get_closest_preceding_finger(Key, Ip, Port) ->
     {ok, #node{}} | {error, term()}).
 rpc_find_successor(Key, Ip, Port) ->
   perform_rpc({find_successor, Key}, Ip, Port).
+
+-spec(get_predecessor/2::(Ip::ip(), Port::port()) ->
+    {ok, #node{}} | {error, term()}).
+get_predecessor(Ip, Port) ->
+  perform_rpc(get_predecessor, Ip, Port).
+
+-spec(notify_successor/2::(#node{}, CurrentNode::#node{}) -> ok).
+notify_successor(#node{ip = Ip, port = Port}, CurrentNode) ->
+  perform_rpc({notify_about_predecessor, CurrentNode}, Ip, Port),
+  ok.
 
 -spec(perform_rpc/3::(Message::term(), Ip::ip(), Port::port()) ->
     {ok, term()} | {error, insatnce} | {error, timeout} | {error, atom()}).
@@ -129,4 +140,10 @@ handle_msg({preceding_finger, Key}) ->
   chord:preceding_finger(Key);
 
 handle_msg({find_successor, Key}) ->
-  chord:find_successor(Key).
+  chord:find_successor(Key);
+
+handle_msg(get_predecessor) ->
+  chord:get_predecessor();
+
+handle_msg({notify_about_predecessor, CurrentNode}) ->
+  chord:notified(CurrentNode).

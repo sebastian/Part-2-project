@@ -3,6 +3,10 @@
 -define(SERVER, ?MODULE).
 -define(NUMBER_OF_FINGERS, 160).
 
+%% @doc: the interval in seconds at which the routine tasks are performed
+-define(STABILIZER_INTERVAL, 3).
+-define(FIX_FINGER_INTERVAL, 2).
+
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
 -endif.
@@ -15,7 +19,7 @@
 %% ------------------------------------------------------------------
 
 -export([start_link/0, start/0, stop/0]).
--export([get/1, set/2, preceding_finger/1, find_successor/1]).
+-export([get/1, set/2, preceding_finger/1, find_successor/1, get_predecessor/0]).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Exports
@@ -56,6 +60,22 @@ preceding_finger(Key) ->
 find_successor(Key) ->
   gen_server:call(chord, {find_successor, Key}).
 
+-spec(get_predecessor/0::() -> #node{}).
+get_predecessor() ->
+  gen_server:call(chord, get_predecessor).
+
+%% @doc Notified receives messages from predecessors identifying themselves.
+%%      If the node is a closer predecessor than the current one, then
+%%      the internal state is updated.
+-spec(notified/1::(Node::#node{}) -> ok).
+notified(Node) ->
+  gen_server:call(chord, {notified, Node}).
+
+-spec(stabilize/0::() -> ok).
+stabilize() ->
+  gen_server:cast(stabilize),
+  ok.
+
 %% ------------------------------------------------------------------
 %% gen_server Function Definitions
 %% ------------------------------------------------------------------
@@ -77,8 +97,13 @@ init(Args) ->
       port = Port, 
       key = NodeId 
     },
-    fingers = FingerTable
+    fingers = FingerTable,
+
+    % Admin stuff
+    pidStabilizer = spawn(fun() -> stabilizer() end),
+    pidFixFingers = spawn(fun() -> fingerFixer() end)
   },
+
 
   % Join chord network!
   % First we need to get a seed node:
@@ -88,6 +113,7 @@ init(Args) ->
 
   {ok, ConnectedState}.
 
+%% Call:
 handle_call({set_state, NewState}, _From, _State) ->
   {reply, ok, NewState};
 
@@ -111,15 +137,49 @@ handle_call({get_preceding_finger, Key}, _From, State) ->
 
 handle_call({find_successor, Key}, From, State) ->
   spawn(fun() -> gen_server:reply(From, find_successor(Key, State)) end),
-  {noreply, State}.
+  {noreply, State};
+
+handle_call(get_predecessor, _From, #chord_state{predecessor = Predecessor} = State) ->
+  {reply, Predecessor, State}.
+
+%% Casts:
+handle_cast({notified, #node{key = NewKey} = Node}, 
+    #chord_state{predecessor = Pred, self = Self} = State) ->
+  NewState = case ((Pred =:= #node{}) or 
+      utilities:in_range(NewKey, Pred#node.key, Self#node.key)) of
+    true  -> Node#chord_state{predecessor = Node};
+    false -> State
+  end,
+  {noreply, NewState};
+
+handle_cast({set_finger, N, NewFinger},  #chord_state{fingers = Fingers} = State) ->
+  NewFingers = lists:sublist(Fingers, 1, N-1) ++ NewFinger ++ lists:nthtail(N, Fingers),
+  NewState = State#chord_state{fingers = NewFingers},
+  {noreply, NewState};
+
+handle_cast({set_successor, Pred}, State) ->
+  {noreply, State#chord_state{successor = Pred}};
+
+handle_cast(stabilize, State) ->
+  spawn(fun() -> perform_stabilize(State) end),
+  {noreply, State};
+
+handle_cast(fix_fingers, State) ->
+  FingerNumToFix = random:uniform(?NUMBER_OF_FINGERS),
+  spawn(fun() -> fix_finger(FingerNumToFix, State) end),
+  {noreply, State};
 
 handle_cast(_Msg, State) ->
   {noreply, State}.
 
+%% Info:
 handle_info(_Info, State) ->
   {noreply, State}.
 
-terminate(_Reason, _State) ->
+terminate(_Reason, State) ->
+  % Tell the admin workers to stop what they are doing
+  State#chord_state.pidStabilizer ! stop,
+  State#chord_state.pidFixFingers ! stop,
   ok.
 
 code_change(_OldVsn, State, _Extra) ->
@@ -128,6 +188,53 @@ code_change(_OldVsn, State, _Extra) ->
 %% ------------------------------------------------------------------
 %% Internal Function Definitions
 %% ------------------------------------------------------------------
+
+%% @doc: This task runs in the background, and automatically executes
+%% chord - stabilize at given intervals.
+stabilizer() ->
+  perform_task(stabilize, ?STABILIZER_INTERVAL).
+
+%% @doc: This task runs in the background, and automatically executes
+%% chord - fix_fingers at given intervals.
+fingerFixer() ->
+  perform_task(fix_fingers, ?FIX_FINGER_INTERVAL).
+
+perform_task(Task, Interval) ->
+  receive stop -> ok
+  after Interval ->
+    gen_server:cast(chord, Task),
+    perform_task(Task, Interval)
+  end.
+
+-spec(fix_finger/2::(FingerNum::integer(), #chord_state{}) -> ok).
+fix_finger(FingerNum, #chord_state{fingers = Fingers} = State) ->
+  Finger = lists:nth(FingerNum, Fingers),
+  {ok, Succ} = find_successor(Finger#finger_entry.start, State),
+  UpdatedFinger = Finger#finger_entry{node = Succ},
+  gen_server:cast(chord, {set_finger, FingerNum, UpdatedFinger}).
+
+
+-spec(perform_stabilize/1::(#chord_state{}) -> #chord_state{}).
+perform_stabilize(#chord_state{self = ThisNode, successor = Succ} = State) ->
+  case chord_tcp:get_predecessor(Succ#node.ip, Succ#node.port) of
+    {ok, Pred} ->
+      % Check if predecessor is between ourselves and successor
+      NewSuccessor = case utilities:in_range(Pred#node.key, ThisNode#node.key, Succ#node.key) of
+        true  -> 
+          % The successors predecessor is now our new successor
+          gen_server:cast(chord, {set_successor, Pred}),
+          Pred;
+        false -> 
+          State#chord_state.successor
+      end,
+
+      chord_tcp:notify_successor(NewSuccessor, ThisNode);
+
+    {error, Reason} ->
+      % @todo: Handle error and try another successor.
+      ok
+
+  end.
 
 -spec(create_finger_table/1::(NodeKey::key()) -> [#finger_entry{}]).
 create_finger_table(NodeKey) ->
@@ -172,7 +279,7 @@ find_successor(Key,
     #chord_state{self = #node{key = NodeId}, successor = Succ}) ->
   % First check locally to see if it is in the range
   % of this node and this nodes successor.
-  case succ_check(Key, NodeId, Succ#node.key) of
+  case utilities:in_inclusive_range(Key, NodeId, Succ#node.key) of
     true  -> {ok, Succ};
     % Try looking successively through successors successors.
     false -> find_successor(Key, Succ)
@@ -180,17 +287,13 @@ find_successor(Key,
 find_successor(Key, #node{key = NKey, ip = NIp, port = NPort}) ->
   case chord_tcp:rpc_get_closest_preceding_finger(Key, NIp, NPort) of
     {ok, {NextFinger, NSucc}} ->
-      case succ_check(Key, NKey, NSucc#node.key) of
+      case utilities:in_inclusive_range(Key, NKey, NSucc#node.key) of
         true  -> {ok, NSucc};
         false -> find_successor(Key, NextFinger)
       end;
     {error, Reason} ->
       {error, Reason}
   end.
-
--spec(succ_check/3::(Key::key(), NodeId::key(), SuccId::key()) -> boolean()).
-succ_check(Key, NodeId, SuccId) ->
-  ((NodeId < Key) and ((Key =< SuccId) or (SuccId =:= 0))).
 
 
 -spec(closest_preceding_finger/2::(Key::key(), 
@@ -247,6 +350,7 @@ test_get_run_state() ->
                #finger_entry{start = 3, interval = {3,5}, node = nForKey(3)},
                #finger_entry{start = 2, interval = {2,3}, node = nForKey(3)}],
     self = #node{key = 1},
+    predecessor = #node{key = 0},
     successor = #node{key = 5}
   }.
 test_get_state() ->
@@ -259,7 +363,12 @@ test_get_state() ->
     successor = #node{ip = {127,0,0,1}, port = 9234, key = 1}
   }.
 
-find_closest_preceding_finger_test_STOP() ->
+%% @todo: Missing test for fix_finger
+
+%% @todo: Missing test that checks that notify actually works!
+%%        Missing test where the successors predecessor is not ourself.
+
+find_closest_preceding_finger_test_() ->
   {inparallel, [
     ?_assertEqual(nForKey(0), closest_preceding_finger(0, test_get_state())),
     ?_assertEqual(nForKey(0), closest_preceding_finger(1, test_get_state())),
@@ -269,20 +378,6 @@ find_closest_preceding_finger_test_STOP() ->
     ?_assertEqual(nForKey(3), closest_preceding_finger(5, test_get_state())),
     ?_assertEqual(nForKey(3), closest_preceding_finger(6, test_get_state())),
     ?_assertEqual(nForKey(3), closest_preceding_finger(7, test_get_state()))
-  ]}.
-
-succ_check_test_() ->
-  {inparallel, [
-    ?_assertEqual(false, succ_check(1,1,2)),
-    ?_assertEqual(true,  succ_check(2,1,2)),
-    ?_assertEqual(false, succ_check(2,2,4)),
-    ?_assertEqual(true,  succ_check(3,2,4)),
-    ?_assertEqual(true,  succ_check(4,2,4)),
-    ?_assertEqual(false, succ_check(4,4,0)),
-    ?_assertEqual(true,  succ_check(5,4,0)),
-    ?_assertEqual(true,  succ_check(6,4,0)),
-    ?_assertEqual(true,  succ_check(7,4,0)),
-    ?_assertEqual(false, succ_check(0,4,0))
   ]}.
 
 find_successor_on_same_node_test() ->

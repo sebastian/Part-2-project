@@ -11,6 +11,37 @@
 -include_lib("eunit/include/eunit.hrl").
 -endif.
 
+%% @doc Returns true if Key is in the range of Start and End. Since the
+%%      values are along a circle, the numerical value of End might be less
+%%      than that of Start.
+%%      Otherwise it returns false.
+-spec(in_range/3::(Key::key(), Start::key(), End::key()) -> boolean()).
+in_range(Key, Start, End) ->
+  case (Start < End) of
+    true ->
+      % Check that Key is in the range of Start and End
+      (Start < Key) and (Key < End);
+    false ->
+      % Check that Key is greater than Start, or greater than 0 and less than End
+      (Start < Key) or ((0 =< Key) and (Key < End))
+  end.
+
+%% @doc Returns true if Key is in the range of Start and up to and including End. 
+%%      Since the values are along a circle, the numerical value of End might be less
+%%      than that of Start.
+%%      Otherwise it returns false.
+-spec(in_inclusive_range/3::(Key::key(), Start::key(), End::key()) -> boolean()).
+in_inclusive_range(Key, Start, End) ->
+  case (Start < End) of
+    true ->
+      % Check that Key is in the range of Start and up to and including End
+      (Start < Key) and (Key =< End);
+    false ->
+      % Check that Key is greater than Start, or greater than 0 and less than 
+      % or equal to End
+      (Start < Key) or ((0 =< Key) and (Key =< End))
+  end.
+
 -spec(add_bitstrings/2::(Bin1::bitstring(), Bin2::bitstring()) -> bitstring()).
 add_bitstrings(Bin1, Bin2) when bit_size(Bin1) =:= bit_size(Bin2) ->
   add_bit_with_carry(bit_size(Bin1), Bin1, Bin2, false).
@@ -126,6 +157,35 @@ key_for_data(Data) ->
 
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
+
+in_range_test_() ->
+  {inparallel, [
+    ?_assertEqual(false, in_range(1,1,2)),
+    ?_assertEqual(false,  in_range(2,1,2)),
+    ?_assertEqual(false, in_range(2,2,4)),
+    ?_assertEqual(true,  in_range(3,2,4)),
+    ?_assertEqual(false,  in_range(4,2,4)),
+    ?_assertEqual(false, in_range(4,4,0)),
+    ?_assertEqual(true,  in_range(5,4,0)),
+    ?_assertEqual(true,  in_range(5,4,0)),
+    ?_assertEqual(true,  in_range(0,4,3)),
+    ?_assertEqual(false,  in_range(0,4,0)),
+    ?_assertEqual(true,  in_range(5,4,0))
+  ]}.
+
+in_inclusive_range_test_() ->
+  {inparallel, [
+    ?_assertEqual(false, in_inclusive_range(1,1,2)),
+    ?_assertEqual(true,  in_inclusive_range(2,1,2)),
+    ?_assertEqual(false, in_inclusive_range(2,2,4)),
+    ?_assertEqual(true,  in_inclusive_range(3,2,4)),
+    ?_assertEqual(true,  in_inclusive_range(4,2,4)),
+    ?_assertEqual(false, in_inclusive_range(4,4,0)),
+    ?_assertEqual(true,  in_inclusive_range(5,4,0)),
+    ?_assertEqual(true,  in_inclusive_range(6,4,0)),
+    ?_assertEqual(true,  in_inclusive_range(7,4,0)),
+    ?_assertEqual(true, in_inclusive_range(0,4,0))
+  ]}.
 
 key_for_data_test() ->
   Data = {some, random, data},
