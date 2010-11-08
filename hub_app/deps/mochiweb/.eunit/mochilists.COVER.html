@@ -1,0 +1,114 @@
+<html>
+<head><title>.eunit/mochilists.COVER.html</title></head><body bgcolor=white text=black>
+<pre>
+File generated from /Users/seb/Documents/part2project/app/deps/mochiweb/.eunit/mochilists.erl by COVER 2010-10-28 at 14:19:48
+
+****************************************************************************
+
+        |  %% @copyright Copyright (c) 2010 Mochi Media, Inc.
+        |  %% @author David Reid &lt;dreid@mochimedia.com&gt;
+        |  
+        |  %% @doc Utility functions for dealing with proplists.
+        |  
+        |  -module(mochilists).
+        |  -author("David Reid &lt;dreid@mochimedia.com&gt;").
+        |  -export([get_value/2, get_value/3, is_defined/2, set_default/2, set_defaults/2]).
+        |  
+        |  %% @spec set_default({Key::term(), Value::term()}, Proplist::list()) -&gt; list()
+        |  %%
+        |  %% @doc Return new Proplist with {Key, Value} set if not is_defined(Key, Proplist).
+        |  set_default({Key, Value}, Proplist) -&gt;
+    38..|      case is_defined(Key, Proplist) of
+        |          true -&gt;
+    19..|              Proplist;
+        |          false -&gt;
+    19..|              [{Key, Value} | Proplist]
+        |      end.
+        |  
+        |  %% @spec set_defaults([{Key::term(), Value::term()}], Proplist::list()) -&gt; list()
+        |  %%
+        |  %% @doc Return new Proplist with {Key, Value} set if not is_defined(Key, Proplist).
+        |  set_defaults(DefaultProps, Proplist) -&gt;
+    19..|      lists:foldl(fun set_default/2, Proplist, DefaultProps).
+        |  
+        |  
+        |  %% @spec is_defined(Key::term(), Proplist::list()) -&gt; bool()
+        |  %%
+        |  %% @doc Returns true if Propist contains at least one entry associated
+        |  %%      with Key, otherwise false is returned.
+        |  is_defined(Key, Proplist) -&gt;
+    38..|      lists:keyfind(Key, 1, Proplist) =/= false.
+        |  
+        |  
+        |  %% @spec get_value(Key::term(), Proplist::list()) -&gt; term() | undefined
+        |  %%
+        |  %% @doc Return the value of &lt;code&gt;Key&lt;/code&gt; or undefined
+        |  get_value(Key, Proplist) -&gt;
+     3..|      get_value(Key, Proplist, undefined).
+        |  
+        |  %% @spec get_value(Key::term(), Proplist::list(), Default::term()) -&gt; term()
+        |  %%
+        |  %% @doc Return the value of &lt;code&gt;Key&lt;/code&gt; or &lt;code&gt;Default&lt;/code&gt;
+        |  get_value(_Key, [], Default) -&gt;
+     2..|      Default;
+        |  get_value(Key, Proplist, Default) -&gt;
+     4..|      case lists:keyfind(Key, 1, Proplist) of
+        |          false -&gt;
+     2..|              Default;
+        |          {Key, Value} -&gt;
+     2..|              Value
+        |      end.
+        |  
+        |  %%
+        |  %% Tests
+        |  %%
+        |  -include_lib("eunit/include/eunit.hrl").
+        |  -ifdef(TEST).
+        |  
+        |  set_defaults_test() -&gt;
+     1..|      ?assertEqual(
+        |         [{k, v}],
+     1..|         set_defaults([{k, v}], [])),
+     1..|      ?assertEqual(
+        |         [{k, v}],
+     1..|         set_defaults([{k, vee}], [{k, v}])),
+     1..|      ?assertEqual(
+        |         lists:sort([{kay, vee}, {k, v}]),
+     1..|         lists:sort(set_defaults([{k, vee}, {kay, vee}], [{k, v}]))),
+     1..|      ok.
+        |  
+        |  set_default_test() -&gt;
+     1..|      ?assertEqual(
+        |         [{k, v}],
+     1..|         set_default({k, v}, [])),
+     1..|      ?assertEqual(
+        |         [{k, v}],
+     1..|         set_default({k, vee}, [{k, v}])),
+     1..|      ok.
+        |  
+        |  get_value_test() -&gt;
+     1..|      ?assertEqual(
+        |         undefined,
+     1..|         get_value(foo, [])),
+     1..|      ?assertEqual(
+        |         undefined,
+     1..|         get_value(foo, [{bar, baz}])),
+     1..|      ?assertEqual(
+        |         bar,
+     1..|         get_value(foo, [{foo, bar}])),
+     1..|      ?assertEqual(
+        |         default,
+     1..|         get_value(foo, [], default)),
+     1..|      ?assertEqual(
+        |         default,
+     1..|         get_value(foo, [{bar, baz}], default)),
+     1..|      ?assertEqual(
+        |         bar,
+     1..|         get_value(foo, [{foo, bar}], default)),
+     1..|      ok.
+        |  
+        |  -endif.
+        |  
+</pre>
+</body>
+</html>

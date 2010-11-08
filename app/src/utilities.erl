@@ -4,12 +4,23 @@
 -module(utilities).
 -compile(export_all). 
 
+-define(CHORD_PORT, 4000).
+
 -include_lib("kernel/include/inet.hrl").
 -include("fs.hrl").
 
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
 -endif.
+
+%% @doc: returns the port number at which chord is listening.
+-spec(get_chord_port/0::() -> number()).
+get_chord_port() ->
+  Port = case init:get_argument(chord_port) of
+    {ok, [[PortNumber]]} ->
+      list_to_integer(PortNumber);
+    _ -> ?CHORD_PORT
+  end.
 
 %% @doc Returns true if Key is in the range of Start and End. Since the
 %%      values are along a circle, the numerical value of End might be less

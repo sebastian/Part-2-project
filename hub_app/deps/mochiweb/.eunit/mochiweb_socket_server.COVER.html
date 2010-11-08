@@ -1,0 +1,284 @@
+<html>
+<head><title>.eunit/mochiweb_socket_server.COVER.html</title></head><body bgcolor=white text=black>
+<pre>
+File generated from /Users/seb/Documents/part2project/app/deps/mochiweb/.eunit/mochiweb_socket_server.erl by COVER 2010-10-28 at 14:19:50
+
+****************************************************************************
+
+        |  %% @author Bob Ippolito &lt;bob@mochimedia.com&gt;
+        |  %% @copyright 2007 Mochi Media, Inc.
+        |  
+        |  %% @doc MochiWeb socket server.
+        |  
+        |  -module(mochiweb_socket_server).
+        |  -author('bob@mochimedia.com').
+        |  -behaviour(gen_server).
+        |  
+        |  -include("internal.hrl").
+        |  
+        |  -export([start/1, stop/1]).
+        |  -export([init/1, handle_call/3, handle_cast/2, terminate/2, code_change/3,
+        |           handle_info/2]).
+        |  -export([get/2]).
+        |  
+        |  -record(mochiweb_socket_server,
+        |          {port,
+        |           loop,
+        |           name=undefined,
+        |           %% NOTE: This is currently ignored.
+        |           max=2048,
+        |           ip=any,
+        |           listen=null,
+        |           nodelay=false,
+        |           backlog=128,
+        |           active_sockets=0,
+        |           acceptor_pool_size=16,
+        |           ssl=false,
+        |           ssl_opts=[{ssl_imp, new}],
+        |           acceptor_pool=sets:new()}).
+        |  
+        |  start(State=#mochiweb_socket_server{}) -&gt;
+    32..|      start_server(State);
+        |  start(Options) -&gt;
+    32..|      start(parse_options(Options)).
+        |  
+        |  get(Name, Property) -&gt;
+    32..|      gen_server:call(Name, {get, Property}).
+        |  
+        |  stop(Name) when is_atom(Name) -&gt;
+<font color=red>     0..|      gen_server:cast(Name, stop);</font>
+        |  stop(Pid) when is_pid(Pid) -&gt;
+    32..|      gen_server:cast(Pid, stop);
+        |  stop({local, Name}) -&gt;
+<font color=red>     0..|      stop(Name);</font>
+        |  stop({global, Name}) -&gt;
+<font color=red>     0..|      stop(Name);</font>
+        |  stop(Options) -&gt;
+<font color=red>     0..|      State = parse_options(Options),</font>
+<font color=red>     0..|      stop(State#mochiweb_socket_server.name).</font>
+        |  
+        |  %% Internal API
+        |  
+        |  parse_options(Options) -&gt;
+    32..|      parse_options(Options, #mochiweb_socket_server{}).
+        |  
+        |  parse_options([], State) -&gt;
+    32..|      State;
+        |  parse_options([{name, L} | Rest], State) when is_list(L) -&gt;
+<font color=red>     0..|      Name = {local, list_to_atom(L)},</font>
+<font color=red>     0..|      parse_options(Rest, State#mochiweb_socket_server{name=Name});</font>
+        |  parse_options([{name, A} | Rest], State) when A =:= undefined -&gt;
+<font color=red>     0..|      parse_options(Rest, State#mochiweb_socket_server{name=A});</font>
+        |  parse_options([{name, A} | Rest], State) when is_atom(A) -&gt;
+    16..|      Name = {local, A},
+    16..|      parse_options(Rest, State#mochiweb_socket_server{name=Name});
+        |  parse_options([{name, Name} | Rest], State) -&gt;
+<font color=red>     0..|      parse_options(Rest, State#mochiweb_socket_server{name=Name});</font>
+        |  parse_options([{port, L} | Rest], State) when is_list(L) -&gt;
+<font color=red>     0..|      Port = list_to_integer(L),</font>
+<font color=red>     0..|      parse_options(Rest, State#mochiweb_socket_server{port=Port});</font>
+        |  parse_options([{port, Port} | Rest], State) -&gt;
+    32..|      parse_options(Rest, State#mochiweb_socket_server{port=Port});
+        |  parse_options([{ip, Ip} | Rest], State) -&gt;
+    32..|      ParsedIp = case Ip of
+        |                     any -&gt;
+<font color=red>     0..|                         any;</font>
+        |                     Ip when is_tuple(Ip) -&gt;
+<font color=red>     0..|                         Ip;</font>
+        |                     Ip when is_list(Ip) -&gt;
+    32..|                         {ok, IpTuple} = inet_parse:address(Ip),
+    32..|                         IpTuple
+        |                 end,
+    32..|      parse_options(Rest, State#mochiweb_socket_server{ip=ParsedIp});
+        |  parse_options([{loop, Loop} | Rest], State) -&gt;
+    32..|      parse_options(Rest, State#mochiweb_socket_server{loop=Loop});
+        |  parse_options([{backlog, Backlog} | Rest], State) -&gt;
+<font color=red>     0..|      parse_options(Rest, State#mochiweb_socket_server{backlog=Backlog});</font>
+        |  parse_options([{nodelay, NoDelay} | Rest], State) -&gt;
+<font color=red>     0..|      parse_options(Rest, State#mochiweb_socket_server{nodelay=NoDelay});</font>
+        |  parse_options([{acceptor_pool_size, Max} | Rest], State) -&gt;
+<font color=red>     0..|      MaxInt = ensure_int(Max),</font>
+<font color=red>     0..|      parse_options(Rest,</font>
+        |                    State#mochiweb_socket_server{acceptor_pool_size=MaxInt});
+        |  parse_options([{max, Max} | Rest], State) -&gt;
+<font color=red>     0..|      error_logger:info_report([{warning, "TODO: max is currently unsupported"},</font>
+        |                                {max, Max}]),
+<font color=red>     0..|      MaxInt = ensure_int(Max),</font>
+<font color=red>     0..|      parse_options(Rest, State#mochiweb_socket_server{max=MaxInt});</font>
+        |  parse_options([{ssl, Ssl} | Rest], State) when is_boolean(Ssl) -&gt;
+    16..|      parse_options(Rest, State#mochiweb_socket_server{ssl=Ssl});
+        |  parse_options([{ssl_opts, SslOpts} | Rest], State) when is_list(SslOpts) -&gt;
+    16..|      SslOpts1 = [{ssl_imp, new} | proplists:delete(ssl_imp, SslOpts)],
+    16..|      parse_options(Rest, State#mochiweb_socket_server{ssl_opts=SslOpts1}).
+        |  
+        |  start_server(State=#mochiweb_socket_server{ssl=Ssl, name=Name}) -&gt;
+    32..|      case Ssl of
+        |          true -&gt;
+    16..|              application:start(crypto),
+    16..|              application:load(ssl),
+    16..|              {ok, SSLApps} = application:get_key(ssl, applications),
+    16..|              [application:start(App) || App &lt;- SSLApps],
+    16..|              application:start(ssl);
+        |          false -&gt;
+    16..|              void
+        |      end,
+    32..|      case Name of
+        |          undefined -&gt;
+    16..|              gen_server:start_link(?MODULE, State, []);
+        |          _ -&gt;
+    16..|              gen_server:start_link(Name, ?MODULE, State, [])
+        |      end.
+        |  
+        |  ensure_int(N) when is_integer(N) -&gt;
+<font color=red>     0..|      N;</font>
+        |  ensure_int(S) when is_list(S) -&gt;
+<font color=red>     0..|      integer_to_list(S).</font>
+        |  
+        |  ipv6_supported() -&gt;
+<font color=red>     0..|      case (catch inet:getaddr("localhost", inet6)) of</font>
+        |          {ok, _Addr} -&gt;
+<font color=red>     0..|              true;</font>
+        |          {error, _} -&gt;
+<font color=red>     0..|              false</font>
+        |      end.
+        |  
+        |  init(State=#mochiweb_socket_server{ip=Ip, port=Port, backlog=Backlog, nodelay=NoDelay}) -&gt;
+    32..|      process_flag(trap_exit, true),
+    32..|      BaseOpts = [binary,
+        |                  {reuseaddr, true},
+        |                  {packet, 0},
+        |                  {backlog, Backlog},
+        |                  {recbuf, ?RECBUF_SIZE},
+        |                  {active, false},
+        |                  {nodelay, NoDelay}],
+    32..|      Opts = case Ip of
+        |          any -&gt;
+<font color=red>     0..|              case ipv6_supported() of % IPv4, and IPv6 if supported</font>
+<font color=red>     0..|                  true -&gt; [inet, inet6 | BaseOpts];</font>
+<font color=red>     0..|                  _ -&gt; BaseOpts</font>
+        |              end;
+        |          {_, _, _, _} -&gt; % IPv4
+    32..|              [inet, {ip, Ip} | BaseOpts];
+        |          {_, _, _, _, _, _, _, _} -&gt; % IPv6
+<font color=red>     0..|              [inet6, {ip, Ip} | BaseOpts]</font>
+        |      end,
+    32..|      case listen(Port, Opts, State) of
+        |          {stop, eacces} -&gt;
+<font color=red>     0..|              case Port &lt; 1024 of</font>
+        |                  true -&gt;
+<font color=red>     0..|                      case fdsrv:start() of</font>
+        |                          {ok, _} -&gt;
+<font color=red>     0..|                              case fdsrv:bind_socket(tcp, Port) of</font>
+        |                                  {ok, Fd} -&gt;
+<font color=red>     0..|                                      listen(Port, [{fd, Fd} | Opts], State);</font>
+        |                                  _ -&gt;
+<font color=red>     0..|                                      {stop, fdsrv_bind_failed}</font>
+        |                              end;
+        |                          _ -&gt;
+<font color=red>     0..|                              {stop, fdsrv_start_failed}</font>
+        |                      end;
+        |                  false -&gt;
+<font color=red>     0..|                      {stop, eacces}</font>
+        |              end;
+        |          Other -&gt;
+    32..|              Other
+        |      end.
+        |  
+        |  new_acceptor_pool(Listen,
+        |                    State=#mochiweb_socket_server{acceptor_pool=Pool,
+        |                                                  acceptor_pool_size=Size,
+        |                                                  loop=Loop}) -&gt;
+    32..|      F = fun (_, S) -&gt;
+   512..|                  Pid = mochiweb_acceptor:start_link(self(), Listen, Loop),
+   512..|                  sets:add_element(Pid, S)
+        |          end,
+    32..|      Pool1 = lists:foldl(F, Pool, lists:seq(1, Size)),
+    32..|      State#mochiweb_socket_server{acceptor_pool=Pool1}.
+        |  
+        |  listen(Port, Opts, State=#mochiweb_socket_server{ssl=Ssl, ssl_opts=SslOpts}) -&gt;
+    32..|      case mochiweb_socket:listen(Ssl, Port, Opts, SslOpts) of
+        |          {ok, Listen} -&gt;
+    32..|              {ok, ListenPort} = mochiweb_socket:port(Listen),
+    32..|              {ok, new_acceptor_pool(
+        |                     Listen,
+        |                     State#mochiweb_socket_server{listen=Listen,
+        |                                                  port=ListenPort})};
+        |          {error, Reason} -&gt;
+<font color=red>     0..|              {stop, Reason}</font>
+        |      end.
+        |  
+        |  do_get(port, #mochiweb_socket_server{port=Port}) -&gt;
+    32..|      Port;
+        |  do_get(active_sockets, #mochiweb_socket_server{active_sockets=ActiveSockets}) -&gt;
+<font color=red>     0..|      ActiveSockets.</font>
+        |  
+        |  handle_call({get, Property}, _From, State) -&gt;
+    32..|      Res = do_get(Property, State),
+    32..|      {reply, Res, State};
+        |  handle_call(_Message, _From, State) -&gt;
+<font color=red>     0..|      Res = error,</font>
+<font color=red>     0..|      {reply, Res, State}.</font>
+        |  
+        |  handle_cast({accepted, Pid, _Timing},
+        |              State=#mochiweb_socket_server{active_sockets=ActiveSockets}) -&gt;
+    32..|      State1 = State#mochiweb_socket_server{active_sockets=1 + ActiveSockets},
+    32..|      {noreply, recycle_acceptor(Pid, State1)};
+        |  handle_cast(stop, State) -&gt;
+    32..|      {stop, normal, State}.
+        |  
+        |  terminate(_Reason, #mochiweb_socket_server{listen=Listen, port=Port}) -&gt;
+    32..|      mochiweb_socket:close(Listen),
+    32..|      case Port &lt; 1024 of
+        |          true -&gt;
+<font color=red>     0..|              catch fdsrv:stop(),</font>
+<font color=red>     0..|              ok;</font>
+        |          false -&gt;
+    32..|              ok
+        |      end.
+        |  
+        |  code_change(_OldVsn, State, _Extra) -&gt;
+<font color=red>     0..|      State.</font>
+        |  
+        |  recycle_acceptor(Pid, State=#mochiweb_socket_server{
+        |                          acceptor_pool=Pool,
+        |                          listen=Listen,
+        |                          loop=Loop,
+        |                          active_sockets=ActiveSockets}) -&gt;
+    56..|      case sets:is_element(Pid, Pool) of
+        |          true -&gt;
+    32..|              Acceptor = mochiweb_acceptor:start_link(self(), Listen, Loop),
+    32..|              Pool1 = sets:add_element(Acceptor, sets:del_element(Pid, Pool)),
+    32..|              State#mochiweb_socket_server{acceptor_pool=Pool1};
+        |          false -&gt;
+    24..|              State#mochiweb_socket_server{active_sockets=ActiveSockets - 1}
+        |      end.
+        |  
+        |  handle_info({'EXIT', Pid, normal}, State) -&gt;
+    24..|      {noreply, recycle_acceptor(Pid, State)};
+        |  handle_info({'EXIT', Pid, Reason},
+        |              State=#mochiweb_socket_server{acceptor_pool=Pool}) -&gt;
+<font color=red>     0..|      case sets:is_element(Pid, Pool) of</font>
+        |          true -&gt;
+        |              %% If there was an unexpected error accepting, log and sleep.
+<font color=red>     0..|              error_logger:error_report({?MODULE, ?LINE,</font>
+        |                                         {acceptor_error, Reason}}),
+<font color=red>     0..|              timer:sleep(100);</font>
+        |          false -&gt;
+<font color=red>     0..|              ok</font>
+        |      end,
+<font color=red>     0..|      {noreply, recycle_acceptor(Pid, State)};</font>
+        |  handle_info(Info, State) -&gt;
+<font color=red>     0..|      error_logger:info_report([{'INFO', Info}, {'State', State}]),</font>
+<font color=red>     0..|      {noreply, State}.</font>
+        |  
+        |  
+        |  
+        |  %%
+        |  %% Tests
+        |  %%
+        |  -include_lib("eunit/include/eunit.hrl").
+        |  -ifdef(TEST).
+        |  -endif.
+</pre>
+</body>
+</html>

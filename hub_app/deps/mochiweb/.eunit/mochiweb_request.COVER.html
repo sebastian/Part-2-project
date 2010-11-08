@@ -1,0 +1,723 @@
+<html>
+<head><title>.eunit/mochiweb_request.COVER.html</title></head><body bgcolor=white text=black>
+<pre>
+File generated from /Users/seb/Documents/part2project/app/deps/mochiweb/.eunit/mochiweb_request.erl by COVER 2010-10-28 at 14:19:50
+
+****************************************************************************
+
+        |  %% @author Bob Ippolito &lt;bob@mochimedia.com&gt;
+        |  %% @copyright 2007 Mochi Media, Inc.
+        |  
+        |  %% @doc MochiWeb HTTP Request abstraction.
+        |  
+        |  -module(mochiweb_request, [Socket, Method, RawPath, Version, Headers]).
+        |  -author('bob@mochimedia.com').
+        |  
+        |  -include_lib("kernel/include/file.hrl").
+        |  -include("internal.hrl").
+        |  
+        |  -define(QUIP, "Any of you quaids got a smint?").
+        |  
+        |  -export([get_header_value/1, get_primary_header_value/1, get/1, dump/0]).
+        |  -export([send/1, recv/1, recv/2, recv_body/0, recv_body/1, stream_body/3]).
+        |  -export([start_response/1, start_response_length/1, start_raw_response/1]).
+        |  -export([respond/1, ok/1]).
+        |  -export([not_found/0, not_found/1]).
+        |  -export([parse_post/0, parse_qs/0]).
+        |  -export([should_close/0, cleanup/0]).
+        |  -export([parse_cookie/0, get_cookie_value/1]).
+        |  -export([serve_file/2, serve_file/3]).
+        |  -export([accepted_encodings/1]).
+        |  
+        |  -define(SAVE_QS, mochiweb_request_qs).
+        |  -define(SAVE_PATH, mochiweb_request_path).
+        |  -define(SAVE_RECV, mochiweb_request_recv).
+        |  -define(SAVE_BODY, mochiweb_request_body).
+        |  -define(SAVE_BODY_LENGTH, mochiweb_request_body_length).
+        |  -define(SAVE_POST, mochiweb_request_post).
+        |  -define(SAVE_COOKIE, mochiweb_request_cookie).
+        |  -define(SAVE_FORCE_CLOSE, mochiweb_request_force_close).
+        |  
+        |  %% @type iolist() = [iolist() | binary() | char()].
+        |  %% @type iodata() = binary() | iolist().
+        |  %% @type key() = atom() | string() | binary()
+        |  %% @type value() = atom() | string() | binary() | integer()
+        |  %% @type headers(). A mochiweb_headers structure.
+        |  %% @type response(). A mochiweb_response parameterized module instance.
+        |  %% @type ioheaders() = headers() | [{key(), value()}].
+        |  
+        |  % 10 second default idle timeout
+        |  -define(IDLE_TIMEOUT, 10000).
+        |  
+        |  % Maximum recv_body() length of 1MB
+        |  -define(MAX_RECV_BODY, (1024*1024)).
+        |  
+        |  %% @spec get_header_value(K) -&gt; undefined | Value
+        |  %% @doc Get the value of a given request header.
+        |  get_header_value(K) -&gt;
+  1700..|      mochiweb_headers:get_value(K, Headers).
+        |  
+        |  get_primary_header_value(K) -&gt;
+<font color=red>     0..|      mochiweb_headers:get_primary_value(K, Headers).</font>
+        |  
+        |  %% @type field() = socket | scheme | method | raw_path | version | headers | peer | path | body_length | range
+        |  
+        |  %% @spec get(field()) -&gt; term()
+        |  %% @doc Return the internal representation of the given field. If
+        |  %%      &lt;code&gt;socket&lt;/code&gt; is requested on a HTTPS connection, then
+        |  %%      an ssl socket will be returned as &lt;code&gt;{ssl, SslSocket}&lt;/code&gt;.
+        |  %%      You can use &lt;code&gt;SslSocket&lt;/code&gt; with the &lt;code&gt;ssl&lt;/code&gt;
+        |  %%      application, eg: &lt;code&gt;ssl:peercert(SslSocket)&lt;/code&gt;.
+        |  get(socket) -&gt;
+   420..|      Socket;
+        |  get(scheme) -&gt;
+<font color=red>     0..|      case mochiweb_socket:type(Socket) of</font>
+        |          plain -&gt;
+<font color=red>     0..|              http;</font>
+        |          ssl -&gt;
+<font color=red>     0..|              https</font>
+        |      end;
+        |  get(method) -&gt;
+<font color=red>     0..|      Method;</font>
+        |  get(raw_path) -&gt;
+<font color=red>     0..|      RawPath;</font>
+        |  get(version) -&gt;
+<font color=red>     0..|      Version;</font>
+        |  get(headers) -&gt;
+<font color=red>     0..|      Headers;</font>
+        |  get(peer) -&gt;
+<font color=red>     0..|      case mochiweb_socket:peername(Socket) of</font>
+        |          {ok, {Addr={10, _, _, _}, _Port}} -&gt;
+<font color=red>     0..|              case get_header_value("x-forwarded-for") of</font>
+        |                  undefined -&gt;
+<font color=red>     0..|                      inet_parse:ntoa(Addr);</font>
+        |                  Hosts -&gt;
+<font color=red>     0..|                      string:strip(lists:last(string:tokens(Hosts, ",")))</font>
+        |              end;
+        |          {ok, {{127, 0, 0, 1}, _Port}} -&gt;
+<font color=red>     0..|              case get_header_value("x-forwarded-for") of</font>
+        |                  undefined -&gt;
+<font color=red>     0..|                      "127.0.0.1";</font>
+        |                  Hosts -&gt;
+<font color=red>     0..|                      string:strip(lists:last(string:tokens(Hosts, ",")))</font>
+        |              end;
+        |          {ok, {Addr, _Port}} -&gt;
+<font color=red>     0..|              inet_parse:ntoa(Addr)</font>
+        |      end;
+        |  get(path) -&gt;
+   209..|      case erlang:get(?SAVE_PATH) of
+        |          undefined -&gt;
+   209..|              {Path0, _, _} = mochiweb_util:urlsplit_path(RawPath),
+   209..|              Path = mochiweb_util:unquote(Path0),
+   209..|              put(?SAVE_PATH, Path),
+   209..|              Path;
+        |          Cached -&gt;
+<font color=red>     0..|              Cached</font>
+        |      end;
+        |  get(body_length) -&gt;
+<font color=red>     0..|      case erlang:get(?SAVE_BODY_LENGTH) of</font>
+        |          undefined -&gt;
+<font color=red>     0..|              BodyLength = body_length(),</font>
+<font color=red>     0..|              put(?SAVE_BODY_LENGTH, {cached, BodyLength}),</font>
+<font color=red>     0..|              BodyLength;</font>
+        |          {cached, Cached} -&gt;
+<font color=red>     0..|              Cached</font>
+        |      end;
+        |  get(range) -&gt;
+   208..|      case get_header_value(range) of
+        |          undefined -&gt;
+   208..|              undefined;
+        |          RawRange -&gt;
+<font color=red>     0..|              mochiweb_http:parse_range_request(RawRange)</font>
+        |      end.
+        |  
+        |  %% @spec dump() -&gt; {mochiweb_request, [{atom(), term()}]}
+        |  %% @doc Dump the internal representation to a "human readable" set of terms
+        |  %%      for debugging/inspection purposes.
+        |  dump() -&gt;
+<font color=red>     0..|      {?MODULE, [{method, Method},</font>
+        |                 {version, Version},
+        |                 {raw_path, RawPath},
+        |                 {headers, mochiweb_headers:to_list(Headers)}]}.
+        |  
+        |  %% @spec send(iodata()) -&gt; ok
+        |  %% @doc Send data over the socket.
+        |  send(Data) -&gt;
+   840..|      case mochiweb_socket:send(Socket, Data) of
+        |          ok -&gt;
+   840..|              ok;
+        |          _ -&gt;
+<font color=red>     0..|              exit(normal)</font>
+        |      end.
+        |  
+        |  %% @spec recv(integer()) -&gt; binary()
+        |  %% @doc Receive Length bytes from the client as a binary, with the default
+        |  %%      idle timeout.
+        |  recv(Length) -&gt;
+   330..|      recv(Length, ?IDLE_TIMEOUT).
+        |  
+        |  %% @spec recv(integer(), integer()) -&gt; binary()
+        |  %% @doc Receive Length bytes from the client as a binary, with the given
+        |  %%      Timeout in msec.
+        |  recv(Length, Timeout) -&gt;
+   330..|      case mochiweb_socket:recv(Socket, Length, Timeout) of
+        |          {ok, Data} -&gt;
+   330..|              put(?SAVE_RECV, true),
+   330..|              Data;
+        |          _ -&gt;
+<font color=red>     0..|              exit(normal)</font>
+        |      end.
+        |  
+        |  %% @spec body_length() -&gt; undefined | chunked | unknown_transfer_encoding | integer()
+        |  %% @doc  Infer body length from transfer-encoding and content-length headers.
+        |  body_length() -&gt;
+   212..|      case get_header_value("transfer-encoding") of
+        |          undefined -&gt;
+   212..|              case get_header_value("content-length") of
+        |                  undefined -&gt;
+<font color=red>     0..|                      undefined;</font>
+        |                  Length -&gt;
+   212..|                      list_to_integer(Length)
+        |              end;
+        |          "chunked" -&gt;
+<font color=red>     0..|              chunked;</font>
+        |          Unknown -&gt;
+<font color=red>     0..|              {unknown_transfer_encoding, Unknown}</font>
+        |      end.
+        |  
+        |  
+        |  %% @spec recv_body() -&gt; binary()
+        |  %% @doc Receive the body of the HTTP request (defined by Content-Length).
+        |  %%      Will only receive up to the default max-body length of 1MB.
+        |  recv_body() -&gt;
+   212..|      recv_body(?MAX_RECV_BODY).
+        |  
+        |  %% @spec recv_body(integer()) -&gt; binary()
+        |  %% @doc Receive the body of the HTTP request (defined by Content-Length).
+        |  %%      Will receive up to MaxBody bytes.
+        |  recv_body(MaxBody) -&gt;
+   212..|      case erlang:get(?SAVE_BODY) of
+        |          undefined -&gt;
+        |              % we could use a sane constant for max chunk size
+   212..|              Body = stream_body(?MAX_RECV_BODY, fun
+        |                  ({0, _ChunkedFooter}, {_LengthAcc, BinAcc}) -&gt;
+   212..|                      iolist_to_binary(lists:reverse(BinAcc));
+        |                  ({Length, Bin}, {LengthAcc, BinAcc}) -&gt;
+   308..|                      NewLength = Length + LengthAcc,
+   308..|                      if NewLength &gt; MaxBody -&gt;
+<font color=red>     0..|                          exit({body_too_large, chunked});</font>
+        |                      true -&gt;
+   308..|                          {NewLength, [Bin | BinAcc]}
+        |                      end
+        |                  end, {0, []}, MaxBody),
+   212..|              put(?SAVE_BODY, Body),
+   212..|              Body;
+<font color=red>     0..|          Cached -&gt; Cached</font>
+        |      end.
+        |  
+        |  stream_body(MaxChunkSize, ChunkFun, FunState) -&gt;
+<font color=red>     0..|      stream_body(MaxChunkSize, ChunkFun, FunState, undefined).</font>
+        |  
+        |  stream_body(MaxChunkSize, ChunkFun, FunState, MaxBodyLength) -&gt;
+   212..|      Expect = case get_header_value("expect") of
+        |                   undefined -&gt;
+   212..|                       undefined;
+        |                   Value when is_list(Value) -&gt;
+<font color=red>     0..|                       string:to_lower(Value)</font>
+        |               end,
+   212..|      case Expect of
+        |          "100-continue" -&gt;
+<font color=red>     0..|              start_raw_response({100, gb_trees:empty()});</font>
+        |          _Else -&gt;
+   212..|              ok
+        |      end,
+   212..|      case body_length() of
+        |          undefined -&gt;
+<font color=red>     0..|              undefined;</font>
+        |          {unknown_transfer_encoding, Unknown} -&gt;
+<font color=red>     0..|              exit({unknown_transfer_encoding, Unknown});</font>
+        |          chunked -&gt;
+        |              % In this case the MaxBody is actually used to
+        |              % determine the maximum allowed size of a single
+        |              % chunk.
+<font color=red>     0..|              stream_chunked_body(MaxChunkSize, ChunkFun, FunState);</font>
+        |          0 -&gt;
+<font color=red>     0..|              &lt;&lt;&gt;&gt;;</font>
+        |          Length when is_integer(Length) -&gt;
+   212..|              case MaxBodyLength of
+        |              MaxBodyLength when is_integer(MaxBodyLength), MaxBodyLength &lt; Length -&gt;
+<font color=red>     0..|                  exit({body_too_large, content_length});</font>
+        |              _ -&gt;
+   212..|                  stream_unchunked_body(Length, ChunkFun, FunState)
+        |              end;
+        |          Length -&gt;
+<font color=red>     0..|              exit({length_not_integer, Length})</font>
+        |      end.
+        |  
+        |  
+        |  %% @spec start_response({integer(), ioheaders()}) -&gt; response()
+        |  %% @doc Start the HTTP response by sending the Code HTTP response and
+        |  %%      ResponseHeaders. The server will set header defaults such as Server
+        |  %%      and Date if not present in ResponseHeaders.
+        |  start_response({Code, ResponseHeaders}) -&gt;
+   420..|      HResponse = mochiweb_headers:make(ResponseHeaders),
+   420..|      HResponse1 = mochiweb_headers:default_from_list(server_headers(),
+        |                                                      HResponse),
+   420..|      start_raw_response({Code, HResponse1}).
+        |  
+        |  %% @spec start_raw_response({integer(), headers()}) -&gt; response()
+        |  %% @doc Start the HTTP response by sending the Code HTTP response and
+        |  %%      ResponseHeaders.
+        |  start_raw_response({Code, ResponseHeaders}) -&gt;
+   420..|      F = fun ({K, V}, Acc) -&gt;
+  1680..|                  [mochiweb_util:make_io(K), &lt;&lt;": "&gt;&gt;, V, &lt;&lt;"\r\n"&gt;&gt; | Acc]
+        |          end,
+   420..|      End = lists:foldl(F, [&lt;&lt;"\r\n"&gt;&gt;],
+        |                        mochiweb_headers:to_list(ResponseHeaders)),
+   420..|      send([make_version(Version), make_code(Code), &lt;&lt;"\r\n"&gt;&gt; | End]),
+   420..|      mochiweb:new_response({THIS, Code, ResponseHeaders}).
+        |  
+        |  
+        |  %% @spec start_response_length({integer(), ioheaders(), integer()}) -&gt; response()
+        |  %% @doc Start the HTTP response by sending the Code HTTP response and
+        |  %%      ResponseHeaders including a Content-Length of Length. The server
+        |  %%      will set header defaults such as Server
+        |  %%      and Date if not present in ResponseHeaders.
+        |  start_response_length({Code, ResponseHeaders, Length}) -&gt;
+   420..|      HResponse = mochiweb_headers:make(ResponseHeaders),
+   420..|      HResponse1 = mochiweb_headers:enter("Content-Length", Length, HResponse),
+   420..|      start_response({Code, HResponse1}).
+        |  
+        |  %% @spec respond({integer(), ioheaders(), iodata() | chunked | {file, IoDevice}}) -&gt; response()
+        |  %% @doc Start the HTTP response with start_response, and send Body to the
+        |  %%      client (if the get(method) /= 'HEAD'). The Content-Length header
+        |  %%      will be set by the Body length, and the server will insert header
+        |  %%      defaults.
+        |  respond({Code, ResponseHeaders, {file, IoDevice}}) -&gt;
+<font color=red>     0..|      Length = mochiweb_io:iodevice_size(IoDevice),</font>
+<font color=red>     0..|      Response = start_response_length({Code, ResponseHeaders, Length}),</font>
+<font color=red>     0..|      case Method of</font>
+        |          'HEAD' -&gt;
+<font color=red>     0..|              ok;</font>
+        |          _ -&gt;
+<font color=red>     0..|              mochiweb_io:iodevice_stream(fun send/1, IoDevice)</font>
+        |      end,
+<font color=red>     0..|      Response;</font>
+        |  respond({Code, ResponseHeaders, chunked}) -&gt;
+<font color=red>     0..|      HResponse = mochiweb_headers:make(ResponseHeaders),</font>
+<font color=red>     0..|      HResponse1 = case Method of</font>
+        |                       'HEAD' -&gt;
+        |                           %% This is what Google does, http://www.google.com/
+        |                           %% is chunked but HEAD gets Content-Length: 0.
+        |                           %% The RFC is ambiguous so emulating Google is smart.
+<font color=red>     0..|                           mochiweb_headers:enter("Content-Length", "0",</font>
+        |                                                  HResponse);
+        |                       _ when Version &gt;= {1, 1} -&gt;
+        |                           %% Only use chunked encoding for HTTP/1.1
+<font color=red>     0..|                           mochiweb_headers:enter("Transfer-Encoding", "chunked",</font>
+        |                                                  HResponse);
+        |                       _ -&gt;
+        |                           %% For pre-1.1 clients we send the data as-is
+        |                           %% without a Content-Length header and without
+        |                           %% chunk delimiters. Since the end of the document
+        |                           %% is now ambiguous we must force a close.
+<font color=red>     0..|                           put(?SAVE_FORCE_CLOSE, true),</font>
+<font color=red>     0..|                           HResponse</font>
+        |                   end,
+<font color=red>     0..|      start_response({Code, HResponse1});</font>
+        |  respond({Code, ResponseHeaders, Body}) -&gt;
+   420..|      Response = start_response_length({Code, ResponseHeaders, iolist_size(Body)}),
+   420..|      case Method of
+        |          'HEAD' -&gt;
+<font color=red>     0..|              ok;</font>
+        |          _ -&gt;
+   420..|              send(Body)
+        |      end,
+   420..|      Response.
+        |  
+        |  %% @spec not_found() -&gt; response()
+        |  %% @doc Alias for &lt;code&gt;not_found([])&lt;/code&gt;.
+        |  not_found() -&gt;
+<font color=red>     0..|      not_found([]).</font>
+        |  
+        |  %% @spec not_found(ExtraHeaders) -&gt; response()
+        |  %% @doc Alias for &lt;code&gt;respond({404, [{"Content-Type", "text/plain"}
+        |  %% | ExtraHeaders], &lt;&lt;"Not found."&gt;&gt;})&lt;/code&gt;.
+        |  not_found(ExtraHeaders) -&gt;
+<font color=red>     0..|      respond({404, [{"Content-Type", "text/plain"} | ExtraHeaders],</font>
+        |               &lt;&lt;"Not found."&gt;&gt;}).
+        |  
+        |  %% @spec ok({value(), iodata()} | {value(), ioheaders(), iodata() | {file, IoDevice}}) -&gt;
+        |  %%           response()
+        |  %% @doc respond({200, [{"Content-Type", ContentType} | Headers], Body}).
+        |  ok({ContentType, Body}) -&gt;
+   208..|      ok({ContentType, [], Body});
+        |  ok({ContentType, ResponseHeaders, Body}) -&gt;
+   208..|      HResponse = mochiweb_headers:make(ResponseHeaders),
+   208..|      case THIS:get(range) of
+        |          X when (X =:= undefined orelse X =:= fail) orelse Body =:= chunked -&gt;
+        |              %% http://code.google.com/p/mochiweb/issues/detail?id=54
+        |              %% Range header not supported when chunked, return 200 and provide
+        |              %% full response.
+   208..|              HResponse1 = mochiweb_headers:enter("Content-Type", ContentType,
+        |                                                  HResponse),
+   208..|              respond({200, HResponse1, Body});
+        |          Ranges -&gt;
+<font color=red>     0..|              {PartList, Size} = range_parts(Body, Ranges),</font>
+<font color=red>     0..|              case PartList of</font>
+        |                  [] -&gt; %% no valid ranges
+<font color=red>     0..|                      HResponse1 = mochiweb_headers:enter("Content-Type",</font>
+        |                                                          ContentType,
+        |                                                          HResponse),
+        |                      %% could be 416, for now we'll just return 200
+<font color=red>     0..|                      respond({200, HResponse1, Body});</font>
+        |                  PartList -&gt;
+<font color=red>     0..|                      {RangeHeaders, RangeBody} =</font>
+        |                          mochiweb_multipart:parts_to_body(PartList, ContentType, Size),
+<font color=red>     0..|                      HResponse1 = mochiweb_headers:enter_from_list(</font>
+        |                                     [{"Accept-Ranges", "bytes"} |
+        |                                      RangeHeaders],
+        |                                     HResponse),
+<font color=red>     0..|                      respond({206, HResponse1, RangeBody})</font>
+        |              end
+        |      end.
+        |  
+        |  %% @spec should_close() -&gt; bool()
+        |  %% @doc Return true if the connection must be closed. If false, using
+        |  %%      Keep-Alive should be safe.
+        |  should_close() -&gt;
+   420..|      ForceClose = erlang:get(mochiweb_request_force_close) =/= undefined,
+   420..|      DidNotRecv = erlang:get(mochiweb_request_recv) =:= undefined,
+   420..|      ForceClose orelse Version &lt; {1, 0}
+        |          %% Connection: close
+   420..|          orelse get_header_value("connection") =:= "close"
+        |          %% HTTP 1.0 requires Connection: Keep-Alive
+   404..|          orelse (Version =:= {1, 0}
+<font color=red>     0..|                  andalso get_header_value("connection") =/= "Keep-Alive")</font>
+        |          %% unread data left on the socket, can't safely continue
+   404..|          orelse (DidNotRecv
+   202..|                  andalso get_header_value("content-length") =/= undefined
+<font color=red>     0..|                  andalso list_to_integer(get_header_value("content-length")) &gt; 0)</font>
+   404..|          orelse (DidNotRecv
+   202..|                  andalso get_header_value("transfer-encoding") =:= "chunked").
+        |  
+        |  %% @spec cleanup() -&gt; ok
+        |  %% @doc Clean up any junk in the process dictionary, required before continuing
+        |  %%      a Keep-Alive request.
+        |  cleanup() -&gt;
+   404..|      [erase(K) || K &lt;- [?SAVE_QS,
+        |                         ?SAVE_PATH,
+        |                         ?SAVE_RECV,
+        |                         ?SAVE_BODY,
+        |                         ?SAVE_POST,
+        |                         ?SAVE_COOKIE,
+        |                         ?SAVE_FORCE_CLOSE]],
+   404..|      ok.
+        |  
+        |  %% @spec parse_qs() -&gt; [{Key::string(), Value::string()}]
+        |  %% @doc Parse the query string of the URL.
+        |  parse_qs() -&gt;
+<font color=red>     0..|      case erlang:get(?SAVE_QS) of</font>
+        |          undefined -&gt;
+<font color=red>     0..|              {_, QueryString, _} = mochiweb_util:urlsplit_path(RawPath),</font>
+<font color=red>     0..|              Parsed = mochiweb_util:parse_qs(QueryString),</font>
+<font color=red>     0..|              put(?SAVE_QS, Parsed),</font>
+<font color=red>     0..|              Parsed;</font>
+        |          Cached -&gt;
+<font color=red>     0..|              Cached</font>
+        |      end.
+        |  
+        |  %% @spec get_cookie_value(Key::string) -&gt; string() | undefined
+        |  %% @doc Get the value of the given cookie.
+        |  get_cookie_value(Key) -&gt;
+<font color=red>     0..|      proplists:get_value(Key, parse_cookie()).</font>
+        |  
+        |  %% @spec parse_cookie() -&gt; [{Key::string(), Value::string()}]
+        |  %% @doc Parse the cookie header.
+        |  parse_cookie() -&gt;
+<font color=red>     0..|      case erlang:get(?SAVE_COOKIE) of</font>
+        |          undefined -&gt;
+<font color=red>     0..|              Cookies = case get_header_value("cookie") of</font>
+        |                            undefined -&gt;
+<font color=red>     0..|                                [];</font>
+        |                            Value -&gt;
+<font color=red>     0..|                                mochiweb_cookies:parse_cookie(Value)</font>
+        |                        end,
+<font color=red>     0..|              put(?SAVE_COOKIE, Cookies),</font>
+<font color=red>     0..|              Cookies;</font>
+        |          Cached -&gt;
+<font color=red>     0..|              Cached</font>
+        |      end.
+        |  
+        |  %% @spec parse_post() -&gt; [{Key::string(), Value::string()}]
+        |  %% @doc Parse an application/x-www-form-urlencoded form POST. This
+        |  %%      has the side-effect of calling recv_body().
+        |  parse_post() -&gt;
+<font color=red>     0..|      case erlang:get(?SAVE_POST) of</font>
+        |          undefined -&gt;
+<font color=red>     0..|              Parsed = case recv_body() of</font>
+        |                           undefined -&gt;
+<font color=red>     0..|                               [];</font>
+        |                           Binary -&gt;
+<font color=red>     0..|                               case get_primary_header_value("content-type") of</font>
+        |                                   "application/x-www-form-urlencoded" ++ _ -&gt;
+<font color=red>     0..|                                       mochiweb_util:parse_qs(Binary);</font>
+        |                                   _ -&gt;
+<font color=red>     0..|                                       []</font>
+        |                               end
+        |                       end,
+<font color=red>     0..|              put(?SAVE_POST, Parsed),</font>
+<font color=red>     0..|              Parsed;</font>
+        |          Cached -&gt;
+<font color=red>     0..|              Cached</font>
+        |      end.
+        |  
+        |  %% @spec stream_chunked_body(integer(), fun(), term()) -&gt; term()
+        |  %% @doc The function is called for each chunk.
+        |  %%      Used internally by read_chunked_body.
+        |  stream_chunked_body(MaxChunkSize, Fun, FunState) -&gt;
+<font color=red>     0..|      case read_chunk_length() of</font>
+        |          0 -&gt;
+<font color=red>     0..|              Fun({0, read_chunk(0)}, FunState);</font>
+        |          Length when Length &gt; MaxChunkSize -&gt;
+<font color=red>     0..|              NewState = read_sub_chunks(Length, MaxChunkSize, Fun, FunState),</font>
+<font color=red>     0..|              stream_chunked_body(MaxChunkSize, Fun, NewState);</font>
+        |          Length -&gt;
+<font color=red>     0..|              NewState = Fun({Length, read_chunk(Length)}, FunState),</font>
+<font color=red>     0..|              stream_chunked_body(MaxChunkSize, Fun, NewState)</font>
+        |      end.
+        |  
+        |  stream_unchunked_body(0, Fun, FunState) -&gt;
+   212..|      Fun({0, &lt;&lt;&gt;&gt;}, FunState);
+        |  stream_unchunked_body(Length, Fun, FunState) when Length &gt; 0 -&gt;
+   308..|      PktSize = case Length &gt; ?RECBUF_SIZE of
+        |          true -&gt;
+    96..|              ?RECBUF_SIZE;
+        |          false -&gt;
+   212..|              Length
+        |      end,
+   308..|      Bin = recv(PktSize),
+   308..|      NewState = Fun({PktSize, Bin}, FunState),
+   308..|      stream_unchunked_body(Length - PktSize, Fun, NewState).
+        |  
+        |  %% @spec read_chunk_length() -&gt; integer()
+        |  %% @doc Read the length of the next HTTP chunk.
+        |  read_chunk_length() -&gt;
+<font color=red>     0..|      mochiweb_socket:setopts(Socket, [{packet, line}]),</font>
+<font color=red>     0..|      case mochiweb_socket:recv(Socket, 0, ?IDLE_TIMEOUT) of</font>
+        |          {ok, Header} -&gt;
+<font color=red>     0..|              mochiweb_socket:setopts(Socket, [{packet, raw}]),</font>
+<font color=red>     0..|              Splitter = fun (C) -&gt;</font>
+<font color=red>     0..|                                 C =/= $\r andalso C =/= $\n andalso C =/= $</font>
+        |                         end,
+<font color=red>     0..|              {Hex, _Rest} = lists:splitwith(Splitter, binary_to_list(Header)),</font>
+<font color=red>     0..|              mochihex:to_int(Hex);</font>
+        |          _ -&gt;
+<font color=red>     0..|              exit(normal)</font>
+        |      end.
+        |  
+        |  %% @spec read_chunk(integer()) -&gt; Chunk::binary() | [Footer::binary()]
+        |  %% @doc Read in a HTTP chunk of the given length. If Length is 0, then read the
+        |  %%      HTTP footers (as a list of binaries, since they're nominal).
+        |  read_chunk(0) -&gt;
+<font color=red>     0..|      mochiweb_socket:setopts(Socket, [{packet, line}]),</font>
+<font color=red>     0..|      F = fun (F1, Acc) -&gt;</font>
+<font color=red>     0..|                  case mochiweb_socket:recv(Socket, 0, ?IDLE_TIMEOUT) of</font>
+        |                      {ok, &lt;&lt;"\r\n"&gt;&gt;} -&gt;
+<font color=red>     0..|                          Acc;</font>
+        |                      {ok, Footer} -&gt;
+<font color=red>     0..|                          F1(F1, [Footer | Acc]);</font>
+        |                      _ -&gt;
+<font color=red>     0..|                          exit(normal)</font>
+        |                  end
+        |          end,
+<font color=red>     0..|      Footers = F(F, []),</font>
+<font color=red>     0..|      mochiweb_socket:setopts(Socket, [{packet, raw}]),</font>
+<font color=red>     0..|      put(?SAVE_RECV, true),</font>
+<font color=red>     0..|      Footers;</font>
+        |  read_chunk(Length) -&gt;
+<font color=red>     0..|      case mochiweb_socket:recv(Socket, 2 + Length, ?IDLE_TIMEOUT) of</font>
+        |          {ok, &lt;&lt;Chunk:Length/binary, "\r\n"&gt;&gt;} -&gt;
+<font color=red>     0..|              Chunk;</font>
+        |          _ -&gt;
+<font color=red>     0..|              exit(normal)</font>
+        |      end.
+        |  
+        |  read_sub_chunks(Length, MaxChunkSize, Fun, FunState) when Length &gt; MaxChunkSize -&gt;
+<font color=red>     0..|      Bin = recv(MaxChunkSize),</font>
+<font color=red>     0..|      NewState = Fun({size(Bin), Bin}, FunState),</font>
+<font color=red>     0..|      read_sub_chunks(Length - MaxChunkSize, MaxChunkSize, Fun, NewState);</font>
+        |  
+        |  read_sub_chunks(Length, _MaxChunkSize, Fun, FunState) -&gt;
+<font color=red>     0..|      Fun({Length, read_chunk(Length)}, FunState).</font>
+        |  
+        |  %% @spec serve_file(Path, DocRoot) -&gt; Response
+        |  %% @doc Serve a file relative to DocRoot.
+        |  serve_file(Path, DocRoot) -&gt;
+<font color=red>     0..|      serve_file(Path, DocRoot, []).</font>
+        |  
+        |  %% @spec serve_file(Path, DocRoot, ExtraHeaders) -&gt; Response
+        |  %% @doc Serve a file relative to DocRoot.
+        |  serve_file(Path, DocRoot, ExtraHeaders) -&gt;
+<font color=red>     0..|      case mochiweb_util:safe_relative_path(Path) of</font>
+        |          undefined -&gt;
+<font color=red>     0..|              not_found(ExtraHeaders);</font>
+        |          RelPath -&gt;
+<font color=red>     0..|              FullPath = filename:join([DocRoot, RelPath]),</font>
+<font color=red>     0..|              case filelib:is_dir(FullPath) of</font>
+        |                  true -&gt;
+<font color=red>     0..|                      maybe_redirect(RelPath, FullPath, ExtraHeaders);</font>
+        |                  false -&gt;
+<font color=red>     0..|                      maybe_serve_file(FullPath, ExtraHeaders)</font>
+        |              end
+        |      end.
+        |  
+        |  %% Internal API
+        |  
+        |  %% This has the same effect as the DirectoryIndex directive in httpd
+        |  directory_index(FullPath) -&gt;
+<font color=red>     0..|      filename:join([FullPath, "index.html"]).</font>
+        |  
+        |  maybe_redirect([], FullPath, ExtraHeaders) -&gt;
+<font color=red>     0..|      maybe_serve_file(directory_index(FullPath), ExtraHeaders);</font>
+        |  
+        |  maybe_redirect(RelPath, FullPath, ExtraHeaders) -&gt;
+<font color=red>     0..|      case string:right(RelPath, 1) of</font>
+        |          "/" -&gt;
+<font color=red>     0..|              maybe_serve_file(directory_index(FullPath), ExtraHeaders);</font>
+        |          _   -&gt;
+<font color=red>     0..|              Host = mochiweb_headers:get_value("host", Headers),</font>
+<font color=red>     0..|              Location = "http://" ++ Host  ++ "/" ++ RelPath ++ "/",</font>
+<font color=red>     0..|              LocationBin = list_to_binary(Location),</font>
+<font color=red>     0..|              MoreHeaders = [{"Location", Location},</font>
+        |                             {"Content-Type", "text/html"} | ExtraHeaders],
+<font color=red>     0..|              Top = &lt;&lt;"&lt;!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\"&gt;"</font>
+        |              "&lt;html&gt;&lt;head&gt;"
+        |              "&lt;title&gt;301 Moved Permanently&lt;/title&gt;"
+        |              "&lt;/head&gt;&lt;body&gt;"
+        |              "&lt;h1&gt;Moved Permanently&lt;/h1&gt;"
+        |              "&lt;p&gt;The document has moved &lt;a href=\""&gt;&gt;,
+<font color=red>     0..|              Bottom = &lt;&lt;"&gt;here&lt;/a&gt;.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;\n"&gt;&gt;,</font>
+<font color=red>     0..|              Body = &lt;&lt;Top/binary, LocationBin/binary, Bottom/binary&gt;&gt;,</font>
+<font color=red>     0..|              respond({301, MoreHeaders, Body})</font>
+        |      end.
+        |  
+        |  maybe_serve_file(File, ExtraHeaders) -&gt;
+<font color=red>     0..|      case file:read_file_info(File) of</font>
+        |          {ok, FileInfo} -&gt;
+<font color=red>     0..|              LastModified = httpd_util:rfc1123_date(FileInfo#file_info.mtime),</font>
+<font color=red>     0..|              case get_header_value("if-modified-since") of</font>
+        |                  LastModified -&gt;
+<font color=red>     0..|                      respond({304, ExtraHeaders, ""});</font>
+        |                  _ -&gt;
+<font color=red>     0..|                      case file:open(File, [raw, binary]) of</font>
+        |                          {ok, IoDevice} -&gt;
+<font color=red>     0..|                              ContentType = mochiweb_util:guess_mime(File),</font>
+<font color=red>     0..|                              Res = ok({ContentType,</font>
+        |                                        [{"last-modified", LastModified}
+        |                                         | ExtraHeaders],
+        |                                        {file, IoDevice}}),
+<font color=red>     0..|                              file:close(IoDevice),</font>
+<font color=red>     0..|                              Res;</font>
+        |                          _ -&gt;
+<font color=red>     0..|                              not_found(ExtraHeaders)</font>
+        |                      end
+        |              end;
+        |          {error, _} -&gt;
+<font color=red>     0..|              not_found(ExtraHeaders)</font>
+        |      end.
+        |  
+        |  server_headers() -&gt;
+   420..|      [{"Server", "MochiWeb/1.0 (" ++ ?QUIP ++ ")"},
+        |       {"Date", httpd_util:rfc1123_date()}].
+        |  
+        |  make_code(X) when is_integer(X) -&gt;
+   420..|      [integer_to_list(X), [" " | httpd_util:reason_phrase(X)]];
+        |  make_code(Io) when is_list(Io); is_binary(Io) -&gt;
+<font color=red>     0..|      Io.</font>
+        |  
+        |  make_version({1, 0}) -&gt;
+<font color=red>     0..|      &lt;&lt;"HTTP/1.0 "&gt;&gt;;</font>
+        |  make_version(_) -&gt;
+   420..|      &lt;&lt;"HTTP/1.1 "&gt;&gt;.
+        |  
+        |  range_parts({file, IoDevice}, Ranges) -&gt;
+<font color=red>     0..|      Size = mochiweb_io:iodevice_size(IoDevice),</font>
+<font color=red>     0..|      F = fun (Spec, Acc) -&gt;</font>
+<font color=red>     0..|                  case mochiweb_http:range_skip_length(Spec, Size) of</font>
+        |                      invalid_range -&gt;
+<font color=red>     0..|                          Acc;</font>
+        |                      V -&gt;
+<font color=red>     0..|                          [V | Acc]</font>
+        |                  end
+        |          end,
+<font color=red>     0..|      LocNums = lists:foldr(F, [], Ranges),</font>
+<font color=red>     0..|      {ok, Data} = file:pread(IoDevice, LocNums),</font>
+<font color=red>     0..|      Bodies = lists:zipwith(fun ({Skip, Length}, PartialBody) -&gt;</font>
+<font color=red>     0..|                                     {Skip, Skip + Length - 1, PartialBody}</font>
+        |                             end,
+        |                             LocNums, Data),
+<font color=red>     0..|      {Bodies, Size};</font>
+        |  range_parts(Body0, Ranges) -&gt;
+<font color=red>     0..|      Body = iolist_to_binary(Body0),</font>
+<font color=red>     0..|      Size = size(Body),</font>
+<font color=red>     0..|      F = fun(Spec, Acc) -&gt;</font>
+<font color=red>     0..|                  case mochiweb_http:range_skip_length(Spec, Size) of</font>
+        |                      invalid_range -&gt;
+<font color=red>     0..|                          Acc;</font>
+        |                      {Skip, Length} -&gt;
+<font color=red>     0..|                          &lt;&lt;_:Skip/binary, PartialBody:Length/binary, _/binary&gt;&gt; = Body,</font>
+<font color=red>     0..|                          [{Skip, Skip + Length - 1, PartialBody} | Acc]</font>
+        |                  end
+        |          end,
+<font color=red>     0..|      {lists:foldr(F, [], Ranges), Size}.</font>
+        |  
+        |  %% @spec accepted_encodings([encoding()]) -&gt; [encoding()] | bad_accept_encoding_value
+        |  %% @type encoding() = string().
+        |  %%
+        |  %% @doc Returns a list of encodings accepted by a request. Encodings that are
+        |  %%      not supported by the server will not be included in the return list.
+        |  %%      This list is computed from the "Accept-Encoding" header and
+        |  %%      its elements are ordered, descendingly, according to their Q values.
+        |  %%
+        |  %%      Section 14.3 of the RFC 2616 (HTTP 1.1) describes the "Accept-Encoding"
+        |  %%      header and the process of determining which server supported encodings
+        |  %%      can be used for encoding the body for the request's response.
+        |  %%
+        |  %%      Examples
+        |  %%
+        |  %%      1) For a missing "Accept-Encoding" header:
+        |  %%         accepted_encodings(["gzip", "identity"]) -&gt; ["identity"]
+        |  %%
+        |  %%      2) For an "Accept-Encoding" header with value "gzip, deflate":
+        |  %%         accepted_encodings(["gzip", "identity"]) -&gt; ["gzip", "identity"]
+        |  %%
+        |  %%      3) For an "Accept-Encoding" header with value "gzip;q=0.5, deflate":
+        |  %%         accepted_encodings(["gzip", "deflate", "identity"]) -&gt;
+        |  %%            ["deflate", "gzip", "identity"]
+        |  %%
+        |  accepted_encodings(SupportedEncodings) -&gt;
+<font color=red>     0..|      AcceptEncodingHeader = case get_header_value("Accept-Encoding") of</font>
+        |          undefined -&gt;
+<font color=red>     0..|              "";</font>
+        |          Value -&gt;
+<font color=red>     0..|              Value</font>
+        |      end,
+<font color=red>     0..|      case mochiweb_util:parse_qvalues(AcceptEncodingHeader) of</font>
+        |          invalid_qvalue_string -&gt;
+<font color=red>     0..|              bad_accept_encoding_value;</font>
+        |          QList -&gt;
+<font color=red>     0..|              mochiweb_util:pick_accepted_encodings(</font>
+        |                  QList, SupportedEncodings, "identity"
+        |              )
+        |      end.
+        |  
+        |  %%
+        |  %% Tests
+        |  %%
+        |  -include_lib("eunit/include/eunit.hrl").
+        |  -ifdef(TEST).
+        |  -endif.
+</pre>
+</body>
+</html>

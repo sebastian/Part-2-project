@@ -1,0 +1,369 @@
+<html>
+<head><title>.eunit/webmachine_util.COVER.html</title></head><body bgcolor=white text=black>
+<pre>
+File generated from /Users/seb/Documents/part2project/app/deps/webmachine/.eunit/webmachine_util.erl by COVER 2010-10-28 at 14:19:55
+
+****************************************************************************
+
+        |  %% @author Justin Sheehy &lt;justin@basho.com&gt;
+        |  %% @author Andy Gross &lt;andy@basho.com&gt;
+        |  %% @copyright 2007-2008 Basho Technologies
+        |  %% (guess_mime/1 derived from code copyright 2007 Mochi Media, Inc.)
+        |  %%
+        |  %%    Licensed under the Apache License, Version 2.0 (the "License");
+        |  %%    you may not use this file except in compliance with the License.
+        |  %%    You may obtain a copy of the License at
+        |  %%
+        |  %%        http://www.apache.org/licenses/LICENSE-2.0
+        |  %%
+        |  %%    Unless required by applicable law or agreed to in writing, software
+        |  %%    distributed under the License is distributed on an "AS IS" BASIS,
+        |  %%    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+        |  %%    See the License for the specific language governing permissions and
+        |  %%    limitations under the License.
+        |  
+        |  %% @doc Utilities for parsing, quoting, and negotiation.
+        |  
+        |  -module(webmachine_util).
+        |  -export([guess_mime/1]).
+        |  -export([convert_request_date/1, compare_ims_dates/2]).
+        |  -export([choose_media_type/2]).
+        |  -export([choose_charset/2]).
+        |  -export([choose_encoding/2]).
+        |  -export([unquote_header/1]).
+        |  -export([now_diff_milliseconds/2]).
+        |  -export([media_type_to_detail/1]).
+        |  
+        |  -include_lib("eunit/include/eunit.hrl").
+        |  
+        |  convert_request_date(Date) -&gt;
+     2..|      try 
+     2..|          case httpd_util:convert_request_date(Date) of
+     1..|              ReqDate -&gt; ReqDate
+        |          end
+        |      catch
+     1..|          error:_ -&gt; bad_date
+        |      end.
+        |  
+        |  %% returns true if D1 &gt; D2
+        |  compare_ims_dates(D1, D2) -&gt;
+     2..|      GD1 = calendar:datetime_to_gregorian_seconds(D1),
+     2..|      GD2 = calendar:datetime_to_gregorian_seconds(D2),
+     2..|      GD1 &gt; GD2.
+        |  
+        |  %% @spec guess_mime(string()) -&gt; string()
+        |  %% @doc  Guess the mime type of a file by the extension of its filename.
+        |  guess_mime(File) -&gt;
+    20..|      case filename:extension(File) of
+        |          ".html" -&gt;
+     1..|              "text/html";
+        |          ".xhtml" -&gt;
+     1..|              "application/xhtml+xml";
+        |          ".xml" -&gt;
+     1..|              "application/xml";
+        |          ".css" -&gt;
+     1..|              "text/css";
+        |          ".js" -&gt;
+     1..|              "application/x-javascript";
+        |          ".jpg" -&gt;
+     1..|              "image/jpeg";
+        |          ".jpeg" -&gt;
+     1..|              "image/jpeg";
+        |          ".gif" -&gt;
+     1..|              "image/gif";
+        |          ".png" -&gt;
+     1..|              "image/png";
+        |          ".ico" -&gt;
+     1..|              "image/x-icon";
+        |          ".swf" -&gt;
+     1..|              "application/x-shockwave-flash";
+        |          ".zip" -&gt;
+     1..|              "application/zip";
+        |          ".bz2" -&gt;
+     1..|              "application/x-bzip2";
+        |          ".gz" -&gt;
+     1..|              "application/x-gzip";
+        |          ".tar" -&gt;
+     1..|              "application/x-tar";
+        |          ".tgz" -&gt;
+     1..|              "application/x-gzip";
+        |          ".htc" -&gt;
+     1..|              "text/x-component";
+        |          ".manifest" -&gt;
+     1..|              "text/cache-manifest";
+        |          ".svg" -&gt;
+     1..|              "image/svg+xml";
+        |          _ -&gt;
+     1..|              "text/plain"
+        |      end.
+        |  
+        |  choose_media_type(Provided,AcceptHead) -&gt;
+        |      % Return the Content-Type we will serve for a request.
+        |      % If there is no acceptable/available match, return the atom "none".
+        |      % AcceptHead is the value of the request's Accept header
+        |      % Provided is a list of media types the resource can provide.
+        |      %  each is either a string e.g. -- "text/html"
+        |      %   or a string and parameters e.g. -- {"text/html",[{level,1}]}
+        |      % (the plain string case with no parameters is much more common)
+    14..|      Requested = accept_header_to_media_types(AcceptHead),
+    14..|      Prov1 = normalize_provided(Provided),
+    14..|      choose_media_type1(Prov1,Requested).
+        |  choose_media_type1(_Provided,[]) -&gt;
+     4..|      none;
+        |  choose_media_type1(Provided,[H|T]) -&gt;
+    15..|      {_Pri,Type,Params} = H,
+    15..|      case media_match({Type,Params}, Provided) of
+     5..|          [] -&gt; choose_media_type1(Provided,T);
+    10..|          [{CT_T,CT_P}|_] -&gt; format_content_type(CT_T,CT_P)
+        |      end.
+        |  
+<font color=red>     0..|  media_match(_,[]) -&gt; [];</font>
+     1..|  media_match({"*/*",[]},[H|_]) -&gt; [H];
+        |  media_match({Type,Params},Provided) -&gt;
+    14..|      [{T1,P1} || {T1,P1} &lt;- Provided,
+    21..|                  media_type_match(Type,T1), media_params_match(Params,P1)].
+        |  media_type_match(Req,Prov) -&gt;
+    21..|      case Req of
+        |          "*" -&gt; % might as well not break for lame (Gomez) clients
+     1..|              true;
+        |          "*/*" -&gt;
+<font color=red>     0..|              true;</font>
+        |          Prov -&gt;
+     3..|              true;
+        |          _ -&gt;
+    17..|              [R1|R2] = string:tokens(Req,"/"),
+    17..|              [P1,_P2] = string:tokens(Prov,"/"),
+    17..|              case R2 of
+        |                  ["*"] -&gt;
+    10..|                      case R1 of
+     5..|                          P1 -&gt; true;
+     5..|                          _ -&gt; false
+        |                      end;
+     7..|                  _ -&gt; false
+        |              end
+        |      end.
+        |  media_params_match(Req,Prov) -&gt;
+     9..|      lists:sort(Req) =:= lists:sort(Prov).
+        |  
+        |  prioritize_media(TyParam) -&gt;
+    20..|      {Type, Params} = TyParam,
+    20..|      prioritize_media(Type,Params,[]).    
+        |  prioritize_media(Type,Params,Acc) -&gt;
+    20..|      case Params of
+        |          [] -&gt;
+    11..|              {1, Type, Acc};
+        |          _ -&gt;
+     9..|              [{Tok,Val}|Rest] = Params,
+     9..|              case Tok of
+        |                  "q" -&gt;
+     9..|                      QVal = case Val of
+        |                                 "1" -&gt;
+     1..|                                     1;
+        |                                 [$.|_] -&gt;
+        |                                     %% handle strange FeedBurner Accept
+     2..|                                     list_to_float([$0|Val]); 
+     6..|                                 _ -&gt; list_to_float(Val)
+        |                             end,
+     9..|                      {QVal, Type, Rest ++ Acc};
+        |                  _ -&gt;
+<font color=red>     0..|                      prioritize_media(Type,Rest,[{Tok,Val}|Acc])</font>
+        |              end
+        |      end.
+        |  
+        |  media_type_to_detail(MType) -&gt;
+    20..|      [CType|Params] = string:tokens(MType, ";"),
+    20..|      MParams = [list_to_tuple([string:strip(KV) || KV &lt;- string:tokens(X,"=")])
+    20..|                  || X &lt;- Params],
+    20..|      {CType, MParams}.                       
+        |  
+        |  accept_header_to_media_types(HeadVal) -&gt;
+        |      % given the value of an accept header, produce an ordered list
+        |      % based on the q-values.  Results are [{Type,Params}] with the
+        |      % head of the list being the highest-priority requested type.
+    14..|      try
+    14..|          lists:reverse(lists:keysort(1,
+    20..|           [prioritize_media(media_type_to_detail(MType)) ||
+    20..|               MType &lt;- [string:strip(X) || X &lt;- string:tokens(HeadVal, ",")]]))
+<font color=red>     0..|      catch _:_ -&gt; []</font>
+        |      end.
+        |  
+        |  normalize_provided(Provided) -&gt;
+    14..|      [normalize_provided1(X) || X &lt;- Provided].
+    20..|  normalize_provided1(Type) when is_list(Type) -&gt; {Type, []};
+<font color=red>     0..|  normalize_provided1({Type,Params}) -&gt; {Type, Params}.</font>
+        |  
+    10..|  format_content_type(Type,[]) -&gt; Type;
+<font color=red>     0..|  format_content_type(Type,[H|T]) -&gt; format_content_type(Type ++ "; " ++ H, T).</font>
+        |  
+<font color=red>     0..|  choose_charset(CSets, AccCharHdr) -&gt; do_choose(CSets, AccCharHdr, "ISO-8859-1").</font>
+        |  
+<font color=red>     0..|  choose_encoding(Encs, AccEncHdr) -&gt; do_choose(Encs, AccEncHdr, "identity").</font>
+        |  
+        |  do_choose(Choices, Header, Default) -&gt;
+<font color=red>     0..|      Accepted = build_conneg_list(string:tokens(Header, ",")),</font>
+<font color=red>     0..|      DefaultPrio = [P || {P,C} &lt;- Accepted, C =:= Default],</font>
+<font color=red>     0..|      StarPrio = [P || {P,C} &lt;- Accepted, C =:= "*"],</font>
+<font color=red>     0..|      DefaultOkay = case DefaultPrio of</font>
+        |          [] -&gt;
+<font color=red>     0..|              case StarPrio of</font>
+<font color=red>     0..|                  [0.0] -&gt; no;</font>
+<font color=red>     0..|                  _ -&gt; yes</font>
+        |              end;
+<font color=red>     0..|          [0.0] -&gt; no;</font>
+<font color=red>     0..|          _ -&gt; yes</font>
+        |      end,
+<font color=red>     0..|      AnyOkay = case StarPrio of</font>
+<font color=red>     0..|          [] -&gt; no;</font>
+<font color=red>     0..|          [0.0] -&gt; no;</font>
+<font color=red>     0..|          _ -&gt; yes</font>
+        |      end,
+<font color=red>     0..|      do_choose(Default, DefaultOkay, AnyOkay, Choices, Accepted).</font>
+        |  do_choose(_Default, _DefaultOkay, _AnyOkay, [], []) -&gt;
+<font color=red>     0..|      none;</font>
+        |  do_choose(_Default, _DefaultOkay, _AnyOkay, [], _Accepted) -&gt;
+<font color=red>     0..|      none;</font>
+        |  do_choose(Default, DefaultOkay, AnyOkay, Choices, []) -&gt;
+<font color=red>     0..|      case AnyOkay of</font>
+<font color=red>     0..|          yes -&gt; hd(Choices);</font>
+        |          no -&gt;
+<font color=red>     0..|              case DefaultOkay of</font>
+        |                  yes -&gt;
+<font color=red>     0..|                      case lists:member(Default, Choices) of</font>
+<font color=red>     0..|                          true -&gt; Default;</font>
+<font color=red>     0..|                          _ -&gt; none</font>
+        |                      end;
+<font color=red>     0..|                  no -&gt; none</font>
+        |              end
+        |      end;
+        |  do_choose(Default, DefaultOkay, AnyOkay, Choices, [AccPair|AccRest]) -&gt;
+<font color=red>     0..|      {Prio, Acc} = AccPair,</font>
+<font color=red>     0..|      case Prio of</font>
+        |          0.0 -&gt;
+<font color=red>     0..|              do_choose(Default, DefaultOkay, AnyOkay,</font>
+        |                              lists:delete(Acc, Choices), AccRest);
+        |          _ -&gt;
+<font color=red>     0..|              LAcc = string:to_lower(Acc),</font>
+<font color=red>     0..|              LChoices = [string:to_lower(X) || X &lt;- Choices],</font>
+        |              % doing this a little more work than needed in
+        |              % order to be easily insensitive but preserving
+<font color=red>     0..|              case lists:member(LAcc, LChoices) of</font>
+        |                  true -&gt; 
+<font color=red>     0..|                      hd([X || X &lt;- Choices,</font>
+<font color=red>     0..|                               string:to_lower(X) =:= LAcc]);</font>
+<font color=red>     0..|                  false -&gt; do_choose(Default, DefaultOkay, AnyOkay,</font>
+        |                                           Choices, AccRest)
+        |              end
+        |      end.
+        |  
+        |  build_conneg_list(AccList) -&gt;
+<font color=red>     0..|      build_conneg_list(AccList, []).</font>
+<font color=red>     0..|  build_conneg_list([], Result) -&gt; lists:reverse(lists:sort(Result));</font>
+        |  build_conneg_list([Acc|AccRest], Result) -&gt;
+<font color=red>     0..|      XPair = list_to_tuple([string:strip(X) || X &lt;- string:tokens(Acc, ";")]),</font>
+<font color=red>     0..|      Pair = case XPair of</font>
+        |          {Choice, "q=" ++ PrioStr} -&gt;
+<font color=red>     0..|              case PrioStr of</font>
+<font color=red>     0..|                  "0" -&gt; {0.0, Choice};</font>
+<font color=red>     0..|                  "1" -&gt; {1.0, Choice};</font>
+        |                  [$.|_] -&gt;
+        |                      %% handle strange FeedBurner Accept
+<font color=red>     0..|                      {list_to_float([$0|PrioStr]), Choice};</font>
+<font color=red>     0..|                  _ -&gt; {list_to_float(PrioStr), Choice}</font>
+        |              end;
+        |          {Choice} -&gt;
+<font color=red>     0..|              {1.0, Choice}</font>
+        |      end,
+<font color=red>     0..|      build_conneg_list(AccRest,[Pair|Result]).</font>
+        |  
+        |  % (unquote_header copied from mochiweb_util since they don't export it)
+        |  unquote_header("\"" ++ Rest) -&gt;
+     3..|      unquote_header(Rest, []);
+        |  unquote_header(S) -&gt;
+     1..|      S.
+        |  unquote_header("", Acc) -&gt;
+     1..|      lists:reverse(Acc);
+        |  unquote_header("\"", Acc) -&gt;
+     2..|      lists:reverse(Acc);
+        |  unquote_header([$\\, C | Rest], Acc) -&gt;
+     5..|      unquote_header(Rest, [C | Acc]);
+        |  unquote_header([C | Rest], Acc) -&gt;
+    10..|      unquote_header(Rest, [C | Acc]).
+        |  
+        |  %% @type now() = {MegaSecs, Secs, MicroSecs}
+        |  
+        |  %% This is faster than timer:now_diff() because it does not use bignums.
+        |  %% But it returns *milliseconds*  (timer:now_diff returns microseconds.)
+        |  %% From http://www.erlang.org/ml-archive/erlang-questions/200205/msg00027.html
+        |  
+        |  %% @doc  Compute the difference between two now() tuples, in milliseconds.
+        |  %% @spec now_diff_milliseconds(now(), now()) -&gt; integer()
+        |  now_diff_milliseconds({M,S,U}, {M,S1,U1}) -&gt;
+     1..|      ((S-S1) * 1000) + ((U-U1) div 1000);
+        |  now_diff_milliseconds({M,S,U}, {M1,S1,U1}) -&gt;
+     1..|      ((M-M1)*1000000+(S-S1))*1000 + ((U-U1) div 1000).
+        |  
+        |  %%
+        |  %% TEST
+        |  %%
+        |  
+        |  choose_media_type_test() -&gt;
+     1..|      Provided = "text/html",
+     1..|      ShouldMatch = ["*", "*/*", "text/*", "text/html"],
+     1..|      WantNone = ["foo", "text/xml", "application/*", "foo/bar/baz"],
+     1..|      [ ?assertEqual(Provided, choose_media_type([Provided], I))
+     1..|        || I &lt;- ShouldMatch ],
+     1..|      [ ?assertEqual(none, choose_media_type([Provided], I))
+     1..|        || I &lt;- WantNone ].
+        |  
+        |  choose_media_type_qval_test() -&gt;
+     1..|      Provided = ["text/html", "image/jpeg"],
+     1..|      HtmlMatch = ["image/jpeg;q=0.5, text/html",
+        |                   "text/html, image/jpeg; q=0.5",
+        |                   "text/*; q=0.8, image/*;q=0.7",
+        |                   "text/*;q=.8, image/*;q=.7"], %% strange FeedBurner format
+     1..|      JpgMatch = ["image/*;q=1, text/html;q=0.9",
+        |                  "image/png, image/*;q=0.3"],
+     1..|      [ ?assertEqual("text/html", choose_media_type(Provided, I))
+     1..|        || I &lt;- HtmlMatch ],
+     1..|      [ ?assertEqual("image/jpeg", choose_media_type(Provided, I))
+     1..|        || I &lt;- JpgMatch ].
+        |  
+        |  convert_request_date_test() -&gt;
+     1..|      ?assertMatch({{_,_,_},{_,_,_}},
+        |                   convert_request_date("Wed, 30 Dec 2009 14:39:02 GMT")),
+     1..|      ?assertMatch(bad_date,
+        |                   convert_request_date(&lt;&lt;"does not handle binaries"&gt;&gt;)).
+        |  
+        |  compare_ims_dates_test() -&gt;
+     1..|      Late = {{2009,12,30},{14,39,02}},
+     1..|      Early = {{2009,12,30},{13,39,02}},
+     1..|      ?assertEqual(true, compare_ims_dates(Late, Early)),
+     1..|      ?assertEqual(false, compare_ims_dates(Early, Late)).
+        |  
+        |  guess_mime_test() -&gt;
+     1..|      TextTypes = [".html",".css",".htc",".manifest",".txt"],
+     1..|      AppTypes = [".xhtml",".xml",".js",".swf",".zip",".bz2",
+        |                  ".gz",".tar",".tgz"],
+     1..|      ImgTypes = [".jpg",".jpeg",".gif",".png",".ico",".svg"],
+     1..|      ?assertEqual([], [ T || T &lt;- TextTypes,
+     5..|                              1 /= string:str(guess_mime(T),"text/") ]),
+     1..|      ?assertEqual([], [ T || T &lt;- AppTypes,
+     9..|                              1 /= string:str(guess_mime(T),"application/") ]),
+     1..|      ?assertEqual([], [ T || T &lt;- ImgTypes,
+     6..|                              1 /= string:str(guess_mime(T),"image/") ]).
+        |  
+        |  unquote_header_test() -&gt;
+     1..|      ?assertEqual("hello", unquote_header("hello")),
+     1..|      ?assertEqual("hello", unquote_header("\"hello\"")),
+     1..|      ?assertEqual("hello", unquote_header("\"hello")),
+     1..|      ?assertEqual("hello", unquote_header("\"\\h\\e\\l\\l\\o\"")).
+        |  
+        |  now_diff_milliseconds_test() -&gt;
+     1..|      Late = {10, 10, 10},
+     1..|      Early1 = {10, 9, 9},
+     1..|      Early2 = {9, 9, 9},
+     1..|      ?assertEqual(1000, now_diff_milliseconds(Late, Early1)),
+     1..|      ?assertEqual(1000001000, now_diff_milliseconds(Late, Early2)).
+</pre>
+</body>
+</html>

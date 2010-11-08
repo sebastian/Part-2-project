@@ -1,0 +1,85 @@
+<html>
+<head><title>.eunit/mochiweb_cover.COVER.html</title></head><body bgcolor=white text=black>
+<pre>
+File generated from /Users/seb/Documents/part2project/app/deps/mochiweb/.eunit/mochiweb_cover.erl by COVER 2010-10-28 at 14:19:49
+
+****************************************************************************
+
+        |  %% @author Bob Ippolito &lt;bob@mochimedia.com&gt;
+        |  %% @copyright 2010 Mochi Media, Inc.
+        |  
+        |  %% @doc Workarounds for various cover deficiencies.
+        |  -module(mochiweb_cover).
+        |  -export([get_beam/1, get_abstract_code/1,
+        |           get_clauses/2, clause_lookup_table/1]).
+        |  -export([clause_lookup_table/2]).
+        |  
+        |  %% Internal
+        |  
+        |  get_beam(Module) -&gt;
+     5..|      {Module, Beam, _Path} = code:get_object_code(Module),
+     5..|      Beam.
+        |  
+        |  get_abstract_code(Beam) -&gt;
+        |      {ok, {_Module,
+        |            [{abstract_code,
+     5..|              {raw_abstract_v1, L}}]}} = beam_lib:chunks(Beam, [abstract_code]),
+     5..|      L.
+        |  
+        |  get_clauses(Function, Code) -&gt;
+     5..|      [L] = [Clauses || {function, _, FName, _, Clauses}
+     5..|                            &lt;- Code, FName =:= Function],
+     5..|      L.
+        |  
+        |  clause_lookup_table(Module, Function) -&gt;
+     5..|      clause_lookup_table(
+        |        get_clauses(Function,
+        |                    get_abstract_code(get_beam(Module)))).
+        |  
+        |  clause_lookup_table(Clauses) -&gt;
+     5..|      lists:foldr(fun clause_fold/2, [], Clauses).
+        |  
+        |  clause_fold({clause, _,
+        |               [InTerm],
+        |               _Guards=[],
+        |               [OutTerm]},
+        |              Acc) -&gt;
+   306..|      try [{erl_parse:normalise(InTerm), erl_parse:normalise(OutTerm)} | Acc]
+     5..|      catch error:_ -&gt; Acc
+        |      end;
+        |  clause_fold(_, Acc) -&gt;
+     2..|      Acc.
+        |  
+        |  %%
+        |  %% Tests
+        |  %%
+        |  -include_lib("eunit/include/eunit.hrl").
+        |  -ifdef(TEST).
+     2..|  foo_table(a) -&gt; b;
+     1..|  foo_table("a") -&gt; &lt;&lt;"b"&gt;&gt;;
+     1..|  foo_table(123) -&gt; {4, 3, 2};
+     1..|  foo_table([list]) -&gt; [];
+     1..|  foo_table([list1, list2]) -&gt; [list1, list2, list3];
+     1..|  foo_table(ignored) -&gt; some, code, ignored;
+     1..|  foo_table(Var) -&gt; Var.
+        |  
+        |  foo_table_test() -&gt;
+     1..|      T = clause_lookup_table(?MODULE, foo_table),
+     1..|      [?assertEqual(V, foo_table(K)) || {K, V} &lt;- T].
+        |  
+        |  clause_lookup_table_test() -&gt;
+     1..|      ?assertEqual(b, foo_table(a)),
+     1..|      ?assertEqual(ignored, foo_table(ignored)),
+     1..|      ?assertEqual('Var', foo_table('Var')),
+     1..|      ?assertEqual(
+        |         [{a, b},
+        |          {"a", &lt;&lt;"b"&gt;&gt;},
+        |          {123, {4, 3, 2}},
+        |          {[list], []},
+        |          {[list1, list2], [list1, list2, list3]}],
+     1..|         clause_lookup_table(?MODULE, foo_table)).
+        |  
+        |  -endif.
+</pre>
+</body>
+</html>

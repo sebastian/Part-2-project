@@ -1,0 +1,102 @@
+<html>
+<head><title>.eunit/webmachine_deps.COVER.html</title></head><body bgcolor=white text=black>
+<pre>
+File generated from /Users/seb/Documents/part2project/app/deps/webmachine/.eunit/webmachine_deps.erl by COVER 2010-10-28 at 14:19:55
+
+****************************************************************************
+
+        |  %% @author Justin Sheehy &lt;justin@basho.com&gt;
+        |  %% @author Andy Gross &lt;andy@basho.com&gt;
+        |  %% @copyright 2007-2008 Basho Technologies
+        |  %%
+        |  %%    Licensed under the Apache License, Version 2.0 (the "License");
+        |  %%    you may not use this file except in compliance with the License.
+        |  %%    You may obtain a copy of the License at
+        |  %%
+        |  %%        http://www.apache.org/licenses/LICENSE-2.0
+        |  %%
+        |  %%    Unless required by applicable law or agreed to in writing, software
+        |  %%    distributed under the License is distributed on an "AS IS" BASIS,
+        |  %%    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+        |  %%    See the License for the specific language governing permissions and
+        |  %%    limitations under the License.
+        |  
+        |  %% @doc Ensure that the relatively-installed dependencies are on the code
+        |  %%      loading path, and locate resources relative
+        |  %%      to this application's path.
+        |  
+        |  -module(webmachine_deps).
+        |  -author('Justin Sheehy &lt;justin@basho.com&gt;').
+        |  -author('Andy Gross &lt;andy@basho.com&gt;').
+        |  
+        |  -export([ensure/0, ensure/1]).
+        |  -export([get_base_dir/0, get_base_dir/1]).
+        |  -export([local_path/1, local_path/2]).
+        |  -export([deps_on_path/0, new_siblings/1]).
+        |  
+        |  %% @spec deps_on_path() -&gt; [ProjNameAndVers]
+        |  %% @doc List of project dependencies on the path.
+        |  deps_on_path() -&gt;
+<font color=red>     0..|      ordsets:from_list([filename:basename(filename:dirname(X)) || X &lt;- code:get_path()]).</font>
+        |      
+        |  %% @spec new_siblings(Module) -&gt; [Dir]
+        |  %% @doc Find new siblings paths relative to Module that aren't already on the
+        |  %%      code path.
+        |  new_siblings(Module) -&gt;
+<font color=red>     0..|      Existing = deps_on_path(),</font>
+<font color=red>     0..|      SiblingEbin = [ X || X &lt;- filelib:wildcard(local_path(["deps", "*", "ebin"], Module)),</font>
+<font color=red>     0..|                           filename:basename(filename:dirname(X)) /=  %% don't include self</font>
+        |                               filename:basename(filename:dirname(
+        |                                                   filename:dirname(
+        |                                                     filename:dirname(X)))) ],
+<font color=red>     0..|      Siblings = [filename:dirname(X) || X &lt;- SiblingEbin,</font>
+        |                             ordsets:is_element(
+        |                               filename:basename(filename:dirname(X)),
+<font color=red>     0..|                               Existing) =:= false],</font>
+<font color=red>     0..|      lists:filter(fun filelib:is_dir/1, </font>
+<font color=red>     0..|                   lists:append([[filename:join([X, "ebin"]),</font>
+        |                                  filename:join([X, "include"])] ||
+<font color=red>     0..|                                    X &lt;- Siblings])).</font>
+        |          
+        |  
+        |  %% @spec ensure(Module) -&gt; ok
+        |  %% @doc Ensure that all ebin and include paths for dependencies
+        |  %%      of the application for Module are on the code path.
+        |  ensure(Module) -&gt;
+<font color=red>     0..|      code:add_paths(new_siblings(Module)),</font>
+<font color=red>     0..|      code:clash(),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  %% @spec ensure() -&gt; ok
+        |  %% @doc Ensure that the ebin and include paths for dependencies of
+        |  %%      this application are on the code path. Equivalent to
+        |  %%      ensure(?Module).
+        |  ensure() -&gt;
+<font color=red>     0..|      ensure(?MODULE).</font>
+        |  
+        |  %% @spec get_base_dir(Module) -&gt; string()
+        |  %% @doc Return the application directory for Module. It assumes Module is in
+        |  %%      a standard OTP layout application in the ebin or src directory.
+        |  get_base_dir(Module) -&gt;
+<font color=red>     0..|      {file, Here} = code:is_loaded(Module),</font>
+<font color=red>     0..|      filename:dirname(filename:dirname(Here)).</font>
+        |  
+        |  %% @spec get_base_dir() -&gt; string()
+        |  %% @doc Return the application directory for this application. Equivalent to
+        |  %%      get_base_dir(?MODULE).
+        |  get_base_dir() -&gt;
+<font color=red>     0..|      get_base_dir(?MODULE).</font>
+        |  
+        |  %% @spec local_path([string()], Module) -&gt; string()
+        |  %% @doc Return an application-relative directory from Module's application.
+        |  local_path(Components, Module) -&gt;
+<font color=red>     0..|      filename:join([get_base_dir(Module) | Components]).</font>
+        |  
+        |  %% @spec local_path(Components) -&gt; string()
+        |  %% @doc Return an application-relative directory for this application.
+        |  %%      Equivalent to local_path(Components, ?MODULE).
+        |  local_path(Components) -&gt;
+<font color=red>     0..|      local_path(Components, ?MODULE).</font>
+</pre>
+</body>
+</html>

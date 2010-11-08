@@ -1,0 +1,89 @@
+<html>
+<head><title>.eunit/webmachine_sup.COVER.html</title></head><body bgcolor=white text=black>
+<pre>
+File generated from /Users/seb/Documents/part2project/app/deps/webmachine/.eunit/webmachine_sup.erl by COVER 2010-10-28 at 14:19:55
+
+****************************************************************************
+
+        |  %% @author Justin Sheehy &lt;justin@basho.com&gt;
+        |  %% @author Andy Gross &lt;andy@basho.com&gt;
+        |  %% @copyright 2007-2008 Basho Technologies
+        |  %%
+        |  %%    Licensed under the Apache License, Version 2.0 (the "License");
+        |  %%    you may not use this file except in compliance with the License.
+        |  %%    You may obtain a copy of the License at
+        |  %%
+        |  %%        http://www.apache.org/licenses/LICENSE-2.0
+        |  %%
+        |  %%    Unless required by applicable law or agreed to in writing, software
+        |  %%    distributed under the License is distributed on an "AS IS" BASIS,
+        |  %%    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+        |  %%    See the License for the specific language governing permissions and
+        |  %%    limitations under the License.
+        |  
+        |  %% @doc Supervisor for the webmachine application.
+        |  
+        |  -module(webmachine_sup).
+        |  
+        |  -behaviour(supervisor).
+        |  
+        |  %% External exports
+        |  -export([start_link/0, upgrade/0, start_logger/1]).
+        |  -export([start_perf_logger/1]).
+        |  
+        |  %% supervisor callbacks
+        |  -export([init/1]).
+        |  
+        |  %% @spec start_link() -&gt; ServerRet
+        |  %% @doc API for starting the supervisor.
+        |  start_link() -&gt;
+<font color=red>     0..|      supervisor:start_link({local, ?MODULE}, ?MODULE, []).</font>
+        |  
+        |  start_logger(BaseDir) -&gt;
+<font color=red>     0..|      case application:get_env(webmachine, webmachine_logger_module) of</font>
+        |          {ok, LoggerModule} -&gt;
+<font color=red>     0..|              ChildSpec = </font>
+        |                  {webmachine_logger,
+        |                   {LoggerModule, start_link, [BaseDir]},
+        |                   permanent, 5000, worker, dynamic},
+<font color=red>     0..|              supervisor:start_child(?MODULE, ChildSpec);</font>
+<font color=red>     0..|          _ -&gt; nop</font>
+        |      end.
+        |  
+        |  start_perf_logger(BaseDir) -&gt;
+<font color=red>     0..|      ChildSpec = </font>
+        |          {webmachine_perf_logger,
+        |           {webmachine_perf_logger, start_link, [BaseDir]},
+        |           permanent, 5000, worker, [webmachine_perf_logger]},
+<font color=red>     0..|      supervisor:start_child(?MODULE, ChildSpec).</font>
+        |  
+        |  %% @spec upgrade() -&gt; ok
+        |  %% @doc Add processes if necessary.
+        |  upgrade() -&gt;
+<font color=red>     0..|      {ok, {_, Specs}} = init([]),</font>
+        |  
+<font color=red>     0..|      Old = sets:from_list(</font>
+<font color=red>     0..|              [Name || {Name, _, _, _} &lt;- supervisor:which_children(?MODULE)]),</font>
+<font color=red>     0..|      New = sets:from_list([Name || {Name, _, _, _, _, _} &lt;- Specs]),</font>
+<font color=red>     0..|      Kill = sets:subtract(Old, New),</font>
+        |  
+<font color=red>     0..|      sets:fold(fun (Id, ok) -&gt;</font>
+<font color=red>     0..|                        supervisor:terminate_child(?MODULE, Id),</font>
+<font color=red>     0..|                        supervisor:delete_child(?MODULE, Id),</font>
+<font color=red>     0..|                        ok</font>
+        |                end, ok, Kill),
+        |  
+<font color=red>     0..|      [supervisor:start_child(?MODULE, Spec) || Spec &lt;- Specs],</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  %% @spec init([]) -&gt; SupervisorTree
+        |  %% @doc supervisor callback.
+        |  init([]) -&gt;
+<font color=red>     0..|      Router = {webmachine_router,</font>
+        |                {webmachine_router, start_link, []},
+        |                permanent, 5000, worker, [webmachine_router]},
+<font color=red>     0..|      Processes = [Router],</font>
+<font color=red>     0..|      {ok, {{one_for_one, 9, 10}, Processes}}.</font>
+</pre>
+</body>
+</html>

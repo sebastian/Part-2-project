@@ -80,8 +80,8 @@ stabilize() ->
 %% gen_server Function Definitions
 %% ------------------------------------------------------------------
 
-init(Args) -> 
-  Port = proplists:get_value(port, Args, 4000),
+init(_Args) -> 
+  Port = utilities:get_chord_port(),
   NodeId = utilities:key_for_node(utilities:get_ip(), Port),
 
   % We initialize the finger table with 160 records.
@@ -360,7 +360,7 @@ test_get_state() ->
               #finger_entry{start = 1, interval = {1,2}, node = nForKey(1)}],
     self = #node{key = 0},
     % We have set the successors Id to 1. All request for keys > 1 will go to successor
-    successor = #node{ip = {127,0,0,1}, port = 9234, key = 1}
+    successor = #node{ip = {127,0,0,1}, port = utilities:get_chord_port(), key = 1}
   }.
 
 %% @todo: Missing test for fix_finger
@@ -452,8 +452,10 @@ join_test_() ->
   ]}.
 
 join_test1() ->
-  State = (test_get_state())#chord_state{predecessor = #node{key = 1234}, self = #node{key = 2}},
-  {ok, NewState} = join(State, #node{ip = {127,0,0,1}, port = 9234}),
+  State = (test_get_state())#chord_state{predecessor = #node{key = 1234}, 
+      self = #node{key = 2}},
+  {ok, NewState} = join(State, #node{ip = {127,0,0,1}, 
+      port = utilities:get_chord_port()}),
   % Ensure the precesseccor has been removed
   ?assert((NewState#chord_state.predecessor)#node.key =/= 1234),
   % Make sure that it has set the right successor

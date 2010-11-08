@@ -1,0 +1,48 @@
+<html>
+<head><title>.eunit/mochiweb_echo.COVER.html</title></head><body bgcolor=white text=black>
+<pre>
+File generated from /Users/seb/Documents/part2project/app/deps/mochiweb/.eunit/mochiweb_echo.erl by COVER 2010-10-28 at 14:19:49
+
+****************************************************************************
+
+        |  %% @author Bob Ippolito &lt;bob@mochimedia.com&gt;
+        |  %% @copyright 2007 Mochi Media, Inc.
+        |  
+        |  %% @doc Simple and stupid echo server to demo mochiweb_socket_server.
+        |  
+        |  -module(mochiweb_echo).
+        |  -author('bob@mochimedia.com').
+        |  -export([start/0, stop/0, loop/1]).
+        |  
+        |  stop() -&gt;
+<font color=red>     0..|      mochiweb_socket_server:stop(?MODULE).</font>
+        |  
+        |  start() -&gt;
+<font color=red>     0..|      mochiweb_socket_server:start([{name, ?MODULE},</font>
+        |                                    {port, 6789},
+        |                                    {ip, "127.0.0.1"},
+        |                                    {max, 1},
+        |                                    {loop, {?MODULE, loop}}]).
+        |  
+        |  loop(Socket) -&gt;
+<font color=red>     0..|      case mochiweb_socket:recv(Socket, 0, 30000) of</font>
+        |          {ok, Data} -&gt;
+<font color=red>     0..|              case mochiweb_socket:send(Socket, Data) of</font>
+        |                  ok -&gt;
+<font color=red>     0..|                      loop(Socket);</font>
+        |                  _ -&gt;
+<font color=red>     0..|                      exit(normal)</font>
+        |              end;
+        |          _Other -&gt;
+<font color=red>     0..|              exit(normal)</font>
+        |      end.
+        |  
+        |  %%
+        |  %% Tests
+        |  %%
+        |  -include_lib("eunit/include/eunit.hrl").
+        |  -ifdef(TEST).
+        |  -endif.
+</pre>
+</body>
+</html>

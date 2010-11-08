@@ -8,7 +8,6 @@
 -include_lib("eunit/include/eunit.hrl").
 -endif.
 
--define(TCP_PORT, 9234).
 -define(TCP_OPTS, [binary, inet,
                    {active,    false},
                    {backlog,   10},
@@ -107,7 +106,7 @@ chord_tcp_client(Socket) ->
   end.
 
 init([]) ->
-  {ok, {?TCP_PORT, ?TCP_OPTS}, []}.
+  {ok, {utilities:get_chord_port(), ?TCP_OPTS}, []}.
 
 handle_accept(Sock, State) ->
   Pid = spawn(fun() -> chord_tcp_client(Sock) end),

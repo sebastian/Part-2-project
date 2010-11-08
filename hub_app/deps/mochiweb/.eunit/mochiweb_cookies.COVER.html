@@ -1,0 +1,319 @@
+<html>
+<head><title>.eunit/mochiweb_cookies.COVER.html</title></head><body bgcolor=white text=black>
+<pre>
+File generated from /Users/seb/Documents/part2project/app/deps/mochiweb/.eunit/mochiweb_cookies.erl by COVER 2010-10-28 at 14:19:49
+
+****************************************************************************
+
+        |  %% @author Emad El-Haraty &lt;emad@mochimedia.com&gt;
+        |  %% @copyright 2007 Mochi Media, Inc.
+        |  
+        |  %% @doc HTTP Cookie parsing and generating (RFC 2109, RFC 2965).
+        |  
+        |  -module(mochiweb_cookies).
+        |  -export([parse_cookie/1, cookie/3, cookie/2]).
+        |  
+        |  -define(QUOTE, $\").
+        |  
+        |  -define(IS_WHITESPACE(C),
+        |          (C =:= $\s orelse C =:= $\t orelse C =:= $\r orelse C =:= $\n)).
+        |  
+        |  %% RFC 2616 separators (called tspecials in RFC 2068)
+        |  -define(IS_SEPARATOR(C),
+        |          (C &lt; 32 orelse
+        |           C =:= $\s orelse C =:= $\t orelse
+        |           C =:= $( orelse C =:= $) orelse C =:= $&lt; orelse C =:= $&gt; orelse
+        |           C =:= $@ orelse C =:= $, orelse C =:= $; orelse C =:= $: orelse
+        |           C =:= $\\ orelse C =:= $\" orelse C =:= $/ orelse
+        |           C =:= $[ orelse C =:= $] orelse C =:= $? orelse C =:= $= orelse
+        |           C =:= ${ orelse C =:= $})).
+        |  
+        |  %% @type proplist() = [{Key::string(), Value::string()}].
+        |  %% @type header() = {Name::string(), Value::string()}.
+        |  
+        |  %% @spec cookie(Key::string(), Value::string()) -&gt; header()
+        |  %% @doc Short-hand for &lt;code&gt;cookie(Key, Value, [])&lt;/code&gt;.
+        |  cookie(Key, Value) -&gt;
+     1..|      cookie(Key, Value, []).
+        |  
+        |  %% @spec cookie(Key::string(), Value::string(), Options::[Option]) -&gt; header()
+        |  %% where Option = {max_age, integer()} | {local_time, {date(), time()}}
+        |  %%                | {domain, string()} | {path, string()}
+        |  %%                | {secure, true | false} | {http_only, true | false}
+        |  %%
+        |  %% @doc Generate a Set-Cookie header field tuple.
+        |  cookie(Key, Value, Options) -&gt;
+    10..|      Cookie = [any_to_list(Key), "=", quote(Value), "; Version=1"],
+        |      %% Set-Cookie:
+        |      %%    Comment, Domain, Max-Age, Path, Secure, Version
+        |      %% Set-Cookie2:
+        |      %%    Comment, CommentURL, Discard, Domain, Max-Age, Path, Port, Secure,
+        |      %%    Version
+    10..|      ExpiresPart =
+        |          case proplists:get_value(max_age, Options) of
+        |              undefined -&gt;
+     7..|                  "";
+        |              RawAge -&gt;
+     3..|                  When = case proplists:get_value(local_time, Options) of
+        |                             undefined -&gt;
+     1..|                                 calendar:local_time();
+        |                             LocalTime -&gt;
+     2..|                                 LocalTime
+        |                         end,
+     3..|                  Age = case RawAge &lt; 0 of
+        |                            true -&gt;
+     1..|                                0;
+        |                            false -&gt;
+     2..|                                RawAge
+        |                        end,
+     3..|                  ["; Expires=", age_to_cookie_date(Age, When),
+        |                   "; Max-Age=", quote(Age)]
+        |          end,
+    10..|      SecurePart =
+        |          case proplists:get_value(secure, Options) of
+        |              true -&gt;
+     1..|                  "; Secure";
+        |              _ -&gt;
+     9..|                  ""
+        |          end,
+    10..|      DomainPart =
+        |          case proplists:get_value(domain, Options) of
+        |              undefined -&gt;
+     9..|                  "";
+        |              Domain -&gt;
+     1..|                  ["; Domain=", quote(Domain)]
+        |          end,
+    10..|      PathPart =
+        |          case proplists:get_value(path, Options) of
+        |              undefined -&gt;
+     6..|                  "";
+        |              Path -&gt;
+     4..|                  ["; Path=", quote(Path)]
+        |          end,
+    10..|      HttpOnlyPart =
+        |          case proplists:get_value(http_only, Options) of
+        |              true -&gt;
+     1..|                  "; HttpOnly";
+        |              _ -&gt;
+     9..|                  ""
+        |          end,
+    10..|      CookieParts = [Cookie, ExpiresPart, SecurePart, DomainPart, PathPart, HttpOnlyPart],
+    10..|      {"Set-Cookie", lists:flatten(CookieParts)}.
+        |  
+        |  
+        |  %% Every major browser incorrectly handles quoted strings in a
+        |  %% different and (worse) incompatible manner.  Instead of wasting time
+        |  %% writing redundant code for each browser, we restrict cookies to
+        |  %% only contain characters that browsers handle compatibly.
+        |  %%
+        |  %% By replacing the definition of quote with this, we generate
+        |  %% RFC-compliant cookies:
+        |  %%
+        |  %%     quote(V) -&gt;
+        |  %%         Fun = fun(?QUOTE, Acc) -&gt; [$\\, ?QUOTE | Acc];
+        |  %%                  (Ch, Acc) -&gt; [Ch | Acc]
+        |  %%               end,
+        |  %%         [?QUOTE | lists:foldr(Fun, [?QUOTE], V)].
+        |  
+        |  %% Convert to a string and raise an error if quoting is required.
+        |  quote(V0) -&gt;
+    20..|      V = any_to_list(V0),
+    20..|      lists:all(fun(Ch) -&gt; Ch =:= $/ orelse not ?IS_SEPARATOR(Ch) end, V)
+     1..|          orelse erlang:error({cookie_quoting_required, V}),
+    19..|      V.
+        |  
+        |  add_seconds(Secs, LocalTime) -&gt;
+     3..|      Greg = calendar:datetime_to_gregorian_seconds(LocalTime),
+     3..|      calendar:gregorian_seconds_to_datetime(Greg + Secs).
+        |  
+        |  age_to_cookie_date(Age, LocalTime) -&gt;
+     3..|      httpd_util:rfc1123_date(add_seconds(Age, LocalTime)).
+        |  
+        |  %% @spec parse_cookie(string()) -&gt; [{K::string(), V::string()}]
+        |  %% @doc Parse the contents of a Cookie header field, ignoring cookie
+        |  %% attributes, and return a simple property list.
+        |  parse_cookie("") -&gt;
+     1..|      [];
+        |  parse_cookie(Cookie) -&gt;
+     8..|      parse_cookie(Cookie, []).
+        |  
+        |  %% Internal API
+        |  
+        |  parse_cookie([], Acc) -&gt;
+     8..|      lists:reverse(Acc);
+        |  parse_cookie(String, Acc) -&gt;
+    18..|      {{Token, Value}, Rest} = read_pair(String),
+    18..|      Acc1 = case Token of
+        |                 "" -&gt;
+     1..|                     Acc;
+        |                 "$" ++ _ -&gt;
+     4..|                     Acc;
+        |                 _ -&gt;
+    13..|                     [{Token, Value} | Acc]
+        |             end,
+    18..|      parse_cookie(Rest, Acc1).
+        |  
+        |  read_pair(String) -&gt;
+    18..|      {Token, Rest} = read_token(skip_whitespace(String)),
+    18..|      {Value, Rest1} = read_value(skip_whitespace(Rest)),
+    18..|      {{Token, Value}, skip_past_separator(Rest1)}.
+        |  
+        |  read_value([$= | Value]) -&gt;
+    15..|      Value1 = skip_whitespace(Value),
+    15..|      case Value1 of
+        |          [?QUOTE | _] -&gt;
+    10..|              read_quoted(Value1);
+        |          _ -&gt;
+     5..|              read_token(Value1)
+        |      end;
+        |  read_value(String) -&gt;
+     3..|      {"", String}.
+        |  
+        |  read_quoted([?QUOTE | String]) -&gt;
+    10..|      read_quoted(String, []).
+        |  
+        |  read_quoted([], Acc) -&gt;
+     1..|      {lists:reverse(Acc), []};
+        |  read_quoted([?QUOTE | Rest], Acc) -&gt;
+     9..|      {lists:reverse(Acc), Rest};
+        |  read_quoted([$\\, Any | Rest], Acc) -&gt;
+     3..|      read_quoted(Rest, [Any | Acc]);
+        |  read_quoted([C | Rest], Acc) -&gt;
+    59..|      read_quoted(Rest, [C | Acc]).
+        |  
+        |  skip_whitespace(String) -&gt;
+    51..|      F = fun (C) -&gt; ?IS_WHITESPACE(C) end,
+    51..|      lists:dropwhile(F, String).
+        |  
+        |  read_token(String) -&gt;
+    23..|      F = fun (C) -&gt; not ?IS_SEPARATOR(C) end,
+    23..|      lists:splitwith(F, String).
+        |  
+        |  skip_past_separator([]) -&gt;
+     8..|      [];
+        |  skip_past_separator([$; | Rest]) -&gt;
+     9..|      Rest;
+        |  skip_past_separator([$, | Rest]) -&gt;
+     1..|      Rest;
+        |  skip_past_separator([_ | Rest]) -&gt;
+     2..|      skip_past_separator(Rest).
+        |  
+        |  any_to_list(V) when is_list(V) -&gt;
+    20..|      V;
+        |  any_to_list(V) when is_atom(V) -&gt;
+     4..|      atom_to_list(V);
+        |  any_to_list(V) when is_binary(V) -&gt;
+     3..|      binary_to_list(V);
+        |  any_to_list(V) when is_integer(V) -&gt;
+     3..|      integer_to_list(V).
+        |  
+        |  %%
+        |  %% Tests
+        |  %%
+        |  -include_lib("eunit/include/eunit.hrl").
+        |  -ifdef(TEST).
+        |  
+        |  quote_test() -&gt;
+        |      %% ?assertError eunit macro is not compatible with coverage module
+     1..|      try quote(":wq")
+     1..|      catch error:{cookie_quoting_required, ":wq"} -&gt; ok
+        |      end,
+     1..|      ?assertEqual(
+        |         "foo",
+     1..|         quote(foo)),
+     1..|      ok.
+        |  
+        |  parse_cookie_test() -&gt;
+        |      %% RFC example
+     1..|      C1 = "$Version=\"1\"; Customer=\"WILE_E_COYOTE\"; $Path=\"/acme\";
+        |      Part_Number=\"Rocket_Launcher_0001\"; $Path=\"/acme\";
+        |      Shipping=\"FedEx\"; $Path=\"/acme\"",
+     1..|      ?assertEqual(
+        |         [{"Customer","WILE_E_COYOTE"},
+        |          {"Part_Number","Rocket_Launcher_0001"},
+        |          {"Shipping","FedEx"}],
+     1..|         parse_cookie(C1)),
+        |      %% Potential edge cases
+     1..|      ?assertEqual(
+        |         [{"foo", "x"}],
+     1..|         parse_cookie("foo=\"\\x\"")),
+     1..|      ?assertEqual(
+        |         [],
+     1..|         parse_cookie("=")),
+     1..|      ?assertEqual(
+        |         [{"foo", ""}, {"bar", ""}],
+     1..|         parse_cookie("  foo ; bar  ")),
+     1..|      ?assertEqual(
+        |         [{"foo", ""}, {"bar", ""}],
+     1..|         parse_cookie("foo=;bar=")),
+     1..|      ?assertEqual(
+        |         [{"foo", "\";"}, {"bar", ""}],
+     1..|         parse_cookie("foo = \"\\\";\";bar ")),
+     1..|      ?assertEqual(
+        |         [{"foo", "\";bar"}],
+     1..|         parse_cookie("foo=\"\\\";bar")),
+     1..|      ?assertEqual(
+        |         [],
+     1..|         parse_cookie([])),
+     1..|      ?assertEqual(
+        |         [{"foo", "bar"}, {"baz", "wibble"}],
+     1..|         parse_cookie("foo=bar , baz=wibble ")),
+     1..|      ok.
+        |  
+        |  domain_test() -&gt;
+     1..|      ?assertEqual(
+        |         {"Set-Cookie",
+        |          "Customer=WILE_E_COYOTE; "
+        |          "Version=1; "
+        |          "Domain=acme.com; "
+        |          "HttpOnly"},
+        |         cookie("Customer", "WILE_E_COYOTE",
+     1..|                [{http_only, true}, {domain, "acme.com"}])),
+     1..|      ok.
+        |  
+        |  local_time_test() -&gt;
+     1..|      {"Set-Cookie", S} = cookie("Customer", "WILE_E_COYOTE",
+        |                                 [{max_age, 111}, {secure, true}]),
+     1..|      ?assertMatch(
+        |         ["Customer=WILE_E_COYOTE",
+        |          " Version=1",
+        |          " Expires=" ++ _,
+        |          " Max-Age=111",
+     1..|          " Secure"],
+        |         string:tokens(S, ";")),
+     1..|      ok.
+        |  
+        |  cookie_test() -&gt;
+     1..|      C1 = {"Set-Cookie",
+        |            "Customer=WILE_E_COYOTE; "
+        |            "Version=1; "
+        |            "Path=/acme"},
+     1..|      C1 = cookie("Customer", "WILE_E_COYOTE", [{path, "/acme"}]),
+     1..|      C1 = cookie("Customer", "WILE_E_COYOTE",
+        |                  [{path, "/acme"}, {badoption, "negatory"}]),
+     1..|      C1 = cookie('Customer', 'WILE_E_COYOTE', [{path, '/acme'}]),
+     1..|      C1 = cookie(&lt;&lt;"Customer"&gt;&gt;, &lt;&lt;"WILE_E_COYOTE"&gt;&gt;, [{path, &lt;&lt;"/acme"&gt;&gt;}]),
+        |  
+     1..|      {"Set-Cookie","=NoKey; Version=1"} = cookie("", "NoKey", []),
+     1..|      {"Set-Cookie","=NoKey; Version=1"} = cookie("", "NoKey"),
+     1..|      LocalTime = calendar:universal_time_to_local_time({{2007, 5, 15}, {13, 45, 33}}),
+     1..|      C2 = {"Set-Cookie",
+        |            "Customer=WILE_E_COYOTE; "
+        |            "Version=1; "
+        |            "Expires=Tue, 15 May 2007 13:45:33 GMT; "
+        |            "Max-Age=0"},
+     1..|      C2 = cookie("Customer", "WILE_E_COYOTE",
+        |                  [{max_age, -111}, {local_time, LocalTime}]),
+     1..|      C3 = {"Set-Cookie",
+        |            "Customer=WILE_E_COYOTE; "
+        |            "Version=1; "
+        |            "Expires=Wed, 16 May 2007 13:45:50 GMT; "
+        |            "Max-Age=86417"},
+     1..|      C3 = cookie("Customer", "WILE_E_COYOTE",
+        |                  [{max_age, 86417}, {local_time, LocalTime}]),
+     1..|      ok.
+        |  
+        |  -endif.
+</pre>
+</body>
+</html>

@@ -1,0 +1,104 @@
+<html>
+<head><title>.eunit/mochiweb_mime.COVER.html</title></head><body bgcolor=white text=black>
+<pre>
+File generated from /Users/seb/Documents/part2project/app/deps/mochiweb/.eunit/mochiweb_mime.erl by COVER 2010-10-28 at 14:19:50
+
+****************************************************************************
+
+        |  %% @author Bob Ippolito &lt;bob@mochimedia.com&gt;
+        |  %% @copyright 2007 Mochi Media, Inc.
+        |  
+        |  %% @doc Gives a good MIME type guess based on file extension.
+        |  
+        |  -module(mochiweb_mime).
+        |  -author('bob@mochimedia.com').
+        |  -export([from_extension/1]).
+        |  
+        |  %% @spec from_extension(S::string()) -&gt; string() | undefined
+        |  %% @doc Given a filename extension (e.g. ".html") return a guess for the MIME
+        |  %%      type such as "text/html". Will return the atom undefined if no good
+        |  %%      guess is available.
+        |  from_extension(".html") -&gt;
+     3..|      "text/html";
+        |  from_extension(".xhtml") -&gt;
+     2..|      "application/xhtml+xml";
+        |  from_extension(".xml") -&gt;
+     1..|      "application/xml";
+        |  from_extension(".css") -&gt;
+     1..|      "text/css";
+        |  from_extension(".js") -&gt;
+     1..|      "application/x-javascript";
+        |  from_extension(".jpg") -&gt;
+     1..|      "image/jpeg";
+        |  from_extension(".gif") -&gt;
+     1..|      "image/gif";
+        |  from_extension(".png") -&gt;
+     1..|      "image/png";
+        |  from_extension(".swf") -&gt;
+     1..|      "application/x-shockwave-flash";
+        |  from_extension(".zip") -&gt;
+     3..|      "application/zip";
+        |  from_extension(".bz2") -&gt;
+     1..|      "application/x-bzip2";
+        |  from_extension(".gz") -&gt;
+     1..|      "application/x-gzip";
+        |  from_extension(".tar") -&gt;
+     1..|      "application/x-tar";
+        |  from_extension(".tgz") -&gt;
+     1..|      "application/x-gzip";
+        |  from_extension(".txt") -&gt;
+     1..|      "text/plain";
+        |  from_extension(".doc") -&gt;
+     1..|      "application/msword";
+        |  from_extension(".pdf") -&gt;
+     1..|      "application/pdf";
+        |  from_extension(".xls") -&gt;
+     1..|      "application/vnd.ms-excel";
+        |  from_extension(".rtf") -&gt;
+     1..|      "application/rtf";
+        |  from_extension(".mov") -&gt;
+     1..|      "video/quicktime";
+        |  from_extension(".mp3") -&gt;
+     1..|      "audio/mpeg";
+        |  from_extension(".z") -&gt;
+     1..|      "application/x-compress";
+        |  from_extension(".wav") -&gt;
+     1..|      "audio/x-wav";
+        |  from_extension(".ico") -&gt;
+     1..|      "image/x-icon";
+        |  from_extension(".bmp") -&gt;
+     1..|      "image/bmp";
+        |  from_extension(".m4a") -&gt;
+     1..|      "audio/mpeg";
+        |  from_extension(".m3u") -&gt;
+     1..|      "audio/x-mpegurl";
+        |  from_extension(".exe") -&gt;
+     1..|      "application/octet-stream";
+        |  from_extension(".csv") -&gt;
+     1..|      "text/csv";
+        |  from_extension(_) -&gt;
+     4..|      undefined.
+        |  
+        |  %%
+        |  %% Tests
+        |  %%
+        |  -include_lib("eunit/include/eunit.hrl").
+        |  -ifdef(TEST).
+        |  
+        |  exhaustive_from_extension_test() -&gt;
+     1..|      T = mochiweb_cover:clause_lookup_table(?MODULE, from_extension),
+     1..|      [?assertEqual(V, from_extension(K)) || {K, V} &lt;- T].
+        |  
+        |  from_extension_test() -&gt;
+     1..|      ?assertEqual("text/html",
+     1..|                   from_extension(".html")),
+     1..|      ?assertEqual(undefined,
+     1..|                   from_extension("")),
+     1..|      ?assertEqual(undefined,
+     1..|                   from_extension(".wtf")),
+     1..|      ok.
+        |  
+        |  -endif.
+</pre>
+</body>
+</html>

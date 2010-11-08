@@ -1,0 +1,658 @@
+<html>
+<head><title>.eunit/webmachine_decision_core.COVER.html</title></head><body bgcolor=white text=black>
+<pre>
+File generated from /Users/seb/Documents/part2project/app/deps/webmachine/.eunit/webmachine_decision_core.erl by COVER 2010-10-28 at 14:19:54
+
+****************************************************************************
+
+        |  %% @author Justin Sheehy &lt;justin@basho.com&gt;
+        |  %% @author Andy Gross &lt;andy@basho.com&gt;
+        |  %% @author Bryan Fink &lt;bryan@basho.com&gt;
+        |  %% @copyright 2007-2009 Basho Technologies
+        |  %%
+        |  %%    Licensed under the Apache License, Version 2.0 (the "License");
+        |  %%    you may not use this file except in compliance with the License.
+        |  %%    You may obtain a copy of the License at
+        |  %%
+        |  %%        http://www.apache.org/licenses/LICENSE-2.0
+        |  %%
+        |  %%    Unless required by applicable law or agreed to in writing, software
+        |  %%    distributed under the License is distributed on an "AS IS" BASIS,
+        |  %%    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+        |  %%    See the License for the specific language governing permissions and
+        |  %%    limitations under the License.
+        |  
+        |  %% @doc Decision core for webmachine
+        |  
+        |  -module(webmachine_decision_core).
+        |  -author('Justin Sheehy &lt;justin@basho.com&gt;').
+        |  -author('Andy Gross &lt;andy@basho.com&gt;').
+        |  -author('Bryan Fink &lt;bryan@basho.com&gt;').
+        |  -export([handle_request/2]).
+        |  -export([do_log/1]).
+        |  -include("webmachine_logger.hrl").
+        |  
+        |  handle_request(Resource, ReqState) -&gt;
+<font color=red>     0..|      [erase(X) || X &lt;- [decision, code, req_body, bytes_written, tmp_reqstate]],</font>
+<font color=red>     0..|      put(resource, Resource),</font>
+<font color=red>     0..|      put(reqstate, ReqState),</font>
+<font color=red>     0..|      try</font>
+<font color=red>     0..|          d(v3b13)</font>
+        |      catch
+        |          error:_ -&gt;            
+<font color=red>     0..|              error_response(erlang:get_stacktrace())</font>
+        |      end.
+        |  
+        |  wrcall(X) -&gt;
+<font color=red>     0..|      RS0 = get(reqstate),</font>
+<font color=red>     0..|      Req = webmachine_request:new(RS0),</font>
+<font color=red>     0..|      {Response, RS1} = Req:call(X),</font>
+<font color=red>     0..|      put(reqstate, RS1),</font>
+<font color=red>     0..|      Response.</font>
+        |  
+        |  resource_call(Fun) -&gt;
+<font color=red>     0..|      Resource = get(resource),</font>
+<font color=red>     0..|      {Reply, NewResource, NewRS} = Resource:do(Fun,get()),</font>
+<font color=red>     0..|      put(resource, NewResource),</font>
+<font color=red>     0..|      put(reqstate, NewRS),</font>
+<font color=red>     0..|      Reply.</font>
+        |  
+<font color=red>     0..|  get_header_val(H) -&gt; wrcall({get_req_header, H}).</font>
+        |  
+<font color=red>     0..|  method() -&gt; wrcall(method).</font>
+        |  
+        |  d(DecisionID) -&gt;
+<font color=red>     0..|      put(decision, DecisionID),</font>
+<font color=red>     0..|      log_decision(DecisionID),</font>
+<font color=red>     0..|      decision(DecisionID).</font>
+        |      
+        |  respond(Code) -&gt;
+<font color=red>     0..|      Resource = get(resource),</font>
+<font color=red>     0..|      EndTime = now(),</font>
+<font color=red>     0..|      case Code of</font>
+        |          404 -&gt;
+<font color=red>     0..|              {ok, ErrorHandler} = application:get_env(webmachine, error_handler),</font>
+<font color=red>     0..|              Reason = {none, none, []},</font>
+<font color=red>     0..|              {ErrorHTML,ReqState} = ErrorHandler:render_error(</font>
+        |                            Code, {webmachine_request,get(reqstate)}, Reason),
+<font color=red>     0..|              put(reqstate, ReqState),</font>
+<font color=red>     0..|              wrcall({set_resp_body, ErrorHTML});</font>
+        |          304 -&gt;
+<font color=red>     0..|              wrcall({remove_resp_header, "Content-Type"}),</font>
+<font color=red>     0..|              case resource_call(generate_etag) of</font>
+<font color=red>     0..|                  undefined -&gt; nop;</font>
+<font color=red>     0..|                  ETag -&gt; wrcall({set_resp_header, "ETag", ETag})</font>
+        |              end,
+<font color=red>     0..|              case resource_call(expires) of</font>
+<font color=red>     0..|                  undefined -&gt; nop;</font>
+        |                  Exp -&gt;
+<font color=red>     0..|                      wrcall({set_resp_header, "Expires",</font>
+        |                             httpd_util:rfc1123_date(
+        |                                calendar:universal_time_to_local_time(Exp))})
+        |              end;
+<font color=red>     0..|          _ -&gt; ignore</font>
+        |      end,
+<font color=red>     0..|      put(code, Code),</font>
+<font color=red>     0..|      wrcall({set_response_code, Code}),</font>
+<font color=red>     0..|      resource_call(finish_request),</font>
+<font color=red>     0..|      wrcall({send_response, Code}),</font>
+<font color=red>     0..|      RMod = wrcall({get_metadata, 'resource_module'}),</font>
+<font color=red>     0..|      Notes = wrcall(notes),</font>
+<font color=red>     0..|      LogData0 = wrcall(log_data),</font>
+<font color=red>     0..|      LogData = LogData0#wm_log_data{resource_module=RMod,</font>
+        |                                     end_time=EndTime,
+        |                                     notes=Notes},
+<font color=red>     0..|      spawn(fun() -&gt; do_log(LogData) end),</font>
+<font color=red>     0..|      Resource:stop().</font>
+        |  
+        |  respond(Code, Headers) -&gt;
+<font color=red>     0..|      wrcall({set_resp_headers, Headers}),</font>
+<font color=red>     0..|      respond(Code).</font>
+        |  
+        |  error_response(Code, Reason) -&gt;
+<font color=red>     0..|      {ok, ErrorHandler} = application:get_env(webmachine, error_handler),</font>
+<font color=red>     0..|      {ErrorHTML, ReqState} = ErrorHandler:render_error(</font>
+        |                                Code, {webmachine_request,get(reqstate)}, Reason),
+<font color=red>     0..|      put(reqstate, ReqState),</font>
+<font color=red>     0..|      wrcall({set_resp_body, ErrorHTML}),</font>
+<font color=red>     0..|      respond(Code).</font>
+        |  error_response(Reason) -&gt;
+<font color=red>     0..|      error_response(500, Reason).</font>
+        |  
+        |  decision_test(Test,TestVal,TrueFlow,FalseFlow) -&gt;
+<font color=red>     0..|      case Test of</font>
+<font color=red>     0..|          {error, Reason} -&gt; error_response(Reason);</font>
+<font color=red>     0..|          {error, Reason0, Reason1} -&gt; error_response({Reason0, Reason1});</font>
+<font color=red>     0..|          {halt, Code} -&gt; respond(Code);</font>
+<font color=red>     0..|          TestVal -&gt; decision_flow(TrueFlow, Test);</font>
+<font color=red>     0..|          _ -&gt; decision_flow(FalseFlow, Test)</font>
+        |      end.
+        |      
+        |  decision_flow(X, TestResult) when is_integer(X) -&gt;
+<font color=red>     0..|      if X &gt;= 500 -&gt; error_response(X, TestResult);</font>
+<font color=red>     0..|         true -&gt; respond(X)</font>
+        |      end;
+<font color=red>     0..|  decision_flow(X, _TestResult) when is_atom(X) -&gt; d(X).</font>
+        |  
+        |  do_log(LogData) -&gt;
+<font color=red>     0..|      case application:get_env(webmachine, webmachine_logger_module) of</font>
+<font color=red>     0..|          {ok, LoggerModule} -&gt; LoggerModule:log_access(LogData);</font>
+<font color=red>     0..|          _ -&gt; nop</font>
+        |      end,
+<font color=red>     0..|      case application:get_env(webmachine, enable_perf_logger) of</font>
+        |          {ok, true} -&gt;
+<font color=red>     0..|              webmachine_perf_logger:log(LogData);</font>
+        |          _ -&gt;
+<font color=red>     0..|              ignore</font>
+        |      end.
+        |  
+        |  log_decision(DecisionID) -&gt; 
+<font color=red>     0..|      Resource = get(resource),</font>
+<font color=red>     0..|      Resource:log_d(DecisionID).</font>
+        |  
+        |  %% "Service Available"
+        |  decision(v3b13) -&gt;
+<font color=red>     0..|      decision_test(resource_call(ping), pong, v3b13b, 503);</font>
+        |  decision(v3b13b) -&gt;
+<font color=red>     0..|      decision_test(resource_call(service_available), true, v3b12, 503);</font>
+        |  %% "Known method?"
+        |  decision(v3b12) -&gt;
+<font color=red>     0..|      decision_test(lists:member(method(), resource_call(known_methods)),</font>
+        |                    true, v3b11, 501);
+        |  %% "URI too long?"
+        |  decision(v3b11) -&gt;
+<font color=red>     0..|      decision_test(resource_call(uri_too_long), true, 414, v3b10);</font>
+        |  %% "Method allowed?"
+        |  decision(v3b10) -&gt;
+<font color=red>     0..|      Methods = resource_call(allowed_methods),</font>
+<font color=red>     0..|      case lists:member(method(), Methods) of</font>
+        |          true -&gt;
+<font color=red>     0..|              d(v3b9);</font>
+        |          false -&gt;
+<font color=red>     0..|              wrcall({set_resp_headers, [{"Allow",</font>
+<font color=red>     0..|                     string:join([atom_to_list(M) || M &lt;- Methods], ", ")}]}),</font>
+<font color=red>     0..|              respond(405)</font>
+        |      end;
+        |  %% "Malformed?"
+        |  decision(v3b9) -&gt;
+<font color=red>     0..|      decision_test(resource_call(malformed_request), true, 400, v3b8);</font>
+        |  %% "Authorized?"
+        |  decision(v3b8) -&gt;
+<font color=red>     0..|      case resource_call(is_authorized) of</font>
+<font color=red>     0..|          true -&gt; d(v3b7);</font>
+        |          {error, Reason} -&gt;
+<font color=red>     0..|              error_response(Reason);</font>
+        |          {halt, Code}  -&gt;
+<font color=red>     0..|              respond(Code);</font>
+        |          AuthHead -&gt;
+<font color=red>     0..|              wrcall({set_resp_header, "WWW-Authenticate", AuthHead}),</font>
+<font color=red>     0..|              respond(401)</font>
+        |      end;
+        |  %% "Forbidden?"
+        |  decision(v3b7) -&gt;
+<font color=red>     0..|      decision_test(resource_call(forbidden), true, 403, v3b6);</font>
+        |  %% "Okay Content-* Headers?"
+        |  decision(v3b6) -&gt;
+<font color=red>     0..|      decision_test(resource_call(valid_content_headers), true, v3b5, 501);</font>
+        |  %% "Known Content-Type?"
+        |  decision(v3b5) -&gt;
+<font color=red>     0..|      decision_test(resource_call(known_content_type), true, v3b4, 415);</font>
+        |  %% "Req Entity Too Large?"
+        |  decision(v3b4) -&gt;
+<font color=red>     0..|      decision_test(resource_call(valid_entity_length), true, v3b3, 413);</font>
+        |  %% "OPTIONS?"
+        |  decision(v3b3) -&gt;
+<font color=red>     0..|      case method() of </font>
+        |          'OPTIONS' -&gt;
+<font color=red>     0..|              Hdrs = resource_call(options),</font>
+<font color=red>     0..|              respond(200, Hdrs);</font>
+        |          _ -&gt;
+<font color=red>     0..|              d(v3c3)</font>
+        |      end;
+        |  %% Accept exists?
+        |  decision(v3c3) -&gt;
+<font color=red>     0..|      PTypes = [Type || {Type,_Fun} &lt;- resource_call(content_types_provided)],</font>
+<font color=red>     0..|      case get_header_val("accept") of</font>
+        |          undefined -&gt;
+<font color=red>     0..|              wrcall({set_metadata, 'content-type', hd(PTypes)}),</font>
+<font color=red>     0..|              d(v3d4);</font>
+        |          _ -&gt;
+<font color=red>     0..|              d(v3c4)</font>
+        |      end;
+        |  %% Acceptable media type available?
+        |  decision(v3c4) -&gt;
+<font color=red>     0..|      PTypes = [Type || {Type,_Fun} &lt;- resource_call(content_types_provided)],</font>
+<font color=red>     0..|      AcceptHdr = get_header_val("accept"),</font>
+<font color=red>     0..|      case webmachine_util:choose_media_type(PTypes, AcceptHdr) of</font>
+        |          none -&gt;
+<font color=red>     0..|              respond(406);</font>
+        |          MType -&gt;
+<font color=red>     0..|              wrcall({set_metadata, 'content-type', MType}),</font>
+<font color=red>     0..|              d(v3d4)</font>
+        |      end;
+        |  %% Accept-Language exists?
+        |  decision(v3d4) -&gt;
+<font color=red>     0..|      decision_test(get_header_val("accept-language"),</font>
+        |                    undefined, v3e5, v3d5);
+        |  %% Acceptable Language available? %% WMACH-46 (do this as proper conneg)
+        |  decision(v3d5) -&gt;
+<font color=red>     0..|      decision_test(resource_call(language_available), true, v3e5, 406);</font>
+        |  %% Accept-Charset exists?
+        |  decision(v3e5) -&gt;
+<font color=red>     0..|      case get_header_val("accept-charset") of</font>
+<font color=red>     0..|          undefined -&gt; decision_test(choose_charset("*"),</font>
+        |                                     none, 406, v3f6);
+<font color=red>     0..|          _ -&gt; d(v3e6)</font>
+        |      end;
+        |  %% Acceptable Charset available?
+        |  decision(v3e6) -&gt;
+<font color=red>     0..|      decision_test(choose_charset(get_header_val("accept-charset")),</font>
+        |                    none, 406, v3f6);
+        |  %% Accept-Encoding exists?
+        |  % (also, set content-type header here, now that charset is chosen)
+        |  decision(v3f6) -&gt;
+<font color=red>     0..|      CType = wrcall({get_metadata, 'content-type'}),</font>
+<font color=red>     0..|      CSet = case wrcall({get_metadata, 'chosen-charset'}) of</font>
+<font color=red>     0..|                 undefined -&gt; "";</font>
+<font color=red>     0..|                 CS -&gt; "; charset=" ++ CS</font>
+        |             end,
+<font color=red>     0..|      wrcall({set_resp_header, "Content-Type", CType ++ CSet}),</font>
+<font color=red>     0..|      case get_header_val("accept-encoding") of</font>
+        |          undefined -&gt;
+<font color=red>     0..|              decision_test(choose_encoding("identity;q=1.0,*;q=0.5"),</font>
+        |                            none, 406, v3g7);
+<font color=red>     0..|          _ -&gt; d(v3f7)</font>
+        |      end;
+        |  %% Acceptable encoding available?
+        |  decision(v3f7) -&gt;
+<font color=red>     0..|      decision_test(choose_encoding(get_header_val("accept-encoding")),</font>
+        |                    none, 406, v3g7);
+        |  %% "Resource exists?"
+        |  decision(v3g7) -&gt;
+        |      % this is the first place after all conneg, so set Vary here
+<font color=red>     0..|      case variances() of</font>
+<font color=red>     0..|          [] -&gt; nop;</font>
+        |          Variances -&gt;
+<font color=red>     0..|              wrcall({set_resp_header, "Vary", string:join(Variances, ", ")})</font>
+        |      end,
+<font color=red>     0..|      decision_test(resource_call(resource_exists), true, v3g8, v3h7);</font>
+        |  %% "If-Match exists?"
+        |  decision(v3g8) -&gt;
+<font color=red>     0..|      decision_test(get_header_val("if-match"), undefined, v3h10, v3g9);</font>
+        |  %% "If-Match: * exists"
+        |  decision(v3g9) -&gt;
+<font color=red>     0..|      decision_test(get_header_val("if-match"), "*", v3h10, v3g11);</font>
+        |  %% "ETag in If-Match"
+        |  decision(v3g11) -&gt;
+<font color=red>     0..|      ReqETag = webmachine_util:unquote_header(get_header_val("if-match")),</font>
+<font color=red>     0..|      decision_test(resource_call(generate_etag), ReqETag, v3h10, 412);</font>
+        |  %% "If-Match: * exists"
+        |  decision(v3h7) -&gt;
+<font color=red>     0..|      decision_test(get_header_val("if-match"), "*", 412, v3i7);</font>
+        |  %% "If-unmodified-since exists?"
+        |  decision(v3h10) -&gt;
+<font color=red>     0..|      decision_test(get_header_val("if-unmodified-since"),undefined,v3i12,v3h11);</font>
+        |  %% "I-UM-S is valid date?"
+        |  decision(v3h11) -&gt;
+<font color=red>     0..|      IUMSDate = get_header_val("if-unmodified-since"),</font>
+<font color=red>     0..|      decision_test(webmachine_util:convert_request_date(IUMSDate),</font>
+        |                    bad_date, v3i12, v3h12);
+        |  %% "Last-Modified &gt; I-UM-S?"
+        |  decision(v3h12) -&gt;
+<font color=red>     0..|      ReqDate = get_header_val("if-unmodified-since"),</font>
+<font color=red>     0..|      ReqErlDate = webmachine_util:convert_request_date(ReqDate),</font>
+<font color=red>     0..|      ResErlDate = resource_call(last_modified),</font>
+<font color=red>     0..|      decision_test(ResErlDate &gt; ReqErlDate,</font>
+        |                    true, 412, v3i12);
+        |  %% "Moved permanently? (apply PUT to different URI)"
+        |  decision(v3i4) -&gt;
+<font color=red>     0..|      case resource_call(moved_permanently) of</font>
+        |          {true, MovedURI} -&gt;
+<font color=red>     0..|              wrcall({set_resp_header, "Location", MovedURI}),</font>
+<font color=red>     0..|              respond(301);</font>
+        |          false -&gt;
+<font color=red>     0..|              d(v3p3);</font>
+        |          {error, Reason} -&gt;
+<font color=red>     0..|              error_response(Reason);</font>
+        |          {halt, Code} -&gt;
+<font color=red>     0..|              respond(Code)</font>
+        |      end;
+        |  %% PUT?
+        |  decision(v3i7) -&gt;
+<font color=red>     0..|      decision_test(method(), 'PUT', v3i4, v3k7);</font>
+        |  %% "If-none-match exists?"
+        |  decision(v3i12) -&gt;
+<font color=red>     0..|      decision_test(get_header_val("if-none-match"), undefined, v3l13, v3i13);</font>
+        |  %% "If-None-Match: * exists?"
+        |  decision(v3i13) -&gt;
+<font color=red>     0..|      decision_test(get_header_val("if-none-match"), "*", v3j18, v3k13);</font>
+        |  %% GET or HEAD?
+        |  decision(v3j18) -&gt;
+<font color=red>     0..|      decision_test(lists:member(method(),['GET','HEAD']),</font>
+        |                    true, 304, 412);
+        |  %% "Moved permanently?"
+        |  decision(v3k5) -&gt;
+<font color=red>     0..|      case resource_call(moved_permanently) of</font>
+        |          {true, MovedURI} -&gt;
+<font color=red>     0..|              wrcall({set_resp_header, "Location", MovedURI}),</font>
+<font color=red>     0..|              respond(301);</font>
+        |          false -&gt;
+<font color=red>     0..|              d(v3l5);</font>
+        |          {error, Reason} -&gt;
+<font color=red>     0..|              error_response(Reason);</font>
+        |          {halt, Code} -&gt;
+<font color=red>     0..|              respond(Code)</font>
+        |      end;
+        |  %% "Previously existed?"
+        |  decision(v3k7) -&gt;
+<font color=red>     0..|      decision_test(resource_call(previously_existed), true, v3k5, v3l7);</font>
+        |  %% "Etag in if-none-match?"
+        |  decision(v3k13) -&gt;
+<font color=red>     0..|      ReqETag = webmachine_util:unquote_header(get_header_val("if-none-match")),</font>
+<font color=red>     0..|      decision_test(resource_call(generate_etag), ReqETag, v3j18, v3l13);</font>
+        |  %% "Moved temporarily?"
+        |  decision(v3l5) -&gt;
+<font color=red>     0..|      case resource_call(moved_temporarily) of</font>
+        |          {true, MovedURI} -&gt;
+<font color=red>     0..|              wrcall({set_resp_header, "Location", MovedURI}),</font>
+<font color=red>     0..|              respond(307);</font>
+        |          false -&gt;
+<font color=red>     0..|              d(v3m5);</font>
+        |          {error, Reason} -&gt;
+<font color=red>     0..|              error_response(Reason);</font>
+        |          {halt, Code} -&gt;
+<font color=red>     0..|              respond(Code)</font>
+        |      end;
+        |  %% "POST?"
+        |  decision(v3l7) -&gt;
+<font color=red>     0..|      decision_test(method(), 'POST', v3m7, 404);</font>
+        |  %% "IMS exists?"
+        |  decision(v3l13) -&gt;
+<font color=red>     0..|      decision_test(get_header_val("if-modified-since"), undefined, v3m16, v3l14);</font>
+        |  %% "IMS is valid date?"
+        |  decision(v3l14) -&gt; 
+<font color=red>     0..|      IMSDate = get_header_val("if-modified-since"),</font>
+<font color=red>     0..|      decision_test(webmachine_util:convert_request_date(IMSDate),</font>
+        |                    bad_date, v3m16, v3l15);
+        |  %% "IMS &gt; Now?"
+        |  decision(v3l15) -&gt;
+<font color=red>     0..|      NowDateTime = calendar:universal_time(),</font>
+<font color=red>     0..|      ReqDate = get_header_val("if-modified-since"),</font>
+<font color=red>     0..|      ReqErlDate = webmachine_util:convert_request_date(ReqDate),</font>
+<font color=red>     0..|      decision_test(ReqErlDate &gt; NowDateTime,</font>
+        |                    true, v3m16, v3l17);
+        |  %% "Last-Modified &gt; IMS?"
+        |  decision(v3l17) -&gt;
+<font color=red>     0..|      ReqDate = get_header_val("if-modified-since"),    </font>
+<font color=red>     0..|      ReqErlDate = webmachine_util:convert_request_date(ReqDate),</font>
+<font color=red>     0..|      ResErlDate = resource_call(last_modified),</font>
+<font color=red>     0..|      decision_test(ResErlDate =:= undefined orelse ResErlDate &gt; ReqErlDate,</font>
+        |                    true, v3m16, 304);
+        |  %% "POST?"
+        |  decision(v3m5) -&gt;
+<font color=red>     0..|      decision_test(method(), 'POST', v3n5, 410);</font>
+        |  %% "Server allows POST to missing resource?"
+        |  decision(v3m7) -&gt;
+<font color=red>     0..|      decision_test(resource_call(allow_missing_post), true, v3n11, 404);</font>
+        |  %% "DELETE?"
+        |  decision(v3m16) -&gt;
+<font color=red>     0..|      decision_test(method(), 'DELETE', v3m20, v3n16);</font>
+        |  %% DELETE enacted immediately?
+        |  %% Also where DELETE is forced.
+        |  decision(v3m20) -&gt;
+<font color=red>     0..|      decision_test(resource_call(delete_resource), true, v3m20b, 500);</font>
+        |  decision(v3m20b) -&gt;
+<font color=red>     0..|      decision_test(resource_call(delete_completed), true, v3o20, 202);</font>
+        |  %% "Server allows POST to missing resource?"
+        |  decision(v3n5) -&gt;
+<font color=red>     0..|      decision_test(resource_call(allow_missing_post), true, v3n11, 410);</font>
+        |  %% "Redirect?"
+        |  decision(v3n11) -&gt;
+<font color=red>     0..|      Stage1 = case resource_call(post_is_create) of</font>
+        |          true -&gt;
+<font color=red>     0..|              case resource_call(create_path) of</font>
+<font color=red>     0..|                  undefined -&gt; error_response("post_is_create w/o create_path");</font>
+        |                  NewPath -&gt;
+<font color=red>     0..|                      case is_list(NewPath) of</font>
+<font color=red>     0..|                          false -&gt; error_response("create_path not a string");</font>
+        |                          true -&gt;
+<font color=red>     0..|                              wrcall({set_disp_path, NewPath}),</font>
+<font color=red>     0..|                              Res = accept_helper(),</font>
+<font color=red>     0..|                              case Res of</font>
+<font color=red>     0..|                                  {respond, Code} -&gt; respond(Code);</font>
+<font color=red>     0..|                                  {halt, Code} -&gt; respond(Code);</font>
+<font color=red>     0..|                                  {error, _,_} -&gt; error_response(Res);</font>
+<font color=red>     0..|                                  {error, _} -&gt; error_response(Res);</font>
+<font color=red>     0..|                                  _ -&gt; stage1_ok</font>
+        |                              end
+        |                      end
+        |              end;
+        |          _ -&gt;
+<font color=red>     0..|              case resource_call(process_post) of</font>
+        |                  true -&gt; 
+<font color=red>     0..|                      encode_body_if_set(),</font>
+<font color=red>     0..|                      stage1_ok;</font>
+<font color=red>     0..|                  {halt, Code} -&gt; respond(Code);</font>
+<font color=red>     0..|                  Err -&gt; error_response(Err)</font>
+        |              end
+        |      end,
+<font color=red>     0..|      case Stage1 of</font>
+        |          stage1_ok -&gt;
+<font color=red>     0..|              case wrcall(resp_redirect) of</font>
+        |                  true -&gt;
+<font color=red>     0..|                      case wrcall({get_resp_header, "Location"}) of</font>
+        |                          undefined -&gt;
+<font color=red>     0..|                              respond(500,</font>
+        |                                      "Response had do_redirect but no Location");
+        |                          _ -&gt;
+<font color=red>     0..|                              respond(303)</font>
+        |                      end;
+        |                  _ -&gt;
+<font color=red>     0..|                      d(v3p11)</font>
+        |              end;
+<font color=red>     0..|          _ -&gt; nop</font>
+        |      end;
+        |  %% "POST?"
+        |  decision(v3n16) -&gt;
+<font color=red>     0..|      decision_test(method(), 'POST', v3n11, v3o16);</font>
+        |  %% Conflict?
+        |  decision(v3o14) -&gt;
+<font color=red>     0..|      case resource_call(is_conflict) of</font>
+<font color=red>     0..|          true -&gt; respond(409);</font>
+<font color=red>     0..|          _ -&gt; Res = accept_helper(),</font>
+<font color=red>     0..|               case Res of</font>
+<font color=red>     0..|                   {respond, Code} -&gt; respond(Code);</font>
+<font color=red>     0..|                   {halt, Code} -&gt; respond(Code);</font>
+<font color=red>     0..|                   {error, _,_} -&gt; error_response(Res);</font>
+<font color=red>     0..|                   {error, _} -&gt; error_response(Res);</font>
+<font color=red>     0..|                   _ -&gt; d(v3p11)</font>
+        |               end
+        |      end;
+        |  %% "PUT?"
+        |  decision(v3o16) -&gt;
+<font color=red>     0..|      decision_test(method(), 'PUT', v3o14, v3o18);</font>
+        |  %% Multiple representations?
+        |  % (also where body generation for GET and HEAD is done)
+        |  decision(v3o18) -&gt;    
+<font color=red>     0..|      BuildBody = case method() of</font>
+<font color=red>     0..|          'GET' -&gt; true;</font>
+<font color=red>     0..|          'HEAD' -&gt; true;</font>
+<font color=red>     0..|          _ -&gt; false</font>
+        |      end,
+<font color=red>     0..|      FinalBody = case BuildBody of</font>
+        |          true -&gt;
+<font color=red>     0..|              case resource_call(generate_etag) of</font>
+<font color=red>     0..|                  undefined -&gt; nop;</font>
+<font color=red>     0..|                  ETag -&gt; wrcall({set_resp_header, "ETag", ETag})</font>
+        |              end,
+<font color=red>     0..|              CT = wrcall({get_metadata, 'content-type'}),</font>
+<font color=red>     0..|              case resource_call(last_modified) of</font>
+<font color=red>     0..|                  undefined -&gt; nop;</font>
+        |                  LM -&gt;
+<font color=red>     0..|                      wrcall({set_resp_header, "Last-Modified",</font>
+        |                             httpd_util:rfc1123_date(
+        |                               calendar:universal_time_to_local_time(LM))})
+        |              end,
+<font color=red>     0..|              case resource_call(expires) of</font>
+<font color=red>     0..|                  undefined -&gt; nop;</font>
+        |                  Exp -&gt;
+<font color=red>     0..|                      wrcall({set_resp_header, "Expires",</font>
+        |                             httpd_util:rfc1123_date(
+        |                                calendar:universal_time_to_local_time(Exp))})
+        |              end,
+<font color=red>     0..|              F = hd([Fun || {Type,Fun} &lt;- resource_call(content_types_provided),</font>
+<font color=red>     0..|                             CT =:= Type]),</font>
+<font color=red>     0..|              resource_call(F);</font>
+<font color=red>     0..|          false -&gt; nop</font>
+        |      end,
+<font color=red>     0..|      case FinalBody of</font>
+<font color=red>     0..|          {error, _} -&gt; error_response(FinalBody);</font>
+<font color=red>     0..|          {error, _,_} -&gt; error_response(FinalBody);</font>
+<font color=red>     0..|          {halt, Code} -&gt; respond(Code);</font>
+<font color=red>     0..|          nop -&gt; d(v3o18b);</font>
+<font color=red>     0..|          _ -&gt; wrcall({set_resp_body,</font>
+        |                       encode_body(FinalBody)}),
+<font color=red>     0..|               d(v3o18b)</font>
+        |      end;
+        |  
+        |  decision(v3o18b) -&gt;
+<font color=red>     0..|      decision_test(resource_call(multiple_choices), true, 300, 200);</font>
+        |  %% Response includes an entity?
+        |  decision(v3o20) -&gt;
+<font color=red>     0..|      decision_test(wrcall(has_resp_body), true, v3o18, 204);</font>
+        |  %% Conflict?
+        |  decision(v3p3) -&gt;
+<font color=red>     0..|      case resource_call(is_conflict) of</font>
+<font color=red>     0..|          true -&gt; respond(409);</font>
+<font color=red>     0..|          _ -&gt; Res = accept_helper(),</font>
+<font color=red>     0..|               case Res of</font>
+<font color=red>     0..|                   {respond, Code} -&gt; respond(Code);</font>
+<font color=red>     0..|                   {halt, Code} -&gt; respond(Code);</font>
+<font color=red>     0..|                   {error, _,_} -&gt; error_response(Res);</font>
+<font color=red>     0..|                   {error, _} -&gt; error_response(Res);</font>
+<font color=red>     0..|                   _ -&gt; d(v3p11)</font>
+        |               end
+        |      end;
+        |  
+        |  %% New resource?  (at this point boils down to "has location header")
+        |  decision(v3p11) -&gt;
+<font color=red>     0..|      case wrcall({get_resp_header, "Location"}) of</font>
+<font color=red>     0..|          undefined -&gt; d(v3o20);</font>
+<font color=red>     0..|          _ -&gt; respond(201)</font>
+        |      end.
+        |  
+        |  accept_helper() -&gt;
+<font color=red>     0..|      CT = case get_header_val("Content-Type") of</font>
+<font color=red>     0..|               undefined -&gt; "application/octet-stream";</font>
+<font color=red>     0..|               Other -&gt; Other</font>
+        |           end,
+<font color=red>     0..|      {MT, MParams} = webmachine_util:media_type_to_detail(CT),</font>
+<font color=red>     0..|      wrcall({set_metadata, 'mediaparams', MParams}),</font>
+<font color=red>     0..|      case [Fun || {Type,Fun} &lt;-</font>
+<font color=red>     0..|                       resource_call(content_types_accepted), MT =:= Type] of</font>
+<font color=red>     0..|          [] -&gt; {respond,415};</font>
+        |          AcceptedContentList -&gt;
+<font color=red>     0..|              F = hd(AcceptedContentList),</font>
+<font color=red>     0..|              case resource_call(F) of</font>
+        |                  true -&gt;
+<font color=red>     0..|                      encode_body_if_set(),</font>
+<font color=red>     0..|                      true;</font>
+<font color=red>     0..|                  Result -&gt; Result</font>
+        |              end
+        |      end.
+        |  
+        |  encode_body_if_set() -&gt;
+<font color=red>     0..|      case wrcall(has_resp_body) of</font>
+        |          true -&gt;
+<font color=red>     0..|              Body = wrcall(resp_body),</font>
+<font color=red>     0..|              wrcall({set_resp_body, encode_body(Body)}),</font>
+<font color=red>     0..|              true;</font>
+<font color=red>     0..|          _ -&gt; false</font>
+        |      end.
+        |  
+        |  encode_body(Body) -&gt;
+<font color=red>     0..|      ChosenCSet = wrcall({get_metadata, 'chosen-charset'}),</font>
+<font color=red>     0..|      Charsetter = </font>
+        |      case resource_call(charsets_provided) of
+<font color=red>     0..|          no_charset -&gt; fun(X) -&gt; X end;</font>
+<font color=red>     0..|          CP -&gt; hd([Fun || {CSet,Fun} &lt;- CP, ChosenCSet =:= CSet])</font>
+        |      end,
+<font color=red>     0..|      ChosenEnc = wrcall({get_metadata, 'content-encoding'}),</font>
+<font color=red>     0..|      Encoder = hd([Fun || {Enc,Fun} &lt;- resource_call(encodings_provided),</font>
+<font color=red>     0..|                           ChosenEnc =:= Enc]),</font>
+<font color=red>     0..|      case Body of</font>
+        |          {stream, StreamBody} -&gt;
+<font color=red>     0..|              {stream, make_encoder_stream(Encoder, Charsetter, StreamBody)};</font>
+        |          {stream, Size, Fun} -&gt;
+<font color=red>     0..|              {stream, Size, make_size_encoder_stream(Encoder, Charsetter, Fun)};</font>
+        |          {writer, BodyFun} -&gt;
+<font color=red>     0..|              {writer, {Encoder, Charsetter, BodyFun}};</font>
+        |          _ -&gt;
+<font color=red>     0..|              Encoder(Charsetter(iolist_to_binary(Body)))</font>
+        |      end.
+        |  
+        |  make_encoder_stream(Encoder, Charsetter, {Body, done}) -&gt;
+<font color=red>     0..|      {Encoder(Charsetter(Body)), done};</font>
+        |  make_encoder_stream(Encoder, Charsetter, {Body, Next}) -&gt;
+<font color=red>     0..|      {Encoder(Charsetter(Body)),</font>
+<font color=red>     0..|       fun() -&gt; make_encoder_stream(Encoder, Charsetter, Next()) end}.</font>
+        |  
+        |  make_size_encoder_stream(Encoder, Charsetter, Fun) -&gt;
+<font color=red>     0..|      fun(Start, End) -&gt;</font>
+<font color=red>     0..|              make_encoder_stream(Encoder, Charsetter, Fun(Start, End))</font>
+        |      end.
+        |  
+        |  choose_encoding(AccEncHdr) -&gt;
+<font color=red>     0..|      Encs = [Enc || {Enc,_Fun} &lt;- resource_call(encodings_provided)],</font>
+<font color=red>     0..|      case webmachine_util:choose_encoding(Encs, AccEncHdr) of</font>
+<font color=red>     0..|          none -&gt; none;</font>
+        |          ChosenEnc -&gt;
+<font color=red>     0..|              case ChosenEnc of</font>
+        |                  "identity" -&gt;
+<font color=red>     0..|                      nop;</font>
+        |                  _ -&gt;
+<font color=red>     0..|                      wrcall({set_resp_header, "Content-Encoding",ChosenEnc})</font>
+        |              end,
+<font color=red>     0..|              wrcall({set_metadata, 'content-encoding',ChosenEnc}),</font>
+<font color=red>     0..|              ChosenEnc</font>
+        |      end.
+        |  
+        |  choose_charset(AccCharHdr) -&gt;
+<font color=red>     0..|      case resource_call(charsets_provided) of</font>
+        |          no_charset -&gt;
+<font color=red>     0..|              no_charset;</font>
+        |          CL -&gt;
+<font color=red>     0..|              CSets = [CSet || {CSet,_Fun} &lt;- CL],</font>
+<font color=red>     0..|              case webmachine_util:choose_charset(CSets, AccCharHdr) of</font>
+<font color=red>     0..|                  none -&gt; none;</font>
+        |                  Charset -&gt;
+<font color=red>     0..|                      wrcall({set_metadata, 'chosen-charset',Charset}),</font>
+<font color=red>     0..|                      Charset</font>
+        |              end
+        |      end.
+        |  
+        |  variances() -&gt;
+<font color=red>     0..|      Accept = case length(resource_call(content_types_provided)) of</font>
+<font color=red>     0..|          1 -&gt; [];</font>
+<font color=red>     0..|          0 -&gt; [];</font>
+<font color=red>     0..|          _ -&gt; ["Accept"]</font>
+        |      end,
+<font color=red>     0..|      AcceptEncoding = case length(resource_call(encodings_provided)) of</font>
+<font color=red>     0..|          1 -&gt; [];</font>
+<font color=red>     0..|          0 -&gt; [];</font>
+<font color=red>     0..|          _ -&gt; ["Accept-Encoding"]</font>
+        |      end,
+<font color=red>     0..|      AcceptCharset = case resource_call(charsets_provided) of</font>
+<font color=red>     0..|          no_charset -&gt; [];</font>
+        |          CP -&gt;
+<font color=red>     0..|              case length(CP) of</font>
+<font color=red>     0..|                  1 -&gt; [];</font>
+<font color=red>     0..|                  0 -&gt; [];</font>
+<font color=red>     0..|                  _ -&gt; ["Accept-Charset"]</font>
+        |              end
+        |      end,
+<font color=red>     0..|      Accept ++ AcceptEncoding ++ AcceptCharset ++ resource_call(variances).</font>
+        |      
+</pre>
+</body>
+</html>

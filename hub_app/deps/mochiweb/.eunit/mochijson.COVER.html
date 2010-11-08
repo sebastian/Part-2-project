@@ -1,0 +1,541 @@
+<html>
+<head><title>.eunit/mochijson.COVER.html</title></head><body bgcolor=white text=black>
+<pre>
+File generated from /Users/seb/Documents/part2project/app/deps/mochiweb/.eunit/mochijson.erl by COVER 2010-10-28 at 14:19:48
+
+****************************************************************************
+
+        |  %% @author Bob Ippolito &lt;bob@mochimedia.com&gt;
+        |  %% @copyright 2006 Mochi Media, Inc.
+        |  
+        |  %% @doc Yet another JSON (RFC 4627) library for Erlang.
+        |  -module(mochijson).
+        |  -author('bob@mochimedia.com').
+        |  -export([encoder/1, encode/1]).
+        |  -export([decoder/1, decode/1]).
+        |  -export([binary_encoder/1, binary_encode/1]).
+        |  -export([binary_decoder/1, binary_decode/1]).
+        |  
+        |  % This is a macro to placate syntax highlighters..
+        |  -define(Q, $\").
+        |  -define(ADV_COL(S, N), S#decoder{column=N+S#decoder.column}).
+        |  -define(INC_COL(S), S#decoder{column=1+S#decoder.column}).
+        |  -define(INC_LINE(S), S#decoder{column=1, line=1+S#decoder.line}).
+        |  
+        |  %% @type iolist() = [char() | binary() | iolist()]
+        |  %% @type iodata() = iolist() | binary()
+        |  %% @type json_string() = atom | string() | binary()
+        |  %% @type json_number() = integer() | float()
+        |  %% @type json_array() = {array, [json_term()]}
+        |  %% @type json_object() = {struct, [{json_string(), json_term()}]}
+        |  %% @type json_term() = json_string() | json_number() | json_array() |
+        |  %%                     json_object()
+        |  %% @type encoding() = utf8 | unicode
+        |  %% @type encoder_option() = {input_encoding, encoding()} |
+        |  %%                          {handler, function()}
+        |  %% @type decoder_option() = {input_encoding, encoding()} |
+        |  %%                          {object_hook, function()}
+        |  %% @type bjson_string() = binary()
+        |  %% @type bjson_number() = integer() | float()
+        |  %% @type bjson_array() = [bjson_term()]
+        |  %% @type bjson_object() = {struct, [{bjson_string(), bjson_term()}]}
+        |  %% @type bjson_term() = bjson_string() | bjson_number() | bjson_array() |
+        |  %%                      bjson_object()
+        |  %% @type binary_encoder_option() = {handler, function()}
+        |  %% @type binary_decoder_option() = {object_hook, function()}
+        |  
+        |  -record(encoder, {input_encoding=unicode,
+        |                    handler=null}).
+        |  
+        |  -record(decoder, {input_encoding=utf8,
+        |                    object_hook=null,
+        |                    line=1,
+        |                    column=1,
+        |                    state=null}).
+        |  
+        |  %% @spec encoder([encoder_option()]) -&gt; function()
+        |  %% @doc Create an encoder/1 with the given options.
+        |  encoder(Options) -&gt;
+     1..|      State = parse_encoder_options(Options, #encoder{}),
+     1..|      fun (O) -&gt; json_encode(O, State) end.
+        |  
+        |  %% @spec encode(json_term()) -&gt; iolist()
+        |  %% @doc Encode the given as JSON to an iolist.
+        |  encode(Any) -&gt;
+    27..|      json_encode(Any, #encoder{}).
+        |  
+        |  %% @spec decoder([decoder_option()]) -&gt; function()
+        |  %% @doc Create a decoder/1 with the given options.
+        |  decoder(Options) -&gt;
+<font color=red>     0..|      State = parse_decoder_options(Options, #decoder{}),</font>
+<font color=red>     0..|      fun (O) -&gt; json_decode(O, State) end.</font>
+        |  
+        |  %% @spec decode(iolist()) -&gt; json_term()
+        |  %% @doc Decode the given iolist to Erlang terms.
+        |  decode(S) -&gt;
+    54..|      json_decode(S, #decoder{}).
+        |  
+        |  %% @spec binary_decoder([binary_decoder_option()]) -&gt; function()
+        |  %% @doc Create a binary_decoder/1 with the given options.
+        |  binary_decoder(Options) -&gt;
+<font color=red>     0..|      mochijson2:decoder(Options).</font>
+        |  
+        |  %% @spec binary_encoder([binary_encoder_option()]) -&gt; function()
+        |  %% @doc Create a binary_encoder/1 with the given options.
+        |  binary_encoder(Options) -&gt;
+<font color=red>     0..|      mochijson2:encoder(Options).</font>
+        |  
+        |  %% @spec binary_encode(bjson_term()) -&gt; iolist()
+        |  %% @doc Encode the given as JSON to an iolist, using lists for arrays and
+        |  %%      binaries for strings.
+        |  binary_encode(Any) -&gt;
+<font color=red>     0..|      mochijson2:encode(Any).</font>
+        |  
+        |  %% @spec binary_decode(iolist()) -&gt; bjson_term()
+        |  %% @doc Decode the given iolist to Erlang terms, using lists for arrays and
+        |  %%      binaries for strings.
+        |  binary_decode(S) -&gt;
+<font color=red>     0..|      mochijson2:decode(S).</font>
+        |  
+        |  %% Internal API
+        |  
+        |  parse_encoder_options([], State) -&gt;
+     1..|      State;
+        |  parse_encoder_options([{input_encoding, Encoding} | Rest], State) -&gt;
+     1..|      parse_encoder_options(Rest, State#encoder{input_encoding=Encoding});
+        |  parse_encoder_options([{handler, Handler} | Rest], State) -&gt;
+<font color=red>     0..|      parse_encoder_options(Rest, State#encoder{handler=Handler}).</font>
+        |  
+        |  parse_decoder_options([], State) -&gt;
+<font color=red>     0..|      State;</font>
+        |  parse_decoder_options([{input_encoding, Encoding} | Rest], State) -&gt;
+<font color=red>     0..|      parse_decoder_options(Rest, State#decoder{input_encoding=Encoding});</font>
+        |  parse_decoder_options([{object_hook, Hook} | Rest], State) -&gt;
+<font color=red>     0..|      parse_decoder_options(Rest, State#decoder{object_hook=Hook}).</font>
+        |  
+        |  json_encode(true, _State) -&gt;
+     2..|      "true";
+        |  json_encode(false, _State) -&gt;
+<font color=red>     0..|      "false";</font>
+        |  json_encode(null, _State) -&gt;
+     1..|      "null";
+        |  json_encode(I, _State) when is_integer(I) -&gt;
+     6..|      integer_to_list(I);
+        |  json_encode(F, _State) when is_float(F) -&gt;
+     8..|      mochinum:digits(F);
+        |  json_encode(L, State) when is_list(L); is_binary(L); is_atom(L) -&gt;
+    13..|      json_encode_string(L, State);
+        |  json_encode({array, Props}, State) when is_list(Props) -&gt;
+     8..|      json_encode_array(Props, State);
+        |  json_encode({struct, Props}, State) when is_list(Props) -&gt;
+    10..|      json_encode_proplist(Props, State);
+        |  json_encode(Bad, #encoder{handler=null}) -&gt;
+<font color=red>     0..|      exit({json_encode, {bad_term, Bad}});</font>
+        |  json_encode(Bad, State=#encoder{handler=Handler}) -&gt;
+<font color=red>     0..|      json_encode(Handler(Bad), State).</font>
+        |  
+        |  json_encode_array([], _State) -&gt;
+     4..|      "[]";
+        |  json_encode_array(L, State) -&gt;
+     4..|      F = fun (O, Acc) -&gt;
+     8..|                  [$,, json_encode(O, State) | Acc]
+        |          end,
+     4..|      [$, | Acc1] = lists:foldl(F, "[", L),
+     4..|      lists:reverse([$\] | Acc1]).
+        |  
+        |  json_encode_proplist([], _State) -&gt;
+     1..|      "{}";
+        |  json_encode_proplist(Props, State) -&gt;
+     9..|      F = fun ({K, V}, Acc) -&gt;
+    12..|                  KS = case K of 
+        |                           K when is_atom(K) -&gt;
+<font color=red>     0..|                               json_encode_string_utf8(atom_to_list(K));</font>
+        |                           K when is_integer(K) -&gt;
+<font color=red>     0..|                               json_encode_string(integer_to_list(K), State);</font>
+        |                           K when is_list(K); is_binary(K) -&gt;
+    12..|                               json_encode_string(K, State)
+        |                       end,
+    12..|                  VS = json_encode(V, State),
+    12..|                  [$,, VS, $:, KS | Acc]
+        |          end,
+     9..|      [$, | Acc1] = lists:foldl(F, "{", Props),
+     9..|      lists:reverse([$\} | Acc1]).
+        |  
+        |  json_encode_string(A, _State) when is_atom(A) -&gt;
+<font color=red>     0..|      json_encode_string_unicode(xmerl_ucs:from_utf8(atom_to_list(A)));</font>
+        |  json_encode_string(B, _State) when is_binary(B) -&gt;
+<font color=red>     0..|      json_encode_string_unicode(xmerl_ucs:from_utf8(B));</font>
+        |  json_encode_string(S, #encoder{input_encoding=utf8}) -&gt;
+     2..|      json_encode_string_utf8(S);
+        |  json_encode_string(S, #encoder{input_encoding=unicode}) -&gt;
+    23..|      json_encode_string_unicode(S).
+        |  
+        |  json_encode_string_utf8(S) -&gt;
+     2..|      [?Q | json_encode_string_utf8_1(S)].
+        |  
+        |  json_encode_string_utf8_1([C | Cs]) when C &gt;= 0, C =&lt; 16#7f -&gt;
+     3..|      NewC = case C of
+<font color=red>     0..|                 $\\ -&gt; "\\\\";</font>
+<font color=red>     0..|                 ?Q -&gt; "\\\"";</font>
+     3..|                 _ when C &gt;= $\s, C &lt; 16#7f -&gt; C;
+<font color=red>     0..|                 $\t -&gt; "\\t";</font>
+<font color=red>     0..|                 $\n -&gt; "\\n";</font>
+<font color=red>     0..|                 $\r -&gt; "\\r";</font>
+<font color=red>     0..|                 $\f -&gt; "\\f";</font>
+<font color=red>     0..|                 $\b -&gt; "\\b";</font>
+<font color=red>     0..|                 _ when C &gt;= 0, C =&lt; 16#7f -&gt; unihex(C);</font>
+<font color=red>     0..|                 _ -&gt; exit({json_encode, {bad_char, C}})</font>
+        |             end,
+     3..|      [NewC | json_encode_string_utf8_1(Cs)];
+        |  json_encode_string_utf8_1(All=[C | _]) when C &gt;= 16#80, C =&lt; 16#10FFFF -&gt;
+     1..|      [?Q | Rest] = json_encode_string_unicode(xmerl_ucs:from_utf8(All)),
+     1..|      Rest;
+        |  json_encode_string_utf8_1([]) -&gt;
+     1..|      "\"".
+        |  
+        |  json_encode_string_unicode(S) -&gt;
+    24..|      [?Q | json_encode_string_unicode_1(S)].
+        |  
+        |  json_encode_string_unicode_1([C | Cs]) -&gt;
+    74..|      NewC = case C of
+     1..|                 $\\ -&gt; "\\\\";
+     3..|                 ?Q -&gt; "\\\"";
+    60..|                 _ when C &gt;= $\s, C &lt; 16#7f -&gt; C;
+     1..|                 $\t -&gt; "\\t";
+     4..|                 $\n -&gt; "\\n";
+     1..|                 $\r -&gt; "\\r";
+     1..|                 $\f -&gt; "\\f";
+     1..|                 $\b -&gt; "\\b";
+     2..|                 _ when C &gt;= 0, C =&lt; 16#10FFFF -&gt; unihex(C);
+<font color=red>     0..|                 _ -&gt; exit({json_encode, {bad_char, C}})</font>
+        |             end,
+    74..|      [NewC | json_encode_string_unicode_1(Cs)];
+        |  json_encode_string_unicode_1([]) -&gt;
+    24..|      "\"".
+        |  
+        |  dehex(C) when C &gt;= $0, C =&lt; $9 -&gt;
+     8..|      C - $0;
+        |  dehex(C) when C &gt;= $a, C =&lt; $f -&gt;
+<font color=red>     0..|      C - $a + 10;</font>
+        |  dehex(C) when C &gt;= $A, C =&lt; $F -&gt;
+<font color=red>     0..|      C - $A + 10.</font>
+        |  
+        |  hexdigit(C) when C &gt;= 0, C =&lt; 9 -&gt;
+     7..|      C + $0;
+        |  hexdigit(C) when C =&lt; 15 -&gt;
+     1..|      C + $a - 10.
+        |  
+        |  unihex(C) when C &lt; 16#10000 -&gt;
+     2..|      &lt;&lt;D3:4, D2:4, D1:4, D0:4&gt;&gt; = &lt;&lt;C:16&gt;&gt;,
+     2..|      Digits = [hexdigit(D) || D &lt;- [D3, D2, D1, D0]],
+     2..|      [$\\, $u | Digits];
+        |  unihex(C) when C =&lt; 16#10FFFF -&gt;
+<font color=red>     0..|      N = C - 16#10000,</font>
+<font color=red>     0..|      S1 = 16#d800 bor ((N bsr 10) band 16#3ff),</font>
+<font color=red>     0..|      S2 = 16#dc00 bor (N band 16#3ff),</font>
+<font color=red>     0..|      [unihex(S1), unihex(S2)].</font>
+        |  
+        |  json_decode(B, S) when is_binary(B) -&gt;
+<font color=red>     0..|      json_decode(binary_to_list(B), S);</font>
+        |  json_decode(L, S) -&gt;
+    54..|      {Res, L1, S1} = decode1(L, S),
+    54..|      {eof, [], _} = tokenize(L1, S1#decoder{state=trim}),
+    54..|      Res.
+        |  
+        |  decode1(L, S=#decoder{state=null}) -&gt;
+    76..|      case tokenize(L, S#decoder{state=any}) of
+        |          {{const, C}, L1, S1} -&gt;
+    46..|              {C, L1, S1};
+        |          {start_array, L1, S1} -&gt;
+    14..|              decode_array(L1, S1#decoder{state=any}, []);
+        |          {start_object, L1, S1} -&gt;
+    16..|              decode_object(L1, S1#decoder{state=key}, [])
+        |      end.
+        |  
+        |  make_object(V, #decoder{object_hook=null}) -&gt;
+    18..|      V;
+        |  make_object(V, #decoder{object_hook=Hook}) -&gt;
+<font color=red>     0..|      Hook(V).</font>
+        |  
+        |  decode_object(L, S=#decoder{state=key}, Acc) -&gt;
+    24..|      case tokenize(L, S) of
+        |          {end_object, Rest, S1} -&gt;
+     2..|              V = make_object({struct, lists:reverse(Acc)}, S1),
+     2..|              {V, Rest, S1#decoder{state=null}};
+        |          {{const, K}, Rest, S1} when is_list(K) -&gt;
+    22..|              {colon, L2, S2} = tokenize(Rest, S1),
+    22..|              {V, L3, S3} = decode1(L2, S2#decoder{state=null}),
+    22..|              decode_object(L3, S3#decoder{state=comma}, [{K, V} | Acc])
+        |      end;
+        |  decode_object(L, S=#decoder{state=comma}, Acc) -&gt;
+    22..|      case tokenize(L, S) of
+        |          {end_object, Rest, S1} -&gt;
+    16..|              V = make_object({struct, lists:reverse(Acc)}, S1),
+    16..|              {V, Rest, S1#decoder{state=null}};
+        |          {comma, Rest, S1} -&gt;
+     6..|              decode_object(Rest, S1#decoder{state=key}, Acc)
+        |      end.
+        |  
+        |  decode_array(L, S=#decoder{state=any}, Acc) -&gt;
+    24..|      case tokenize(L, S) of
+        |          {end_array, Rest, S1} -&gt;
+     8..|              {{array, lists:reverse(Acc)}, Rest, S1#decoder{state=null}};
+        |          {start_array, Rest, S1} -&gt;
+     2..|              {Array, Rest1, S2} = decode_array(Rest, S1#decoder{state=any}, []),
+     2..|              decode_array(Rest1, S2#decoder{state=comma}, [Array | Acc]);
+        |          {start_object, Rest, S1} -&gt;
+     2..|              {Array, Rest1, S2} = decode_object(Rest, S1#decoder{state=key}, []),
+     2..|              decode_array(Rest1, S2#decoder{state=comma}, [Array | Acc]);
+        |          {{const, Const}, Rest, S1} -&gt;
+    12..|              decode_array(Rest, S1#decoder{state=comma}, [Const | Acc])
+        |      end;
+        |  decode_array(L, S=#decoder{state=comma}, Acc) -&gt;
+    16..|      case tokenize(L, S) of
+        |          {end_array, Rest, S1} -&gt;
+     8..|              {{array, lists:reverse(Acc)}, Rest, S1#decoder{state=null}};
+        |          {comma, Rest, S1} -&gt;
+     8..|              decode_array(Rest, S1#decoder{state=any}, Acc)
+        |      end.
+        |  
+        |  tokenize_string(IoList=[C | _], S=#decoder{input_encoding=utf8}, Acc)
+        |    when is_list(C); is_binary(C); C &gt;= 16#7f -&gt;
+     5..|      List = xmerl_ucs:from_utf8(iolist_to_binary(IoList)),
+     5..|      tokenize_string(List, S#decoder{input_encoding=unicode}, Acc);
+        |  tokenize_string("\"" ++ Rest, S, Acc) -&gt;
+    46..|      {lists:reverse(Acc), Rest, ?INC_COL(S)};
+        |  tokenize_string("\\\"" ++ Rest, S, Acc) -&gt;
+     6..|      tokenize_string(Rest, ?ADV_COL(S, 2), [$\" | Acc]);
+        |  tokenize_string("\\\\" ++ Rest, S, Acc) -&gt;
+     2..|      tokenize_string(Rest, ?ADV_COL(S, 2), [$\\ | Acc]);
+        |  tokenize_string("\\/" ++ Rest, S, Acc) -&gt;
+<font color=red>     0..|      tokenize_string(Rest, ?ADV_COL(S, 2), [$/ | Acc]);</font>
+        |  tokenize_string("\\b" ++ Rest, S, Acc) -&gt;
+     2..|      tokenize_string(Rest, ?ADV_COL(S, 2), [$\b | Acc]);
+        |  tokenize_string("\\f" ++ Rest, S, Acc) -&gt;
+     2..|      tokenize_string(Rest, ?ADV_COL(S, 2), [$\f | Acc]);
+        |  tokenize_string("\\n" ++ Rest, S, Acc) -&gt;
+     8..|      tokenize_string(Rest, ?ADV_COL(S, 2), [$\n | Acc]);
+        |  tokenize_string("\\r" ++ Rest, S, Acc) -&gt;
+     2..|      tokenize_string(Rest, ?ADV_COL(S, 2), [$\r | Acc]);
+        |  tokenize_string("\\t" ++ Rest, S, Acc) -&gt;
+     2..|      tokenize_string(Rest, ?ADV_COL(S, 2), [$\t | Acc]);
+        |  tokenize_string([$\\, $u, C3, C2, C1, C0 | Rest], S, Acc) -&gt;
+        |      % coalesce UTF-16 surrogate pair?
+     2..|      C = dehex(C0) bor
+        |          (dehex(C1) bsl 4) bor
+        |          (dehex(C2) bsl 8) bor 
+        |          (dehex(C3) bsl 12),
+     2..|      tokenize_string(Rest, ?ADV_COL(S, 6), [C | Acc]);
+        |  tokenize_string([C | Rest], S, Acc) when C &gt;= $\s; C &lt; 16#10FFFF -&gt;
+   120..|      tokenize_string(Rest, ?ADV_COL(S, 1), [C | Acc]).
+        |      
+        |  tokenize_number(IoList=[C | _], Mode, S=#decoder{input_encoding=utf8}, Acc)
+        |    when is_list(C); is_binary(C); C &gt;= 16#7f -&gt;
+<font color=red>     0..|      List = xmerl_ucs:from_utf8(iolist_to_binary(IoList)),</font>
+<font color=red>     0..|      tokenize_number(List, Mode, S#decoder{input_encoding=unicode}, Acc);</font>
+        |  tokenize_number([$- | Rest], sign, S, []) -&gt;
+     8..|      tokenize_number(Rest, int, ?INC_COL(S), [$-]);
+        |  tokenize_number(Rest, sign, S, []) -&gt;
+    20..|      tokenize_number(Rest, int, S, []);
+        |  tokenize_number([$0 | Rest], int, S, Acc) -&gt;
+<font color=red>     0..|      tokenize_number(Rest, frac, ?INC_COL(S), [$0 | Acc]);</font>
+        |  tokenize_number([C | Rest], int, S, Acc) when C &gt;= $1, C =&lt; $9 -&gt;
+    28..|      tokenize_number(Rest, int1, ?INC_COL(S), [C | Acc]);
+        |  tokenize_number([C | Rest], int1, S, Acc) when C &gt;= $0, C =&lt; $9 -&gt;
+    16..|      tokenize_number(Rest, int1, ?INC_COL(S), [C | Acc]);
+        |  tokenize_number(Rest, int1, S, Acc) -&gt;
+    28..|      tokenize_number(Rest, frac, S, Acc);
+        |  tokenize_number([$., C | Rest], frac, S, Acc) when C &gt;= $0, C =&lt; $9 -&gt;
+    15..|      tokenize_number(Rest, frac1, ?ADV_COL(S, 2), [C, $. | Acc]);
+        |  tokenize_number([E | Rest], frac, S, Acc) when E == $e; E == $E -&gt;
+     1..|      tokenize_number(Rest, esign, ?INC_COL(S), [$e, $0, $. | Acc]);
+        |  tokenize_number(Rest, frac, S, Acc) -&gt;
+    12..|      {{int, lists:reverse(Acc)}, Rest, S};
+        |  tokenize_number([C | Rest], frac1, S, Acc) when C &gt;= $0, C =&lt; $9 -&gt;
+    36..|      tokenize_number(Rest, frac1, ?INC_COL(S), [C | Acc]);
+        |  tokenize_number([E | Rest], frac1, S, Acc) when E == $e; E == $E -&gt;
+     8..|      tokenize_number(Rest, esign, ?INC_COL(S), [$e | Acc]);
+        |  tokenize_number(Rest, frac1, S, Acc) -&gt;
+     7..|      {{float, lists:reverse(Acc)}, Rest, S};
+        |  tokenize_number([C | Rest], esign, S, Acc) when C == $-; C == $+ -&gt;
+     8..|      tokenize_number(Rest, eint, ?INC_COL(S), [C | Acc]);
+        |  tokenize_number(Rest, esign, S, Acc) -&gt;
+     1..|      tokenize_number(Rest, eint, S, Acc);
+        |  tokenize_number([C | Rest], eint, S, Acc) when C &gt;= $0, C =&lt; $9 -&gt;
+     9..|      tokenize_number(Rest, eint1, ?INC_COL(S), [C | Acc]);
+        |  tokenize_number([C | Rest], eint1, S, Acc) when C &gt;= $0, C =&lt; $9 -&gt;
+     7..|      tokenize_number(Rest, eint1, ?INC_COL(S), [C | Acc]);
+        |  tokenize_number(Rest, eint1, S, Acc) -&gt;
+     9..|      {{float, lists:reverse(Acc)}, Rest, S}.
+        |  
+        |  tokenize([], S=#decoder{state=trim}) -&gt;
+    54..|      {eof, [], S};
+        |  tokenize([L | Rest], S) when is_list(L) -&gt;
+    30..|      tokenize(L ++ Rest, S);
+        |  tokenize([B | Rest], S) when is_binary(B) -&gt;
+<font color=red>     0..|      tokenize(xmerl_ucs:from_utf8(B) ++ Rest, S);</font>
+        |  tokenize("\r\n" ++ Rest, S) -&gt;
+<font color=red>     0..|      tokenize(Rest, ?INC_LINE(S));</font>
+        |  tokenize("\n" ++ Rest, S) -&gt;
+<font color=red>     0..|      tokenize(Rest, ?INC_LINE(S));</font>
+        |  tokenize([C | Rest], S) when C == $\s; C == $\t -&gt;
+<font color=red>     0..|      tokenize(Rest, ?INC_COL(S));</font>
+        |  tokenize("{" ++ Rest, S) -&gt;
+    18..|      {start_object, Rest, ?INC_COL(S)};
+        |  tokenize("}" ++ Rest, S) -&gt;
+    18..|      {end_object, Rest, ?INC_COL(S)};
+        |  tokenize("[" ++ Rest, S) -&gt;
+    16..|      {start_array, Rest, ?INC_COL(S)};
+        |  tokenize("]" ++ Rest, S) -&gt;
+    16..|      {end_array, Rest, ?INC_COL(S)};
+        |  tokenize("," ++ Rest, S) -&gt;
+    14..|      {comma, Rest, ?INC_COL(S)};
+        |  tokenize(":" ++ Rest, S) -&gt;
+    22..|      {colon, Rest, ?INC_COL(S)};
+        |  tokenize("null" ++ Rest, S) -&gt;
+     2..|      {{const, null}, Rest, ?ADV_COL(S, 4)};
+        |  tokenize("true" ++ Rest, S) -&gt;
+     4..|      {{const, true}, Rest, ?ADV_COL(S, 4)};
+        |  tokenize("false" ++ Rest, S) -&gt;
+<font color=red>     0..|      {{const, false}, Rest, ?ADV_COL(S, 5)};</font>
+        |  tokenize("\"" ++ Rest, S) -&gt;
+    46..|      {String, Rest1, S1} = tokenize_string(Rest, ?INC_COL(S), []),
+    46..|      {{const, String}, Rest1, S1};
+        |  tokenize(L=[C | _], S) when C &gt;= $0, C =&lt; $9; C == $- -&gt;
+    28..|      case tokenize_number(L, sign, S, []) of
+        |          {{int, Int}, Rest, S1} -&gt;
+    12..|              {{const, list_to_integer(Int)}, Rest, S1};
+        |          {{float, Float}, Rest, S1} -&gt;
+    16..|              {{const, list_to_float(Float)}, Rest, S1}
+        |      end.
+        |  
+        |  
+        |  %%
+        |  %% Tests
+        |  %%
+        |  -include_lib("eunit/include/eunit.hrl").
+        |  -ifdef(TEST).
+        |  
+        |  %% testing constructs borrowed from the Yaws JSON implementation.
+        |  
+        |  %% Create an object from a list of Key/Value pairs.
+        |  
+        |  obj_new() -&gt;
+     1..|      {struct, []}.
+        |  
+        |  is_obj({struct, Props}) -&gt;
+     8..|      F = fun ({K, _}) when is_list(K) -&gt;
+    11..|                  true;
+        |              (_) -&gt;
+<font color=red>     0..|                  false</font>
+        |          end,    
+     8..|      lists:all(F, Props).
+        |  
+        |  obj_from_list(Props) -&gt;
+     8..|      Obj = {struct, Props},
+     8..|      case is_obj(Obj) of
+     8..|          true -&gt; Obj;
+<font color=red>     0..|          false -&gt; exit(json_bad_object)</font>
+        |      end.
+        |  
+        |  %% Test for equivalence of Erlang terms.
+        |  %% Due to arbitrary order of construction, equivalent objects might
+        |  %% compare unequal as erlang terms, so we need to carefully recurse
+        |  %% through aggregates (tuples and objects).
+        |  
+        |  equiv({struct, Props1}, {struct, Props2}) -&gt;
+    18..|      equiv_object(Props1, Props2);
+        |  equiv({array, L1}, {array, L2}) -&gt;
+    16..|      equiv_list(L1, L2);
+    28..|  equiv(N1, N2) when is_number(N1), is_number(N2) -&gt; N1 == N2;
+    46..|  equiv(S1, S2) when is_list(S1), is_list(S2)     -&gt; S1 == S2;
+     4..|  equiv(true, true) -&gt; true;
+<font color=red>     0..|  equiv(false, false) -&gt; true;</font>
+     2..|  equiv(null, null) -&gt; true.
+        |  
+        |  %% Object representation and traversal order is unknown.
+        |  %% Use the sledgehammer and sort property lists.
+        |  
+        |  equiv_object(Props1, Props2) -&gt;
+    18..|      L1 = lists:keysort(1, Props1),
+    18..|      L2 = lists:keysort(1, Props2),
+    18..|      Pairs = lists:zip(L1, L2),
+    18..|      true = lists:all(fun({{K1, V1}, {K2, V2}}) -&gt;
+    22..|          equiv(K1, K2) and equiv(V1, V2)
+        |      end, Pairs).
+        |  
+        |  %% Recursively compare tuple elements for equivalence.
+        |  
+        |  equiv_list([], []) -&gt;
+    16..|      true;
+        |  equiv_list([V1 | L1], [V2 | L2]) -&gt;
+    16..|      equiv(V1, V2) andalso equiv_list(L1, L2).
+        |  
+        |  e2j_vec_test() -&gt;
+     1..|      test_one(e2j_test_vec(utf8), 1).
+        |  
+        |  issue33_test() -&gt;
+        |      %% http://code.google.com/p/mochiweb/issues/detail?id=33
+     1..|      Js = {struct, [{"key", [194, 163]}]},
+     1..|      Encoder = encoder([{input_encoding, utf8}]),
+     1..|      "{\"key\":\"\\u00a3\"}" = lists:flatten(Encoder(Js)).
+        |  
+        |  test_one([], _N) -&gt;
+        |      %% io:format("~p tests passed~n", [N-1]),
+     1..|      ok;
+        |  test_one([{E, J} | Rest], N) -&gt;
+        |      %% io:format("[~p] ~p ~p~n", [N, E, J]),
+    27..|      true = equiv(E, decode(J)),
+    27..|      true = equiv(E, decode(encode(E))),
+    27..|      test_one(Rest, 1+N).
+        |  
+        |  e2j_test_vec(utf8) -&gt;
+     1..|      [
+        |      {1, "1"},
+        |      {3.1416, "3.14160"}, % text representation may truncate, trail zeroes
+        |      {-1, "-1"},
+        |      {-3.1416, "-3.14160"},
+        |      {12.0e10, "1.20000e+11"},
+        |      {1.234E+10, "1.23400e+10"},
+        |      {-1.234E-10, "-1.23400e-10"},
+        |      {10.0, "1.0e+01"},
+        |      {123.456, "1.23456E+2"},
+        |      {10.0, "1e1"},
+        |      {"foo", "\"foo\""},
+        |      {"foo" ++ [5] ++ "bar", "\"foo\\u0005bar\""},
+        |      {"", "\"\""},
+        |      {"\"", "\"\\\"\""},
+        |      {"\n\n\n", "\"\\n\\n\\n\""},
+        |      {"\\", "\"\\\\\""},
+        |      {"\" \b\f\r\n\t\"", "\"\\\" \\b\\f\\r\\n\\t\\\"\""},
+        |      {obj_new(), "{}"},
+        |      {obj_from_list([{"foo", "bar"}]), "{\"foo\":\"bar\"}"},
+        |      {obj_from_list([{"foo", "bar"}, {"baz", 123}]),
+        |       "{\"foo\":\"bar\",\"baz\":123}"},
+        |      {{array, []}, "[]"},
+        |      {{array, [{array, []}]}, "[[]]"},
+        |      {{array, [1, "foo"]}, "[1,\"foo\"]"},
+        |  
+        |      % json array in a json object
+        |      {obj_from_list([{"foo", {array, [123]}}]),
+        |       "{\"foo\":[123]}"},
+        |  
+        |      % json object in a json object
+        |      {obj_from_list([{"foo", obj_from_list([{"bar", true}])}]),
+        |       "{\"foo\":{\"bar\":true}}"},
+        |  
+        |      % fold evaluation order
+        |      {obj_from_list([{"foo", {array, []}},
+        |                       {"bar", obj_from_list([{"baz", true}])},
+        |                       {"alice", "bob"}]),
+        |       "{\"foo\":[],\"bar\":{\"baz\":true},\"alice\":\"bob\"}"},
+        |  
+        |      % json object in a json array
+        |      {{array, [-123, "foo", obj_from_list([{"bar", {array, []}}]), null]},
+        |       "[-123,\"foo\",{\"bar\":[]},null]"}
+        |      ].
+        |  
+        |  -endif.
+</pre>
+</body>
+</html>

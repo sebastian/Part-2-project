@@ -1,0 +1,318 @@
+<html>
+<head><title>.eunit/mochiweb_charref.COVER.html</title></head><body bgcolor=white text=black>
+<pre>
+File generated from /Users/seb/Documents/part2project/app/deps/mochiweb/.eunit/mochiweb_charref.erl by COVER 2010-10-28 at 14:19:49
+
+****************************************************************************
+
+        |  %% @author Bob Ippolito &lt;bob@mochimedia.com&gt;
+        |  %% @copyright 2007 Mochi Media, Inc.
+        |  
+        |  %% @doc Converts HTML 4 charrefs and entities to codepoints.
+        |  -module(mochiweb_charref).
+        |  -export([charref/1]).
+        |  
+        |  %% External API.
+        |  
+        |  %% @spec charref(S) -&gt; integer() | undefined
+        |  %% @doc Convert a decimal charref, hex charref, or html entity to a unicode
+        |  %%      codepoint, or return undefined on failure.
+        |  %%      The input should not include an ampersand or semicolon.
+        |  %%      charref("#38") = 38, charref("#x26") = 38, charref("amp") = 38.
+        |  charref(B) when is_binary(B) -&gt;
+     5..|      charref(binary_to_list(B));
+        |  charref([$#, C | L]) when C =:= $x orelse C =:= $X -&gt;
+     3..|      try erlang:list_to_integer(L, 16)
+        |      catch
+     1..|          error:badarg -&gt; undefined
+        |      end;
+        |  charref([$# | L]) -&gt;
+     2..|      try list_to_integer(L)
+        |      catch
+     1..|          error:badarg -&gt; undefined
+        |      end;
+        |  charref(L) -&gt;
+     6..|      entity(L).
+        |  
+        |  %% Internal API.
+        |  
+     1..|  entity("nbsp") -&gt; 160;
+     1..|  entity("iexcl") -&gt; 161;
+     1..|  entity("cent") -&gt; 162;
+     1..|  entity("pound") -&gt; 163;
+     1..|  entity("curren") -&gt; 164;
+     1..|  entity("yen") -&gt; 165;
+     1..|  entity("brvbar") -&gt; 166;
+     1..|  entity("sect") -&gt; 167;
+     1..|  entity("uml") -&gt; 168;
+     2..|  entity("copy") -&gt; 169;
+     1..|  entity("ordf") -&gt; 170;
+     1..|  entity("laquo") -&gt; 171;
+     1..|  entity("not") -&gt; 172;
+     1..|  entity("shy") -&gt; 173;
+     1..|  entity("reg") -&gt; 174;
+     1..|  entity("macr") -&gt; 175;
+     1..|  entity("deg") -&gt; 176;
+     1..|  entity("plusmn") -&gt; 177;
+     1..|  entity("sup2") -&gt; 178;
+     1..|  entity("sup3") -&gt; 179;
+     1..|  entity("acute") -&gt; 180;
+     1..|  entity("micro") -&gt; 181;
+     1..|  entity("para") -&gt; 182;
+     1..|  entity("middot") -&gt; 183;
+     1..|  entity("cedil") -&gt; 184;
+     1..|  entity("sup1") -&gt; 185;
+     1..|  entity("ordm") -&gt; 186;
+     1..|  entity("raquo") -&gt; 187;
+     1..|  entity("frac14") -&gt; 188;
+     1..|  entity("frac12") -&gt; 189;
+     1..|  entity("frac34") -&gt; 190;
+     1..|  entity("iquest") -&gt; 191;
+     1..|  entity("Agrave") -&gt; 192;
+     1..|  entity("Aacute") -&gt; 193;
+     1..|  entity("Acirc") -&gt; 194;
+     1..|  entity("Atilde") -&gt; 195;
+     1..|  entity("Auml") -&gt; 196;
+     1..|  entity("Aring") -&gt; 197;
+     1..|  entity("AElig") -&gt; 198;
+     1..|  entity("Ccedil") -&gt; 199;
+     1..|  entity("Egrave") -&gt; 200;
+     1..|  entity("Eacute") -&gt; 201;
+     1..|  entity("Ecirc") -&gt; 202;
+     1..|  entity("Euml") -&gt; 203;
+     1..|  entity("Igrave") -&gt; 204;
+     1..|  entity("Iacute") -&gt; 205;
+     1..|  entity("Icirc") -&gt; 206;
+     1..|  entity("Iuml") -&gt; 207;
+     1..|  entity("ETH") -&gt; 208;
+     1..|  entity("Ntilde") -&gt; 209;
+     1..|  entity("Ograve") -&gt; 210;
+     1..|  entity("Oacute") -&gt; 211;
+     1..|  entity("Ocirc") -&gt; 212;
+     1..|  entity("Otilde") -&gt; 213;
+     1..|  entity("Ouml") -&gt; 214;
+     1..|  entity("times") -&gt; 215;
+     1..|  entity("Oslash") -&gt; 216;
+     1..|  entity("Ugrave") -&gt; 217;
+     1..|  entity("Uacute") -&gt; 218;
+     1..|  entity("Ucirc") -&gt; 219;
+     1..|  entity("Uuml") -&gt; 220;
+     1..|  entity("Yacute") -&gt; 221;
+     1..|  entity("THORN") -&gt; 222;
+     1..|  entity("szlig") -&gt; 223;
+     1..|  entity("agrave") -&gt; 224;
+     1..|  entity("aacute") -&gt; 225;
+     1..|  entity("acirc") -&gt; 226;
+     1..|  entity("atilde") -&gt; 227;
+     1..|  entity("auml") -&gt; 228;
+     1..|  entity("aring") -&gt; 229;
+     1..|  entity("aelig") -&gt; 230;
+     1..|  entity("ccedil") -&gt; 231;
+     1..|  entity("egrave") -&gt; 232;
+     1..|  entity("eacute") -&gt; 233;
+     1..|  entity("ecirc") -&gt; 234;
+     1..|  entity("euml") -&gt; 235;
+     1..|  entity("igrave") -&gt; 236;
+     1..|  entity("iacute") -&gt; 237;
+     1..|  entity("icirc") -&gt; 238;
+     1..|  entity("iuml") -&gt; 239;
+     1..|  entity("eth") -&gt; 240;
+     1..|  entity("ntilde") -&gt; 241;
+     1..|  entity("ograve") -&gt; 242;
+     1..|  entity("oacute") -&gt; 243;
+     1..|  entity("ocirc") -&gt; 244;
+     1..|  entity("otilde") -&gt; 245;
+     1..|  entity("ouml") -&gt; 246;
+     1..|  entity("divide") -&gt; 247;
+     1..|  entity("oslash") -&gt; 248;
+     1..|  entity("ugrave") -&gt; 249;
+     1..|  entity("uacute") -&gt; 250;
+     1..|  entity("ucirc") -&gt; 251;
+     1..|  entity("uuml") -&gt; 252;
+     1..|  entity("yacute") -&gt; 253;
+     1..|  entity("thorn") -&gt; 254;
+     1..|  entity("yuml") -&gt; 255;
+     1..|  entity("fnof") -&gt; 402;
+     1..|  entity("Alpha") -&gt; 913;
+     1..|  entity("Beta") -&gt; 914;
+     1..|  entity("Gamma") -&gt; 915;
+     1..|  entity("Delta") -&gt; 916;
+     1..|  entity("Epsilon") -&gt; 917;
+     1..|  entity("Zeta") -&gt; 918;
+     1..|  entity("Eta") -&gt; 919;
+     1..|  entity("Theta") -&gt; 920;
+     1..|  entity("Iota") -&gt; 921;
+     1..|  entity("Kappa") -&gt; 922;
+     1..|  entity("Lambda") -&gt; 923;
+     1..|  entity("Mu") -&gt; 924;
+     1..|  entity("Nu") -&gt; 925;
+     1..|  entity("Xi") -&gt; 926;
+     1..|  entity("Omicron") -&gt; 927;
+     1..|  entity("Pi") -&gt; 928;
+     1..|  entity("Rho") -&gt; 929;
+     1..|  entity("Sigma") -&gt; 931;
+     1..|  entity("Tau") -&gt; 932;
+     1..|  entity("Upsilon") -&gt; 933;
+     1..|  entity("Phi") -&gt; 934;
+     1..|  entity("Chi") -&gt; 935;
+     1..|  entity("Psi") -&gt; 936;
+     1..|  entity("Omega") -&gt; 937;
+     1..|  entity("alpha") -&gt; 945;
+     1..|  entity("beta") -&gt; 946;
+     1..|  entity("gamma") -&gt; 947;
+     1..|  entity("delta") -&gt; 948;
+     1..|  entity("epsilon") -&gt; 949;
+     1..|  entity("zeta") -&gt; 950;
+     1..|  entity("eta") -&gt; 951;
+     1..|  entity("theta") -&gt; 952;
+     1..|  entity("iota") -&gt; 953;
+     1..|  entity("kappa") -&gt; 954;
+     1..|  entity("lambda") -&gt; 955;
+     1..|  entity("mu") -&gt; 956;
+     1..|  entity("nu") -&gt; 957;
+     1..|  entity("xi") -&gt; 958;
+     1..|  entity("omicron") -&gt; 959;
+     1..|  entity("pi") -&gt; 960;
+     1..|  entity("rho") -&gt; 961;
+     1..|  entity("sigmaf") -&gt; 962;
+     1..|  entity("sigma") -&gt; 963;
+     1..|  entity("tau") -&gt; 964;
+     1..|  entity("upsilon") -&gt; 965;
+     1..|  entity("phi") -&gt; 966;
+     1..|  entity("chi") -&gt; 967;
+     1..|  entity("psi") -&gt; 968;
+     1..|  entity("omega") -&gt; 969;
+     1..|  entity("thetasym") -&gt; 977;
+     1..|  entity("upsih") -&gt; 978;
+     1..|  entity("piv") -&gt; 982;
+     1..|  entity("bull") -&gt; 8226;
+     1..|  entity("hellip") -&gt; 8230;
+     1..|  entity("prime") -&gt; 8242;
+     1..|  entity("Prime") -&gt; 8243;
+     1..|  entity("oline") -&gt; 8254;
+     1..|  entity("frasl") -&gt; 8260;
+     1..|  entity("weierp") -&gt; 8472;
+     1..|  entity("image") -&gt; 8465;
+     1..|  entity("real") -&gt; 8476;
+     1..|  entity("trade") -&gt; 8482;
+     1..|  entity("alefsym") -&gt; 8501;
+     1..|  entity("larr") -&gt; 8592;
+     1..|  entity("uarr") -&gt; 8593;
+     1..|  entity("rarr") -&gt; 8594;
+     1..|  entity("darr") -&gt; 8595;
+     1..|  entity("harr") -&gt; 8596;
+     1..|  entity("crarr") -&gt; 8629;
+     1..|  entity("lArr") -&gt; 8656;
+     1..|  entity("uArr") -&gt; 8657;
+     1..|  entity("rArr") -&gt; 8658;
+     1..|  entity("dArr") -&gt; 8659;
+     1..|  entity("hArr") -&gt; 8660;
+     1..|  entity("forall") -&gt; 8704;
+     1..|  entity("part") -&gt; 8706;
+     1..|  entity("exist") -&gt; 8707;
+     1..|  entity("empty") -&gt; 8709;
+     1..|  entity("nabla") -&gt; 8711;
+     1..|  entity("isin") -&gt; 8712;
+     1..|  entity("notin") -&gt; 8713;
+     1..|  entity("ni") -&gt; 8715;
+     1..|  entity("prod") -&gt; 8719;
+     1..|  entity("sum") -&gt; 8721;
+     1..|  entity("minus") -&gt; 8722;
+     1..|  entity("lowast") -&gt; 8727;
+     1..|  entity("radic") -&gt; 8730;
+     1..|  entity("prop") -&gt; 8733;
+     1..|  entity("infin") -&gt; 8734;
+     1..|  entity("ang") -&gt; 8736;
+     1..|  entity("and") -&gt; 8743;
+     1..|  entity("or") -&gt; 8744;
+     1..|  entity("cap") -&gt; 8745;
+     1..|  entity("cup") -&gt; 8746;
+     1..|  entity("int") -&gt; 8747;
+     1..|  entity("there4") -&gt; 8756;
+     1..|  entity("sim") -&gt; 8764;
+     1..|  entity("cong") -&gt; 8773;
+     1..|  entity("asymp") -&gt; 8776;
+     1..|  entity("ne") -&gt; 8800;
+     1..|  entity("equiv") -&gt; 8801;
+     1..|  entity("le") -&gt; 8804;
+     1..|  entity("ge") -&gt; 8805;
+     1..|  entity("sub") -&gt; 8834;
+     1..|  entity("sup") -&gt; 8835;
+     1..|  entity("nsub") -&gt; 8836;
+     1..|  entity("sube") -&gt; 8838;
+     1..|  entity("supe") -&gt; 8839;
+     1..|  entity("oplus") -&gt; 8853;
+     1..|  entity("otimes") -&gt; 8855;
+     1..|  entity("perp") -&gt; 8869;
+     1..|  entity("sdot") -&gt; 8901;
+     1..|  entity("lceil") -&gt; 8968;
+     1..|  entity("rceil") -&gt; 8969;
+     1..|  entity("lfloor") -&gt; 8970;
+     1..|  entity("rfloor") -&gt; 8971;
+     1..|  entity("lang") -&gt; 9001;
+     1..|  entity("rang") -&gt; 9002;
+     1..|  entity("loz") -&gt; 9674;
+     1..|  entity("spades") -&gt; 9824;
+     1..|  entity("clubs") -&gt; 9827;
+     1..|  entity("hearts") -&gt; 9829;
+     1..|  entity("diams") -&gt; 9830;
+     2..|  entity("quot") -&gt; 34;
+     3..|  entity("amp") -&gt; 38;
+     2..|  entity("lt") -&gt; 60;
+     1..|  entity("gt") -&gt; 62;
+     1..|  entity("OElig") -&gt; 338;
+     1..|  entity("oelig") -&gt; 339;
+     1..|  entity("Scaron") -&gt; 352;
+     1..|  entity("scaron") -&gt; 353;
+     1..|  entity("Yuml") -&gt; 376;
+     1..|  entity("circ") -&gt; 710;
+     1..|  entity("tilde") -&gt; 732;
+     1..|  entity("ensp") -&gt; 8194;
+     1..|  entity("emsp") -&gt; 8195;
+     1..|  entity("thinsp") -&gt; 8201;
+     1..|  entity("zwnj") -&gt; 8204;
+     1..|  entity("zwj") -&gt; 8205;
+     1..|  entity("lrm") -&gt; 8206;
+     1..|  entity("rlm") -&gt; 8207;
+     1..|  entity("ndash") -&gt; 8211;
+     1..|  entity("mdash") -&gt; 8212;
+     1..|  entity("lsquo") -&gt; 8216;
+     1..|  entity("rsquo") -&gt; 8217;
+     1..|  entity("sbquo") -&gt; 8218;
+     1..|  entity("ldquo") -&gt; 8220;
+     1..|  entity("rdquo") -&gt; 8221;
+     1..|  entity("bdquo") -&gt; 8222;
+     1..|  entity("dagger") -&gt; 8224;
+     1..|  entity("Dagger") -&gt; 8225;
+     1..|  entity("permil") -&gt; 8240;
+     1..|  entity("lsaquo") -&gt; 8249;
+     1..|  entity("rsaquo") -&gt; 8250;
+     1..|  entity("euro") -&gt; 8364;
+     1..|  entity(_) -&gt; undefined.
+        |  
+        |  
+        |  %%
+        |  %% Tests
+        |  %%
+        |  -include_lib("eunit/include/eunit.hrl").
+        |  -ifdef(TEST).
+        |  
+        |  exhaustive_entity_test() -&gt;
+     1..|      T = mochiweb_cover:clause_lookup_table(?MODULE, entity),
+     1..|      [?assertEqual(V, entity(K)) || {K, V} &lt;- T].
+        |  
+        |  charref_test() -&gt;
+     1..|      1234 = charref("#1234"),
+     1..|      255 = charref("#xfF"),
+     1..|      255 = charref(&lt;&lt;"#XFf"&gt;&gt;),
+     1..|      38 = charref("amp"),
+     1..|      38 = charref(&lt;&lt;"amp"&gt;&gt;),
+     1..|      undefined = charref("not_an_entity"),
+     1..|      undefined = charref("#not_an_entity"),
+     1..|      undefined = charref("#xnot_an_entity"),
+     1..|      ok.
+        |  
+        |  -endif.
+</pre>
+</body>
+</html>

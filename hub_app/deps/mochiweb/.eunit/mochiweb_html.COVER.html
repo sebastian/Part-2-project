@@ -1,0 +1,1071 @@
+<html>
+<head><title>.eunit/mochiweb_html.COVER.html</title></head><body bgcolor=white text=black>
+<pre>
+File generated from /Users/seb/Documents/part2project/app/deps/mochiweb/.eunit/mochiweb_html.erl by COVER 2010-10-28 at 14:19:49
+
+****************************************************************************
+
+        |  %% @author Bob Ippolito &lt;bob@mochimedia.com&gt;
+        |  %% @copyright 2007 Mochi Media, Inc.
+        |  
+        |  %% @doc Loosely tokenizes and generates parse trees for HTML 4.
+        |  -module(mochiweb_html).
+        |  -export([tokens/1, parse/1, parse_tokens/1, to_tokens/1, escape/1,
+        |           escape_attr/1, to_html/1]).
+        |  
+        |  %% This is a macro to placate syntax highlighters..
+        |  -define(QUOTE, $\").
+        |  -define(SQUOTE, $\').
+        |  -define(ADV_COL(S, N),
+        |          S#decoder{column=N+S#decoder.column,
+        |                    offset=N+S#decoder.offset}).
+        |  -define(INC_COL(S),
+        |          S#decoder{column=1+S#decoder.column,
+        |                    offset=1+S#decoder.offset}).
+        |  -define(INC_LINE(S),
+        |          S#decoder{column=1,
+        |                    line=1+S#decoder.line,
+        |                    offset=1+S#decoder.offset}).
+        |  -define(INC_CHAR(S, C),
+        |          case C of
+        |              $\n -&gt;
+        |                  S#decoder{column=1,
+        |                            line=1+S#decoder.line,
+        |                            offset=1+S#decoder.offset};
+        |              _ -&gt;
+        |                  S#decoder{column=1+S#decoder.column,
+        |                            offset=1+S#decoder.offset}
+        |          end).
+        |  
+        |  -define(IS_WHITESPACE(C),
+        |          (C =:= $\s orelse C =:= $\t orelse C =:= $\r orelse C =:= $\n)).
+        |  -define(IS_LITERAL_SAFE(C),
+        |          ((C &gt;= $A andalso C =&lt; $Z) orelse (C &gt;= $a andalso C =&lt; $z)
+        |           orelse (C &gt;= $0 andalso C =&lt; $9))).
+        |  -define(PROBABLE_CLOSE(C),
+        |          (C =:= $&gt; orelse ?IS_WHITESPACE(C))).
+        |  
+        |  -record(decoder, {line=1,
+        |                    column=1,
+        |                    offset=0}).
+        |  
+        |  %% @type html_node() = {string(), [html_attr()], [html_node() | string()]}
+        |  %% @type html_attr() = {string(), string()}
+        |  %% @type html_token() = html_data() | start_tag() | end_tag() | inline_html() | html_comment() | html_doctype()
+        |  %% @type html_data() = {data, string(), Whitespace::boolean()}
+        |  %% @type start_tag() = {start_tag, Name, [html_attr()], Singleton::boolean()}
+        |  %% @type end_tag() = {end_tag, Name}
+        |  %% @type html_comment() = {comment, Comment}
+        |  %% @type html_doctype() = {doctype, [Doctype]}
+        |  %% @type inline_html() = {'=', iolist()}
+        |  
+        |  %% External API.
+        |  
+        |  %% @spec parse(string() | binary()) -&gt; html_node()
+        |  %% @doc tokenize and then transform the token stream into a HTML tree.
+        |  parse(Input) -&gt;
+     9..|      parse_tokens(tokens(Input)).
+        |  
+        |  %% @spec parse_tokens([html_token()]) -&gt; html_node()
+        |  %% @doc Transform the output of tokens(Doc) into a HTML tree.
+        |  parse_tokens(Tokens) when is_list(Tokens) -&gt;
+        |      %% Skip over doctype, processing instructions
+    17..|      F = fun (X) -&gt;
+    30..|                  case X of
+        |                      {start_tag, _, _, false} -&gt;
+    17..|                          false;
+        |                      _ -&gt;
+    13..|                          true
+        |                  end
+        |          end,
+    17..|      [{start_tag, Tag, Attrs, false} | Rest] = lists:dropwhile(F, Tokens),
+    17..|      {Tree, _} = tree(Rest, [norm({Tag, Attrs})]),
+    17..|      Tree.
+        |  
+        |  %% @spec tokens(StringOrBinary) -&gt; [html_token()]
+        |  %% @doc Transform the input UTF-8 HTML into a token stream.
+        |  tokens(Input) -&gt;
+    24..|      tokens(iolist_to_binary(Input), #decoder{}, []).
+        |  
+        |  %% @spec to_tokens(html_node()) -&gt; [html_token()]
+        |  %% @doc Convert a html_node() tree to a list of tokens.
+        |  to_tokens({Tag0}) -&gt;
+     1..|      to_tokens({Tag0, [], []});
+        |  to_tokens(T={'=', _}) -&gt;
+     1..|      [T];
+        |  to_tokens(T={doctype, _}) -&gt;
+     1..|      [T];
+        |  to_tokens(T={comment, _}) -&gt;
+     1..|      [T];
+        |  to_tokens({Tag0, Acc}) -&gt;
+        |      %% This is only allowed in sub-tags: {p, [{"class", "foo"}]}
+     1..|      to_tokens({Tag0, [], Acc});
+        |  to_tokens({Tag0, Attrs, Acc}) -&gt;
+     5..|      Tag = to_tag(Tag0),
+     5..|      to_tokens([{Tag, Acc}], [{start_tag, Tag, Attrs, is_singleton(Tag)}]).
+        |  
+        |  %% @spec to_html([html_token()] | html_node()) -&gt; iolist()
+        |  %% @doc Convert a list of html_token() to a HTML document.
+        |  to_html(Node) when is_tuple(Node) -&gt;
+     3..|      to_html(to_tokens(Node));
+        |  to_html(Tokens) when is_list(Tokens) -&gt;
+     3..|      to_html(Tokens, []).
+        |  
+        |  %% @spec escape(string() | atom() | binary()) -&gt; binary()
+        |  %% @doc Escape a string such that it's safe for HTML (amp; lt; gt;).
+        |  escape(B) when is_binary(B) -&gt;
+     7..|      escape(binary_to_list(B), []);
+        |  escape(A) when is_atom(A) -&gt;
+     2..|      escape(atom_to_list(A), []);
+        |  escape(S) when is_list(S) -&gt;
+     1..|      escape(S, []).
+        |  
+        |  %% @spec escape_attr(string() | binary() | atom() | integer() | float()) -&gt; binary()
+        |  %% @doc Escape a string such that it's safe for HTML attrs
+        |  %%      (amp; lt; gt; quot;).
+        |  escape_attr(B) when is_binary(B) -&gt;
+     5..|      escape_attr(binary_to_list(B), []);
+        |  escape_attr(A) when is_atom(A) -&gt;
+     2..|      escape_attr(atom_to_list(A), []);
+        |  escape_attr(S) when is_list(S) -&gt;
+     1..|      escape_attr(S, []);
+        |  escape_attr(I) when is_integer(I) -&gt;
+     1..|      escape_attr(integer_to_list(I), []);
+        |  escape_attr(F) when is_float(F) -&gt;
+     1..|      escape_attr(mochinum:digits(F), []).
+        |  
+        |  to_html([], Acc) -&gt;
+     3..|      lists:reverse(Acc);
+        |  to_html([{'=', Content} | Rest], Acc) -&gt;
+     1..|      to_html(Rest, [Content | Acc]);
+        |  to_html([{pi, Tag, Attrs} | Rest], Acc) -&gt;
+     1..|      Open = [&lt;&lt;"&lt;?"&gt;&gt;,
+        |              Tag,
+        |              attrs_to_html(Attrs, []),
+        |              &lt;&lt;"?&gt;"&gt;&gt;],
+     1..|      to_html(Rest, [Open | Acc]);
+        |  to_html([{comment, Comment} | Rest], Acc) -&gt;
+     1..|      to_html(Rest, [[&lt;&lt;"&lt;!--"&gt;&gt;, Comment, &lt;&lt;"--&gt;"&gt;&gt;] | Acc]);
+        |  to_html([{doctype, Parts} | Rest], Acc) -&gt;
+     1..|      Inside = doctype_to_html(Parts, Acc),
+     1..|      to_html(Rest, [[&lt;&lt;"&lt;!DOCTYPE"&gt;&gt;, Inside, &lt;&lt;"&gt;"&gt;&gt;] | Acc]);
+        |  to_html([{data, Data, _Whitespace} | Rest], Acc) -&gt;
+     4..|      to_html(Rest, [escape(Data) | Acc]);
+        |  to_html([{start_tag, Tag, Attrs, Singleton} | Rest], Acc) -&gt;
+     8..|      Open = [&lt;&lt;"&lt;"&gt;&gt;,
+        |              Tag,
+        |              attrs_to_html(Attrs, []),
+        |              case Singleton of
+     1..|                  true -&gt; &lt;&lt;" /&gt;"&gt;&gt;;
+     7..|                  false -&gt; &lt;&lt;"&gt;"&gt;&gt;
+        |              end],
+     8..|      to_html(Rest, [Open | Acc]);
+        |  to_html([{end_tag, Tag} | Rest], Acc) -&gt;
+     7..|      to_html(Rest, [[&lt;&lt;"&lt;/"&gt;&gt;, Tag, &lt;&lt;"&gt;"&gt;&gt;] | Acc]).
+        |  
+        |  doctype_to_html([], Acc) -&gt;
+     1..|      lists:reverse(Acc);
+        |  doctype_to_html([Word | Rest], Acc) -&gt;
+     4..|      case lists:all(fun (C) -&gt; ?IS_LITERAL_SAFE(C) end,
+        |                     binary_to_list(iolist_to_binary(Word))) of
+        |          true -&gt;
+     2..|              doctype_to_html(Rest, [[&lt;&lt;" "&gt;&gt;, Word] | Acc]);
+        |          false -&gt;
+     2..|              doctype_to_html(Rest, [[&lt;&lt;" \""&gt;&gt;, escape_attr(Word), ?QUOTE] | Acc])
+        |      end.
+        |  
+        |  attrs_to_html([], Acc) -&gt;
+     9..|      lists:reverse(Acc);
+        |  attrs_to_html([{K, V} | Rest], Acc) -&gt;
+     3..|      attrs_to_html(Rest,
+        |                    [[&lt;&lt;" "&gt;&gt;, escape(K), &lt;&lt;"=\""&gt;&gt;,
+        |                      escape_attr(V), &lt;&lt;"\""&gt;&gt;] | Acc]).
+        |  
+        |  escape([], Acc) -&gt;
+    10..|      list_to_binary(lists:reverse(Acc));
+        |  escape("&lt;" ++ Rest, Acc) -&gt;
+     6..|      escape(Rest, lists:reverse("&lt;", Acc));
+        |  escape("&gt;" ++ Rest, Acc) -&gt;
+     3..|      escape(Rest, lists:reverse("&gt;", Acc));
+        |  escape("&" ++ Rest, Acc) -&gt;
+     6..|      escape(Rest, lists:reverse("&amp;", Acc));
+        |  escape([C | Rest], Acc) -&gt;
+    88..|      escape(Rest, [C | Acc]).
+        |  
+        |  escape_attr([], Acc) -&gt;
+    10..|      list_to_binary(lists:reverse(Acc));
+        |  escape_attr("&lt;" ++ Rest, Acc) -&gt;
+     6..|      escape_attr(Rest, lists:reverse("&lt;", Acc));
+        |  escape_attr("&gt;" ++ Rest, Acc) -&gt;
+     3..|      escape_attr(Rest, lists:reverse("&gt;", Acc));
+        |  escape_attr("&" ++ Rest, Acc) -&gt;
+     6..|      escape_attr(Rest, lists:reverse("&amp;", Acc));
+        |  escape_attr([?QUOTE | Rest], Acc) -&gt;
+     3..|      escape_attr(Rest, lists:reverse("&quot;", Acc));
+        |  escape_attr([C | Rest], Acc) -&gt;
+   198..|      escape_attr(Rest, [C | Acc]).
+        |  
+        |  to_tag(A) when is_atom(A) -&gt;
+    10..|      norm(atom_to_list(A));
+        |  to_tag(L) -&gt;
+    24..|      norm(L).
+        |  
+        |  to_tokens([], Acc) -&gt;
+     5..|      lists:reverse(Acc);
+        |  to_tokens([{Tag, []} | Rest], Acc) -&gt;
+    11..|      to_tokens(Rest, [{end_tag, to_tag(Tag)} | Acc]);
+        |  to_tokens([{Tag0, [{T0} | R1]} | Rest], Acc) -&gt;
+        |      %% Allow {br}
+     1..|      to_tokens([{Tag0, [{T0, [], []} | R1]} | Rest], Acc);
+        |  to_tokens([{Tag0, [T0={'=', _C0} | R1]} | Rest], Acc) -&gt;
+        |      %% Allow {'=', iolist()}
+     1..|      to_tokens([{Tag0, R1} | Rest], [T0 | Acc]);
+        |  to_tokens([{Tag0, [T0={comment, _C0} | R1]} | Rest], Acc) -&gt;
+        |      %% Allow {comment, iolist()}
+     1..|      to_tokens([{Tag0, R1} | Rest], [T0 | Acc]);
+        |  to_tokens([{Tag0, [T0={pi, _S0, _A0} | R1]} | Rest], Acc) -&gt;
+        |      %% Allow {pi, binary(), list()}
+     1..|      to_tokens([{Tag0, R1} | Rest], [T0 | Acc]);
+        |  to_tokens([{Tag0, [{T0, A0=[{_, _} | _]} | R1]} | Rest], Acc) -&gt;
+        |      %% Allow {p, [{"class", "foo"}]}
+     1..|      to_tokens([{Tag0, [{T0, A0, []} | R1]} | Rest], Acc);
+        |  to_tokens([{Tag0, [{T0, C0} | R1]} | Rest], Acc) -&gt;
+        |      %% Allow {p, "content"} and {p, &lt;&lt;"content"&gt;&gt;}
+     2..|      to_tokens([{Tag0, [{T0, [], C0} | R1]} | Rest], Acc);
+        |  to_tokens([{Tag0, [{T0, A1, C0} | R1]} | Rest], Acc) when is_binary(C0) -&gt;
+        |      %% Allow {"p", [{"class", "foo"}], &lt;&lt;"content"&gt;&gt;}
+     2..|      to_tokens([{Tag0, [{T0, A1, binary_to_list(C0)} | R1]} | Rest], Acc);
+        |  to_tokens([{Tag0, [{T0, A1, C0=[C | _]} | R1]} | Rest], Acc)
+        |    when is_integer(C) -&gt;
+        |      %% Allow {"p", [{"class", "foo"}], "content"}
+     2..|      to_tokens([{Tag0, [{T0, A1, [C0]} | R1]} | Rest], Acc);
+        |  to_tokens([{Tag0, [{T0, A1, C1} | R1]} | Rest], Acc) -&gt;
+        |      %% Native {"p", [{"class", "foo"}], ["content"]}
+     7..|      Tag = to_tag(Tag0),
+     7..|      T1 = to_tag(T0),
+     7..|      case is_singleton(norm(T1)) of
+        |          true -&gt;
+     1..|              to_tokens([{Tag, R1} | Rest], [{start_tag, T1, A1, true} | Acc]);
+        |          false -&gt;
+     6..|              to_tokens([{T1, C1}, {Tag, R1} | Rest],
+        |                        [{start_tag, T1, A1, false} | Acc])
+        |      end;
+        |  to_tokens([{Tag0, [L | R1]} | Rest], Acc) when is_list(L) -&gt;
+        |      %% List text
+     2..|      Tag = to_tag(Tag0),
+     2..|      to_tokens([{Tag, R1} | Rest], [{data, iolist_to_binary(L), false} | Acc]);
+        |  to_tokens([{Tag0, [B | R1]} | Rest], Acc) when is_binary(B) -&gt;
+        |      %% Binary text
+     2..|      Tag = to_tag(Tag0),
+     2..|      to_tokens([{Tag, R1} | Rest], [{data, B, false} | Acc]).
+        |  
+        |  tokens(B, S=#decoder{offset=O}, Acc) -&gt;
+   132..|      case B of
+        |          &lt;&lt;_:O/binary&gt;&gt; -&gt;
+    24..|              lists:reverse(Acc);
+        |          _ -&gt;
+   108..|              {Tag, S1} = tokenize(B, S),
+   108..|              case parse_flag(Tag) of
+        |                  script -&gt;
+     4..|                      {Tag2, S2} = tokenize_script(B, S1),
+     4..|                      tokens(B, S2, [Tag2, Tag | Acc]);
+        |                  textarea -&gt;
+     2..|                      {Tag2, S2} = tokenize_textarea(B, S1),
+     2..|                      tokens(B, S2, [Tag2, Tag | Acc]);
+        |                  none -&gt;
+   102..|                      tokens(B, S1, [Tag | Acc])
+        |              end
+        |      end.
+        |  
+        |  parse_flag({start_tag, B, _, false}) -&gt;
+    27..|      case string:to_lower(binary_to_list(B)) of
+        |          "script" -&gt;
+     4..|              script;
+        |          "textarea" -&gt;
+     2..|              textarea;
+        |          _ -&gt;
+    21..|              none
+        |      end;
+        |  parse_flag(_) -&gt;
+    81..|      none.
+        |  
+        |  tokenize(B, S=#decoder{offset=O}) -&gt;
+   108..|      case B of
+        |          &lt;&lt;_:O/binary, "&lt;!--", _/binary&gt;&gt; -&gt;
+     2..|              tokenize_comment(B, ?ADV_COL(S, 4));
+        |          &lt;&lt;_:O/binary, "&lt;!DOCTYPE", _/binary&gt;&gt; -&gt;
+     3..|              tokenize_doctype(B, ?ADV_COL(S, 10));
+        |          &lt;&lt;_:O/binary, "&lt;![CDATA[", _/binary&gt;&gt; -&gt;
+     1..|              tokenize_cdata(B, ?ADV_COL(S, 9));
+        |          &lt;&lt;_:O/binary, "&lt;?", _/binary&gt;&gt; -&gt;
+     4..|              {Tag, S1} = tokenize_literal(B, ?ADV_COL(S, 2)),
+     4..|              {Attrs, S2} = tokenize_attributes(B, S1),
+     4..|              S3 = find_qgt(B, S2),
+     4..|              {{pi, Tag, Attrs}, S3};
+        |          &lt;&lt;_:O/binary, "&", _/binary&gt;&gt; -&gt;
+     1..|              tokenize_charref(B, ?INC_COL(S));
+        |          &lt;&lt;_:O/binary, "&lt;/", _/binary&gt;&gt; -&gt;
+    28..|              {Tag, S1} = tokenize_literal(B, ?ADV_COL(S, 2)),
+    28..|              {S2, _} = find_gt(B, S1),
+    28..|              {{end_tag, Tag}, S2};
+        |          &lt;&lt;_:O/binary, "&lt;", C, _/binary&gt;&gt; when ?IS_WHITESPACE(C) -&gt;
+        |              %% This isn't really strict HTML
+     1..|              {{data, Data, _Whitespace}, S1} = tokenize_data(B, ?INC_COL(S)),
+     1..|              {{data, &lt;&lt;$&lt;, Data/binary&gt;&gt;, false}, S1};
+        |          &lt;&lt;_:O/binary, "&lt;", _/binary&gt;&gt; -&gt;
+    41..|              {Tag, S1} = tokenize_literal(B, ?INC_COL(S)),
+    41..|              {Attrs, S2} = tokenize_attributes(B, S1),
+    41..|              {S3, HasSlash} = find_gt(B, S2),
+    41..|              Singleton = HasSlash orelse is_singleton(norm(binary_to_list(Tag))),
+    41..|              {{start_tag, Tag, Attrs, Singleton}, S3};
+        |          _ -&gt;
+    27..|              tokenize_data(B, S)
+        |      end.
+        |  
+        |  tree_data([{data, Data, Whitespace} | Rest], AllWhitespace, Acc) -&gt;
+    34..|      tree_data(Rest, (Whitespace andalso AllWhitespace), [Data | Acc]);
+        |  tree_data(Rest, AllWhitespace, Acc) -&gt;
+    30..|      {iolist_to_binary(lists:reverse(Acc)), AllWhitespace, Rest}.
+        |  
+        |  tree([], Stack) -&gt;
+     5..|      {destack(Stack), []};
+        |  tree([{end_tag, Tag} | Rest], Stack) -&gt;
+    31..|      case destack(norm(Tag), Stack) of
+        |          S when is_list(S) -&gt;
+    19..|              tree(Rest, S);
+        |          Result -&gt;
+    12..|              {Result, []}
+        |      end;
+        |  tree([{start_tag, Tag, Attrs, true} | Rest], S) -&gt;
+    12..|      tree(Rest, append_stack_child(norm({Tag, Attrs}), S));
+        |  tree([{start_tag, Tag, Attrs, false} | Rest], S) -&gt;
+    22..|      tree(Rest, stack(norm({Tag, Attrs}), S));
+        |  tree([T={pi, _Tag, _Attrs} | Rest], S) -&gt;
+     1..|      tree(Rest, append_stack_child(T, S));
+        |  tree([T={comment, _Comment} | Rest], S) -&gt;
+     1..|      tree(Rest, append_stack_child(T, S));
+        |  tree(L=[{data, _Data, _Whitespace} | _], S) -&gt;
+    30..|      case tree_data(L, true, []) of
+        |          {_, true, Rest} -&gt;
+    13..|              tree(Rest, S);
+        |          {Data, false, Rest} -&gt;
+    17..|              tree(Rest, append_stack_child(Data, S))
+        |      end;
+        |  tree([{doctype, _} | Rest], Stack) -&gt;
+     1..|      tree(Rest, Stack).
+        |  
+        |  norm({Tag, Attrs}) -&gt;
+    51..|      {norm(Tag), [{norm(K), iolist_to_binary(V)} || {K, V} &lt;- Attrs], []};
+        |  norm(Tag) when is_binary(Tag) -&gt;
+   139..|      Tag;
+        |  norm(Tag) -&gt;
+    49..|      list_to_binary(string:to_lower(Tag)).
+        |  
+        |  stack(T1={TN, _, _}, Stack=[{TN, _, _} | _Rest])
+        |    when TN =:= &lt;&lt;"li"&gt;&gt; orelse TN =:= &lt;&lt;"option"&gt;&gt; -&gt;
+     1..|      [T1 | destack(TN, Stack)];
+        |  stack(T1={TN0, _, _}, Stack=[{TN1, _, _} | _Rest])
+        |    when (TN0 =:= &lt;&lt;"dd"&gt;&gt; orelse TN0 =:= &lt;&lt;"dt"&gt;&gt;) andalso
+        |         (TN1 =:= &lt;&lt;"dd"&gt;&gt; orelse TN1 =:= &lt;&lt;"dt"&gt;&gt;) -&gt;
+     1..|      [T1 | destack(TN1, Stack)];
+        |  stack(T1, Stack) -&gt;
+    20..|      [T1 | Stack].
+        |  
+        |  append_stack_child(StartTag, [{Name, Attrs, Acc} | Stack]) -&gt;
+    31..|      [{Name, Attrs, [StartTag | Acc]} | Stack].
+        |  
+        |  destack(TagName, Stack) when is_list(Stack) -&gt;
+    35..|      F = fun (X) -&gt;
+    46..|                  case X of
+        |                      {TagName, _, _} -&gt;
+    33..|                          false;
+        |                      _ -&gt;
+    13..|                          true
+        |                  end
+        |          end,
+    35..|      case lists:splitwith(F, Stack) of
+        |          {_, []} -&gt;
+        |              %% If we're parsing something like XML we might find
+        |              %% a &lt;link&gt;tag&lt;/link&gt; that is normally a singleton
+        |              %% in HTML but isn't here
+     4..|              case {is_singleton(TagName), Stack} of
+        |                  {true, [{T0, A0, Acc0} | Post0]} -&gt;
+     2..|                      case lists:splitwith(F, Acc0) of
+        |                          {_, []} -&gt;
+        |                              %% Actually was a singleton
+<font color=red>     0..|                              Stack;</font>
+        |                          {Pre, [{T1, A1, []} | Post1]} -&gt;
+     2..|                              [{T0, A0, [{T1, A1, lists:reverse(Pre)} | Post1]}
+        |                               | Post0]
+        |                      end;
+        |                  _ -&gt;
+        |                      %% No match, no state change
+     2..|                      Stack
+        |              end;
+        |          {_Pre, [_T]} -&gt;
+        |              %% Unfurl the whole stack, we're done
+    12..|              destack(Stack);
+        |          {Pre, [T, {T0, A0, Acc0} | Post]} -&gt;
+        |              %% Unfurl up to the tag, then accumulate it
+    19..|              [{T0, A0, [destack(Pre ++ [T]) | Acc0]} | Post]
+        |      end.
+        |  
+        |  destack([{Tag, Attrs, Acc}]) -&gt;
+    39..|      {Tag, Attrs, lists:reverse(Acc)};
+        |  destack([{T1, A1, Acc1}, {T0, A0, Acc0} | Rest]) -&gt;
+     9..|      destack([{T0, A0, [{T1, A1, lists:reverse(Acc1)} | Acc0]} | Rest]).
+        |  
+     5..|  is_singleton(&lt;&lt;"br"&gt;&gt;) -&gt; true;
+     1..|  is_singleton(&lt;&lt;"hr"&gt;&gt;) -&gt; true;
+     1..|  is_singleton(&lt;&lt;"img"&gt;&gt;) -&gt; true;
+     1..|  is_singleton(&lt;&lt;"input"&gt;&gt;) -&gt; true;
+     1..|  is_singleton(&lt;&lt;"base"&gt;&gt;) -&gt; true;
+     2..|  is_singleton(&lt;&lt;"meta"&gt;&gt;) -&gt; true;
+    11..|  is_singleton(&lt;&lt;"link"&gt;&gt;) -&gt; true;
+     1..|  is_singleton(&lt;&lt;"area"&gt;&gt;) -&gt; true;
+     1..|  is_singleton(&lt;&lt;"param"&gt;&gt;) -&gt; true;
+     1..|  is_singleton(&lt;&lt;"col"&gt;&gt;) -&gt; true;
+    40..|  is_singleton(_) -&gt; false.
+        |  
+        |  tokenize_data(B, S=#decoder{offset=O}) -&gt;
+    28..|      tokenize_data(B, S, O, true).
+        |  
+        |  tokenize_data(B, S=#decoder{offset=O}, Start, Whitespace) -&gt;
+   222..|      case B of
+        |          &lt;&lt;_:O/binary, C, _/binary&gt;&gt; when (C =/= $&lt; andalso C =/= $&) -&gt;
+   194..|              tokenize_data(B, ?INC_CHAR(S, C), Start,
+   194..|                            (Whitespace andalso ?IS_WHITESPACE(C)));
+        |          _ -&gt;
+    28..|              Len = O - Start,
+    28..|              &lt;&lt;_:Start/binary, Data:Len/binary, _/binary&gt;&gt; = B,
+    28..|              {{data, Data, Whitespace}, S}
+        |      end.
+        |  
+        |  tokenize_attributes(B, S) -&gt;
+    45..|      tokenize_attributes(B, S, []).
+        |  
+        |  tokenize_attributes(B, S=#decoder{offset=O}, Acc) -&gt;
+   127..|      case B of
+        |          &lt;&lt;_:O/binary&gt;&gt; -&gt;
+     2..|              {lists:reverse(Acc), S};
+        |          &lt;&lt;_:O/binary, C, _/binary&gt;&gt; when (C =:= $&gt; orelse C =:= $/) -&gt;
+    40..|              {lists:reverse(Acc), S};
+        |          &lt;&lt;_:O/binary, "?&gt;", _/binary&gt;&gt; -&gt;
+     3..|              {lists:reverse(Acc), S};
+        |          &lt;&lt;_:O/binary, C, _/binary&gt;&gt; when ?IS_WHITESPACE(C) -&gt;
+    42..|              tokenize_attributes(B, ?INC_CHAR(S, C), Acc);
+        |          _ -&gt;
+    40..|              {Attr, S1} = tokenize_literal(B, S),
+    40..|              {Value, S2} = tokenize_attr_value(Attr, B, S1),
+    40..|              tokenize_attributes(B, S2, [{Attr, Value} | Acc])
+        |      end.
+        |  
+        |  tokenize_attr_value(Attr, B, S) -&gt;
+    40..|      S1 = skip_whitespace(B, S),
+    40..|      O = S1#decoder.offset,
+    40..|      case B of
+        |          &lt;&lt;_:O/binary, "=", _/binary&gt;&gt; -&gt;
+    38..|              S2 = skip_whitespace(B, ?INC_COL(S1)),
+    38..|              tokenize_word_or_literal(B, S2);
+        |          _ -&gt;
+     2..|              {Attr, S1}
+        |      end.
+        |  
+        |  skip_whitespace(B, S=#decoder{offset=O}) -&gt;
+    83..|      case B of
+        |          &lt;&lt;_:O/binary, C, _/binary&gt;&gt; when ?IS_WHITESPACE(C) -&gt;
+     5..|              skip_whitespace(B, ?INC_CHAR(S, C));
+        |          _ -&gt;
+    78..|              S
+        |      end.
+        |  
+        |  tokenize_literal(Bin, S) -&gt;
+   113..|      tokenize_literal(Bin, S, []).
+        |  
+        |  tokenize_literal(Bin, S=#decoder{offset=O}, Acc) -&gt;
+   811..|      case Bin of
+        |          &lt;&lt;_:O/binary, $&, _/binary&gt;&gt; -&gt;
+     1..|              {{data, Data, false}, S1} = tokenize_charref(Bin, ?INC_COL(S)),
+     1..|              tokenize_literal(Bin, S1, [Data | Acc]);
+        |          &lt;&lt;_:O/binary, C, _/binary&gt;&gt; when not (?IS_WHITESPACE(C)
+        |                                                orelse C =:= $&gt;
+        |                                                orelse C =:= $/
+        |                                                orelse C =:= $=) -&gt;
+   683..|              tokenize_literal(Bin, ?INC_COL(S), [C | Acc]);
+        |          _ -&gt;
+   127..|              {iolist_to_binary(lists:reverse(Acc)), S}
+        |      end.
+        |  
+        |  find_qgt(Bin, S=#decoder{offset=O}) -&gt;
+     4..|      case Bin of
+        |          &lt;&lt;_:O/binary, "?&gt;", _/binary&gt;&gt; -&gt;
+     3..|              ?ADV_COL(S, 2);
+        |          %% tokenize_attributes takes care of this state:
+        |          %% &lt;&lt;_:O/binary, C, _/binary&gt;&gt; -&gt;
+        |          %%     find_qgt(Bin, ?INC_CHAR(S, C));
+        |          &lt;&lt;_:O/binary&gt;&gt; -&gt;
+     1..|              S
+        |      end.
+        |  
+        |  find_gt(Bin, S) -&gt;
+    69..|      find_gt(Bin, S, false).
+        |  
+        |  find_gt(Bin, S=#decoder{offset=O}, HasSlash) -&gt;
+    71..|      case Bin of
+        |          &lt;&lt;_:O/binary, $/, _/binary&gt;&gt; -&gt;
+     2..|              find_gt(Bin, ?INC_COL(S), true);
+        |          &lt;&lt;_:O/binary, $&gt;, _/binary&gt;&gt; -&gt;
+    68..|              {?INC_COL(S), HasSlash};
+        |          &lt;&lt;_:O/binary, C, _/binary&gt;&gt; -&gt;
+<font color=red>     0..|              find_gt(Bin, ?INC_CHAR(S, C), HasSlash);</font>
+        |          _ -&gt;
+     1..|              {S, HasSlash}
+        |      end.
+        |  
+        |  tokenize_charref(Bin, S=#decoder{offset=O}) -&gt;
+     3..|      tokenize_charref(Bin, S, O).
+        |  
+        |  tokenize_charref(Bin, S=#decoder{offset=O}, Start) -&gt;
+    13..|      case Bin of
+        |          &lt;&lt;_:O/binary&gt;&gt; -&gt;
+<font color=red>     0..|              &lt;&lt;_:Start/binary, Raw/binary&gt;&gt; = Bin,</font>
+<font color=red>     0..|              {{data, Raw, false}, S};</font>
+        |          &lt;&lt;_:O/binary, C, _/binary&gt;&gt; when ?IS_WHITESPACE(C)
+        |                                           orelse C =:= ?SQUOTE
+        |                                           orelse C =:= ?QUOTE
+        |                                           orelse C =:= $/
+        |                                           orelse C =:= $&gt; -&gt;
+<font color=red>     0..|              Len = O - Start,</font>
+<font color=red>     0..|              &lt;&lt;_:Start/binary, Raw:Len/binary, _/binary&gt;&gt; = Bin,</font>
+<font color=red>     0..|              {{data, Raw, false}, S};</font>
+        |          &lt;&lt;_:O/binary, $;, _/binary&gt;&gt; -&gt;
+     3..|              Len = O - Start,
+     3..|              &lt;&lt;_:Start/binary, Raw:Len/binary, _/binary&gt;&gt; = Bin,
+     3..|              Data = case mochiweb_charref:charref(Raw) of
+        |                         undefined -&gt;
+<font color=red>     0..|                             Start1 = Start - 1,</font>
+<font color=red>     0..|                             Len1 = Len + 2,</font>
+<font color=red>     0..|                             &lt;&lt;_:Start1/binary, R:Len1/binary, _/binary&gt;&gt; = Bin,</font>
+<font color=red>     0..|                             R;</font>
+        |                         Unichar -&gt;
+     3..|                             mochiutf8:codepoint_to_bytes(Unichar)
+        |                     end,
+     3..|              {{data, Data, false}, ?INC_COL(S)};
+        |          _ -&gt;
+    10..|              tokenize_charref(Bin, ?INC_COL(S), Start)
+        |      end.
+        |  
+        |  tokenize_doctype(Bin, S) -&gt;
+     3..|      tokenize_doctype(Bin, S, []).
+        |  
+        |  tokenize_doctype(Bin, S=#decoder{offset=O}, Acc) -&gt;
+    24..|      case Bin of
+        |          &lt;&lt;_:O/binary&gt;&gt; -&gt;
+<font color=red>     0..|              {{doctype, lists:reverse(Acc)}, S};</font>
+        |          &lt;&lt;_:O/binary, $&gt;, _/binary&gt;&gt; -&gt;
+     3..|              {{doctype, lists:reverse(Acc)}, ?INC_COL(S)};
+        |          &lt;&lt;_:O/binary, C, _/binary&gt;&gt; when ?IS_WHITESPACE(C) -&gt;
+     9..|              tokenize_doctype(Bin, ?INC_CHAR(S, C), Acc);
+        |          _ -&gt;
+    12..|              {Word, S1} = tokenize_word_or_literal(Bin, S),
+    12..|              tokenize_doctype(Bin, S1, [Word | Acc])
+        |      end.
+        |  
+        |  tokenize_word_or_literal(Bin, S=#decoder{offset=O}) -&gt;
+    50..|      case Bin of
+        |          &lt;&lt;_:O/binary, C, _/binary&gt;&gt; when C =:= ?QUOTE orelse C =:= ?SQUOTE -&gt;
+    36..|              tokenize_word(Bin, ?INC_COL(S), C);
+        |          &lt;&lt;_:O/binary, C, _/binary&gt;&gt; when not ?IS_WHITESPACE(C) -&gt;
+        |              %% Sanity check for whitespace
+    14..|              tokenize_literal(Bin, S, [])
+        |      end.
+        |  
+        |  tokenize_word(Bin, S, Quote) -&gt;
+    36..|      tokenize_word(Bin, S, Quote, []).
+        |  
+        |  tokenize_word(Bin, S=#decoder{offset=O}, Quote, Acc) -&gt;
+   642..|      case Bin of
+        |          &lt;&lt;_:O/binary&gt;&gt; -&gt;
+<font color=red>     0..|              {iolist_to_binary(lists:reverse(Acc)), S};</font>
+        |          &lt;&lt;_:O/binary, Quote, _/binary&gt;&gt; -&gt;
+    36..|              {iolist_to_binary(lists:reverse(Acc)), ?INC_COL(S)};
+        |          &lt;&lt;_:O/binary, $&, _/binary&gt;&gt; -&gt;
+     1..|              {{data, Data, false}, S1} = tokenize_charref(Bin, ?INC_COL(S)),
+     1..|              tokenize_word(Bin, S1, Quote, [Data | Acc]);
+        |          &lt;&lt;_:O/binary, C, _/binary&gt;&gt; -&gt;
+   605..|              tokenize_word(Bin, ?INC_CHAR(S, C), Quote, [C | Acc])
+        |      end.
+        |  
+        |  tokenize_cdata(Bin, S=#decoder{offset=O}) -&gt;
+     1..|      tokenize_cdata(Bin, S, O).
+        |  
+        |  tokenize_cdata(Bin, S=#decoder{offset=O}, Start) -&gt;
+    31..|      case Bin of
+        |          &lt;&lt;_:O/binary, "]]&gt;", _/binary&gt;&gt; -&gt;
+     1..|              Len = O - Start,
+     1..|              &lt;&lt;_:Start/binary, Raw:Len/binary, _/binary&gt;&gt; = Bin,
+     1..|              {{data, Raw, false}, ?ADV_COL(S, 3)};
+        |          &lt;&lt;_:O/binary, C, _/binary&gt;&gt; -&gt;
+    30..|              tokenize_cdata(Bin, ?INC_CHAR(S, C), Start);
+        |          _ -&gt;
+<font color=red>     0..|              &lt;&lt;_:O/binary, Raw/binary&gt;&gt; = Bin,</font>
+<font color=red>     0..|              {{data, Raw, false}, S}</font>
+        |      end.
+        |  
+        |  tokenize_comment(Bin, S=#decoder{offset=O}) -&gt;
+     2..|      tokenize_comment(Bin, S, O).
+        |  
+        |  tokenize_comment(Bin, S=#decoder{offset=O}, Start) -&gt;
+   180..|      case Bin of
+        |          &lt;&lt;_:O/binary, "--&gt;", _/binary&gt;&gt; -&gt;
+     2..|              Len = O - Start,
+     2..|              &lt;&lt;_:Start/binary, Raw:Len/binary, _/binary&gt;&gt; = Bin,
+     2..|              {{comment, Raw}, ?ADV_COL(S, 3)};
+        |          &lt;&lt;_:O/binary, C, _/binary&gt;&gt; -&gt;
+   178..|              tokenize_comment(Bin, ?INC_CHAR(S, C), Start);
+        |          &lt;&lt;_:Start/binary, Raw/binary&gt;&gt; -&gt;
+<font color=red>     0..|              {{comment, Raw}, S}</font>
+        |      end.
+        |  
+        |  tokenize_script(Bin, S=#decoder{offset=O}) -&gt;
+     4..|      tokenize_script(Bin, S, O).
+        |  
+        |  tokenize_script(Bin, S=#decoder{offset=O}, Start) -&gt;
+    48..|      case Bin of
+        |          %% Just a look-ahead, we want the end_tag separately
+        |          &lt;&lt;_:O/binary, $&lt;, $/, SS, CC, RR, II, PP, TT, ZZ, _/binary&gt;&gt;
+        |          when (SS =:= $s orelse SS =:= $S) andalso
+        |               (CC =:= $c orelse CC =:= $C) andalso
+        |               (RR =:= $r orelse RR =:= $R) andalso
+        |               (II =:= $i orelse II =:= $I) andalso
+        |               (PP =:= $p orelse PP =:= $P) andalso
+        |               (TT=:= $t orelse TT =:= $T) andalso
+        |               ?PROBABLE_CLOSE(ZZ) -&gt;
+     4..|              Len = O - Start,
+     4..|              &lt;&lt;_:Start/binary, Raw:Len/binary, _/binary&gt;&gt; = Bin,
+     4..|              {{data, Raw, false}, S};
+        |          &lt;&lt;_:O/binary, C, _/binary&gt;&gt; -&gt;
+    44..|              tokenize_script(Bin, ?INC_CHAR(S, C), Start);
+        |          &lt;&lt;_:Start/binary, Raw/binary&gt;&gt; -&gt;
+<font color=red>     0..|              {{data, Raw, false}, S}</font>
+        |      end.
+        |  
+        |  tokenize_textarea(Bin, S=#decoder{offset=O}) -&gt;
+     2..|      tokenize_textarea(Bin, S, O).
+        |  
+        |  tokenize_textarea(Bin, S=#decoder{offset=O}, Start) -&gt;
+    40..|      case Bin of
+        |          %% Just a look-ahead, we want the end_tag separately
+        |          &lt;&lt;_:O/binary, $&lt;, $/, TT, EE, XX, TT2, AA, RR, EE2, AA2, ZZ, _/binary&gt;&gt;
+        |          when (TT =:= $t orelse TT =:= $T) andalso
+        |               (EE =:= $e orelse EE =:= $E) andalso
+        |               (XX =:= $x orelse XX =:= $X) andalso
+        |               (TT2 =:= $t orelse TT2 =:= $T) andalso
+        |               (AA =:= $a orelse AA =:= $A) andalso
+        |               (RR =:= $r orelse RR =:= $R) andalso
+        |               (EE2 =:= $e orelse EE2 =:= $E) andalso
+        |               (AA2 =:= $a orelse AA2 =:= $A) andalso
+        |               ?PROBABLE_CLOSE(ZZ) -&gt;
+     1..|              Len = O - Start,
+     1..|              &lt;&lt;_:Start/binary, Raw:Len/binary, _/binary&gt;&gt; = Bin,
+     1..|              {{data, Raw, false}, S};
+        |          &lt;&lt;_:O/binary, C, _/binary&gt;&gt; -&gt;
+    38..|              tokenize_textarea(Bin, ?INC_CHAR(S, C), Start);
+        |          &lt;&lt;_:Start/binary, Raw/binary&gt;&gt; -&gt;
+     1..|              {{data, Raw, false}, S}
+        |      end.
+        |  
+        |  
+        |  %%
+        |  %% Tests
+        |  %%
+        |  -include_lib("eunit/include/eunit.hrl").
+        |  -ifdef(TEST).
+        |  
+        |  to_html_test() -&gt;
+     1..|      ?assertEqual(
+        |         &lt;&lt;"&lt;html&gt;&lt;head&gt;&lt;title&gt;hey!&lt;/title&gt;&lt;/head&gt;&lt;body&gt;&lt;p class=\"foo\"&gt;what's up&lt;br /&gt;&lt;/p&gt;&lt;div&gt;sucka&lt;/div&gt;RAW!&lt;!-- comment! --&gt;&lt;/body&gt;&lt;/html&gt;"&gt;&gt;,
+        |         iolist_to_binary(
+        |           to_html({html, [],
+        |                    [{&lt;&lt;"head"&gt;&gt;, [],
+        |                      [{title, &lt;&lt;"hey!"&gt;&gt;}]},
+        |                     {body, [],
+        |                      [{p, [{class, foo}], [&lt;&lt;"what's"&gt;&gt;, &lt;&lt;" up"&gt;&gt;, {br}]},
+        |                       {'div', &lt;&lt;"sucka"&gt;&gt;},
+        |                       {'=', &lt;&lt;"RAW!"&gt;&gt;},
+     1..|                       {comment, &lt;&lt;" comment! "&gt;&gt;}]}]}))),
+     1..|      ?assertEqual(
+        |         &lt;&lt;"&lt;!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\"&gt;"&gt;&gt;,
+        |         iolist_to_binary(
+        |           to_html({doctype,
+        |                    [&lt;&lt;"html"&gt;&gt;, &lt;&lt;"PUBLIC"&gt;&gt;,
+        |                     &lt;&lt;"-//W3C//DTD XHTML 1.0 Transitional//EN"&gt;&gt;,
+     1..|                     &lt;&lt;"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"&gt;&gt;]}))),
+     1..|      ?assertEqual(
+        |         &lt;&lt;"&lt;html&gt;&lt;?xml:namespace prefix=\"o\" ns=\"urn:schemas-microsoft-com:office:office\"?&gt;&lt;/html&gt;"&gt;&gt;,
+        |         iolist_to_binary(
+        |           to_html({&lt;&lt;"html"&gt;&gt;,[],
+        |                    [{pi, &lt;&lt;"xml:namespace"&gt;&gt;,
+        |                      [{&lt;&lt;"prefix"&gt;&gt;,&lt;&lt;"o"&gt;&gt;},
+     1..|                       {&lt;&lt;"ns"&gt;&gt;,&lt;&lt;"urn:schemas-microsoft-com:office:office"&gt;&gt;}]}]}))),
+     1..|      ok.
+        |  
+        |  escape_test() -&gt;
+     1..|      ?assertEqual(
+        |         &lt;&lt;"&amp;quot;\"word &gt;&lt;&lt;up!&amp;quot;"&gt;&gt;,
+     1..|         escape(&lt;&lt;"&quot;\"word &gt;&lt;&lt;up!&quot;"&gt;&gt;)),
+     1..|      ?assertEqual(
+        |         &lt;&lt;"&amp;quot;\"word &gt;&lt;&lt;up!&amp;quot;"&gt;&gt;,
+     1..|         escape("&quot;\"word &gt;&lt;&lt;up!&quot;")),
+     1..|      ?assertEqual(
+        |         &lt;&lt;"&amp;quot;\"word &gt;&lt;&lt;up!&amp;quot;"&gt;&gt;,
+     1..|         escape('&quot;\"word &gt;&lt;&lt;up!&quot;')),
+     1..|      ok.
+        |  
+        |  escape_attr_test() -&gt;
+     1..|      ?assertEqual(
+        |         &lt;&lt;"&amp;quot;&quot;word &gt;&lt;&lt;up!&amp;quot;"&gt;&gt;,
+     1..|         escape_attr(&lt;&lt;"&quot;\"word &gt;&lt;&lt;up!&quot;"&gt;&gt;)),
+     1..|      ?assertEqual(
+        |         &lt;&lt;"&amp;quot;&quot;word &gt;&lt;&lt;up!&amp;quot;"&gt;&gt;,
+     1..|         escape_attr("&quot;\"word &gt;&lt;&lt;up!&quot;")),
+     1..|      ?assertEqual(
+        |         &lt;&lt;"&amp;quot;&quot;word &gt;&lt;&lt;up!&amp;quot;"&gt;&gt;,
+     1..|         escape_attr('&quot;\"word &gt;&lt;&lt;up!&quot;')),
+     1..|      ?assertEqual(
+        |         &lt;&lt;"12345"&gt;&gt;,
+     1..|         escape_attr(12345)),
+     1..|      ?assertEqual(
+        |         &lt;&lt;"1.5"&gt;&gt;,
+     1..|         escape_attr(1.5)),
+     1..|      ok.
+        |  
+        |  tokens_test() -&gt;
+     1..|      ?assertEqual(
+        |         [{start_tag, &lt;&lt;"foo"&gt;&gt;, [{&lt;&lt;"bar"&gt;&gt;, &lt;&lt;"baz"&gt;&gt;},
+        |                                  {&lt;&lt;"wibble"&gt;&gt;, &lt;&lt;"wibble"&gt;&gt;},
+        |                                  {&lt;&lt;"alice"&gt;&gt;, &lt;&lt;"bob"&gt;&gt;}], true}],
+     1..|         tokens(&lt;&lt;"&lt;foo bar=baz wibble='wibble' alice=\"bob\"/&gt;"&gt;&gt;)),
+     1..|      ?assertEqual(
+        |         [{start_tag, &lt;&lt;"foo"&gt;&gt;, [{&lt;&lt;"bar"&gt;&gt;, &lt;&lt;"baz"&gt;&gt;},
+        |                                  {&lt;&lt;"wibble"&gt;&gt;, &lt;&lt;"wibble"&gt;&gt;},
+        |                                  {&lt;&lt;"alice"&gt;&gt;, &lt;&lt;"bob"&gt;&gt;}], true}],
+     1..|         tokens(&lt;&lt;"&lt;foo bar=baz wibble='wibble' alice=bob/&gt;"&gt;&gt;)),
+     1..|      ?assertEqual(
+        |         [{comment, &lt;&lt;"[if lt IE 7]&gt;\n&lt;style type=\"text/css\"&gt;\n.no_ie { display: none; }\n&lt;/style&gt;\n&lt;![endif]"&gt;&gt;}],
+     1..|         tokens(&lt;&lt;"&lt;!--[if lt IE 7]&gt;\n&lt;style type=\"text/css\"&gt;\n.no_ie { display: none; }\n&lt;/style&gt;\n&lt;![endif]--&gt;"&gt;&gt;)),
+     1..|      ?assertEqual(
+        |         [{start_tag, &lt;&lt;"script"&gt;&gt;, [{&lt;&lt;"type"&gt;&gt;, &lt;&lt;"text/javascript"&gt;&gt;}], false},
+        |          {data, &lt;&lt;" A= B &lt;= C "&gt;&gt;, false},
+        |          {end_tag, &lt;&lt;"script"&gt;&gt;}],
+     1..|         tokens(&lt;&lt;"&lt;script type=\"text/javascript\"&gt; A= B &lt;= C &lt;/script&gt;"&gt;&gt;)),
+     1..|      ?assertEqual(
+        |         [{start_tag, &lt;&lt;"script"&gt;&gt;, [{&lt;&lt;"type"&gt;&gt;, &lt;&lt;"text/javascript"&gt;&gt;}], false},
+        |          {data, &lt;&lt;" A= B &lt;= C "&gt;&gt;, false},
+        |          {end_tag, &lt;&lt;"script"&gt;&gt;}],
+     1..|         tokens(&lt;&lt;"&lt;script type =\"text/javascript\"&gt; A= B &lt;= C &lt;/script&gt;"&gt;&gt;)),
+     1..|      ?assertEqual(
+        |         [{start_tag, &lt;&lt;"script"&gt;&gt;, [{&lt;&lt;"type"&gt;&gt;, &lt;&lt;"text/javascript"&gt;&gt;}], false},
+        |          {data, &lt;&lt;" A= B &lt;= C "&gt;&gt;, false},
+        |          {end_tag, &lt;&lt;"script"&gt;&gt;}],
+     1..|         tokens(&lt;&lt;"&lt;script type = \"text/javascript\"&gt; A= B &lt;= C &lt;/script&gt;"&gt;&gt;)),
+     1..|      ?assertEqual(
+        |         [{start_tag, &lt;&lt;"script"&gt;&gt;, [{&lt;&lt;"type"&gt;&gt;, &lt;&lt;"text/javascript"&gt;&gt;}], false},
+        |          {data, &lt;&lt;" A= B &lt;= C "&gt;&gt;, false},
+        |          {end_tag, &lt;&lt;"script"&gt;&gt;}],
+     1..|         tokens(&lt;&lt;"&lt;script type= \"text/javascript\"&gt; A= B &lt;= C &lt;/script&gt;"&gt;&gt;)),
+     1..|      ?assertEqual(
+        |         [{start_tag, &lt;&lt;"textarea"&gt;&gt;, [], false},
+        |          {data, &lt;&lt;"&lt;html&gt;&lt;/body&gt;"&gt;&gt;, false},
+        |          {end_tag, &lt;&lt;"textarea"&gt;&gt;}],
+     1..|         tokens(&lt;&lt;"&lt;textarea&gt;&lt;html&gt;&lt;/body&gt;&lt;/textarea&gt;"&gt;&gt;)),
+     1..|      ?assertEqual(
+        |         [{start_tag, &lt;&lt;"textarea"&gt;&gt;, [], false},
+        |          {data, &lt;&lt;"&lt;html&gt;&lt;/body&gt;&lt;/textareaz&gt;"&gt;&gt;, false}],
+     1..|         tokens(&lt;&lt;"&lt;textarea &gt;&lt;html&gt;&lt;/body&gt;&lt;/textareaz&gt;"&gt;&gt;)),
+     1..|      ?assertEqual(
+        |         [{pi, &lt;&lt;"xml:namespace"&gt;&gt;,
+        |           [{&lt;&lt;"prefix"&gt;&gt;,&lt;&lt;"o"&gt;&gt;},
+        |            {&lt;&lt;"ns"&gt;&gt;,&lt;&lt;"urn:schemas-microsoft-com:office:office"&gt;&gt;}]}],
+     1..|         tokens(&lt;&lt;"&lt;?xml:namespace prefix=\"o\" ns=\"urn:schemas-microsoft-com:office:office\"?&gt;"&gt;&gt;)),
+     1..|      ?assertEqual(
+        |         [{pi, &lt;&lt;"xml:namespace"&gt;&gt;,
+        |           [{&lt;&lt;"prefix"&gt;&gt;,&lt;&lt;"o"&gt;&gt;},
+        |            {&lt;&lt;"ns"&gt;&gt;,&lt;&lt;"urn:schemas-microsoft-com:office:office"&gt;&gt;}]}],
+     1..|         tokens(&lt;&lt;"&lt;?xml:namespace prefix=o ns=urn:schemas-microsoft-com:office:office \n?&gt;"&gt;&gt;)),
+     1..|      ?assertEqual(
+        |         [{pi, &lt;&lt;"xml:namespace"&gt;&gt;,
+        |           [{&lt;&lt;"prefix"&gt;&gt;,&lt;&lt;"o"&gt;&gt;},
+        |            {&lt;&lt;"ns"&gt;&gt;,&lt;&lt;"urn:schemas-microsoft-com:office:office"&gt;&gt;}]}],
+     1..|         tokens(&lt;&lt;"&lt;?xml:namespace prefix=o ns=urn:schemas-microsoft-com:office:office"&gt;&gt;)),
+     1..|      ?assertEqual(
+        |         [{data, &lt;&lt;"&lt;"&gt;&gt;, false}],
+     1..|         tokens(&lt;&lt;"&lt;"&gt;&gt;)),
+     1..|      ?assertEqual(
+        |         [{data, &lt;&lt;"not html "&gt;&gt;, false},
+        |          {data, &lt;&lt;"&lt; at all"&gt;&gt;, false}],
+     1..|         tokens(&lt;&lt;"not html &lt; at all"&gt;&gt;)),
+     1..|      ok.
+        |  
+        |  parse_test() -&gt;
+     1..|      D0 = &lt;&lt;"&lt;!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01//EN\" \"http://www.w3.org/TR/html4/strict.dtd\"&gt;
+        |  &lt;html&gt;
+        |   &lt;head&gt;
+        |     &lt;meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\"&gt;
+        |     &lt;title&gt;Foo&lt;/title&gt;
+        |     &lt;link rel=\"stylesheet\" type=\"text/css\" href=\"/static/rel/dojo/resources/dojo.css\" media=\"screen\"&gt;
+        |     &lt;link rel=\"stylesheet\" type=\"text/css\" href=\"/static/foo.css\" media=\"screen\"&gt;
+        |     &lt;!--[if lt IE 7]&gt;
+        |     &lt;style type=\"text/css\"&gt;
+        |       .no_ie { display: none; }
+        |     &lt;/style&gt;
+        |     &lt;![endif]--&gt;
+        |     &lt;link rel=\"icon\" href=\"/static/images/favicon.ico\" type=\"image/x-icon\"&gt;
+        |     &lt;link rel=\"shortcut icon\" href=\"/static/images/favicon.ico\" type=\"image/x-icon\"&gt;
+        |   &lt;/head&gt;
+        |   &lt;body id=\"home\" class=\"tundra\"&gt;&lt;![CDATA[&lt;&lt;this&lt;!-- is --&gt;CDATA&gt;&gt;]]&gt;&lt;/body&gt;
+        |  &lt;/html&gt;"&gt;&gt;,
+     1..|      ?assertEqual(
+        |         {&lt;&lt;"html"&gt;&gt;, [],
+        |          [{&lt;&lt;"head"&gt;&gt;, [],
+        |            [{&lt;&lt;"meta"&gt;&gt;,
+        |              [{&lt;&lt;"http-equiv"&gt;&gt;,&lt;&lt;"Content-Type"&gt;&gt;},
+        |               {&lt;&lt;"content"&gt;&gt;,&lt;&lt;"text/html; charset=UTF-8"&gt;&gt;}],
+        |              []},
+        |             {&lt;&lt;"title"&gt;&gt;,[],[&lt;&lt;"Foo"&gt;&gt;]},
+        |             {&lt;&lt;"link"&gt;&gt;,
+        |              [{&lt;&lt;"rel"&gt;&gt;,&lt;&lt;"stylesheet"&gt;&gt;},
+        |               {&lt;&lt;"type"&gt;&gt;,&lt;&lt;"text/css"&gt;&gt;},
+        |               {&lt;&lt;"href"&gt;&gt;,&lt;&lt;"/static/rel/dojo/resources/dojo.css"&gt;&gt;},
+        |               {&lt;&lt;"media"&gt;&gt;,&lt;&lt;"screen"&gt;&gt;}],
+        |              []},
+        |             {&lt;&lt;"link"&gt;&gt;,
+        |              [{&lt;&lt;"rel"&gt;&gt;,&lt;&lt;"stylesheet"&gt;&gt;},
+        |               {&lt;&lt;"type"&gt;&gt;,&lt;&lt;"text/css"&gt;&gt;},
+        |               {&lt;&lt;"href"&gt;&gt;,&lt;&lt;"/static/foo.css"&gt;&gt;},
+        |               {&lt;&lt;"media"&gt;&gt;,&lt;&lt;"screen"&gt;&gt;}],
+        |              []},
+        |             {comment,&lt;&lt;"[if lt IE 7]&gt;\n   &lt;style type=\"text/css\"&gt;\n     .no_ie { display: none; }\n   &lt;/style&gt;\n   &lt;![endif]"&gt;&gt;},
+        |             {&lt;&lt;"link"&gt;&gt;,
+        |              [{&lt;&lt;"rel"&gt;&gt;,&lt;&lt;"icon"&gt;&gt;},
+        |               {&lt;&lt;"href"&gt;&gt;,&lt;&lt;"/static/images/favicon.ico"&gt;&gt;},
+        |               {&lt;&lt;"type"&gt;&gt;,&lt;&lt;"image/x-icon"&gt;&gt;}],
+        |              []},
+        |             {&lt;&lt;"link"&gt;&gt;,
+        |              [{&lt;&lt;"rel"&gt;&gt;,&lt;&lt;"shortcut icon"&gt;&gt;},
+        |               {&lt;&lt;"href"&gt;&gt;,&lt;&lt;"/static/images/favicon.ico"&gt;&gt;},
+        |               {&lt;&lt;"type"&gt;&gt;,&lt;&lt;"image/x-icon"&gt;&gt;}],
+        |              []}]},
+        |           {&lt;&lt;"body"&gt;&gt;,
+        |            [{&lt;&lt;"id"&gt;&gt;,&lt;&lt;"home"&gt;&gt;},
+        |             {&lt;&lt;"class"&gt;&gt;,&lt;&lt;"tundra"&gt;&gt;}],
+        |            [&lt;&lt;"&lt;&lt;this&lt;!-- is --&gt;CDATA&gt;&gt;"&gt;&gt;]}]},
+     1..|         parse(D0)),
+     1..|      ?assertEqual(
+        |         {&lt;&lt;"html"&gt;&gt;,[],
+        |          [{pi, &lt;&lt;"xml:namespace"&gt;&gt;,
+        |            [{&lt;&lt;"prefix"&gt;&gt;,&lt;&lt;"o"&gt;&gt;},
+        |             {&lt;&lt;"ns"&gt;&gt;,&lt;&lt;"urn:schemas-microsoft-com:office:office"&gt;&gt;}]}]},
+        |         parse(
+     1..|           &lt;&lt;"&lt;html&gt;&lt;?xml:namespace prefix=\"o\" ns=\"urn:schemas-microsoft-com:office:office\"?&gt;&lt;/html&gt;"&gt;&gt;)),
+     1..|      ?assertEqual(
+        |         {&lt;&lt;"html"&gt;&gt;, [],
+        |          [{&lt;&lt;"dd"&gt;&gt;, [], [&lt;&lt;"foo"&gt;&gt;]},
+        |           {&lt;&lt;"dt"&gt;&gt;, [], [&lt;&lt;"bar"&gt;&gt;]}]},
+     1..|         parse(&lt;&lt;"&lt;html&gt;&lt;dd&gt;foo&lt;dt&gt;bar&lt;/html&gt;"&gt;&gt;)),
+        |      %% Singleton sadness
+     1..|      ?assertEqual(
+        |         {&lt;&lt;"html"&gt;&gt;, [],
+        |          [{&lt;&lt;"link"&gt;&gt;, [], []},
+        |           &lt;&lt;"foo"&gt;&gt;,
+        |           {&lt;&lt;"br"&gt;&gt;, [], []},
+        |           &lt;&lt;"bar"&gt;&gt;]},
+     1..|         parse(&lt;&lt;"&lt;html&gt;&lt;link&gt;foo&lt;br&gt;bar&lt;/html&gt;"&gt;&gt;)),
+     1..|      ?assertEqual(
+        |         {&lt;&lt;"html"&gt;&gt;, [],
+        |          [{&lt;&lt;"link"&gt;&gt;, [], [&lt;&lt;"foo"&gt;&gt;,
+        |                             {&lt;&lt;"br"&gt;&gt;, [], []},
+        |                             &lt;&lt;"bar"&gt;&gt;]}]},
+     1..|         parse(&lt;&lt;"&lt;html&gt;&lt;link&gt;foo&lt;br&gt;bar&lt;/link&gt;&lt;/html&gt;"&gt;&gt;)),
+     1..|      ok.
+        |  
+        |  exhaustive_is_singleton_test() -&gt;
+     1..|      T = mochiweb_cover:clause_lookup_table(?MODULE, is_singleton),
+     1..|      [?assertEqual(V, is_singleton(K)) || {K, V} &lt;- T].
+        |  
+        |  tokenize_attributes_test() -&gt;
+     1..|      ?assertEqual(
+        |         {&lt;&lt;"foo"&gt;&gt;,
+        |          [{&lt;&lt;"bar"&gt;&gt;, &lt;&lt;"b\"az"&gt;&gt;},
+        |           {&lt;&lt;"wibble"&gt;&gt;, &lt;&lt;"wibble"&gt;&gt;},
+        |           {&lt;&lt;"taco", 16#c2, 16#a9&gt;&gt;, &lt;&lt;"bell"&gt;&gt;},
+        |           {&lt;&lt;"quux"&gt;&gt;, &lt;&lt;"quux"&gt;&gt;}],
+        |          []},
+     1..|         parse(&lt;&lt;"&lt;foo bar=\"b&quot;az\" wibble taco&copy;=bell quux"&gt;&gt;)),
+     1..|      ok.
+        |  
+        |  tokens2_test() -&gt;
+     1..|      D0 = &lt;&lt;"&lt;channel&gt;&lt;title&gt;from __future__ import *&lt;/title&gt;&lt;link&gt;http://bob.pythonmac.org&lt;/link&gt;&lt;description&gt;Bob's Rants&lt;/description&gt;&lt;/channel&gt;"&gt;&gt;,
+     1..|      ?assertEqual(
+        |         [{start_tag,&lt;&lt;"channel"&gt;&gt;,[],false},
+        |          {start_tag,&lt;&lt;"title"&gt;&gt;,[],false},
+        |          {data,&lt;&lt;"from __future__ import *"&gt;&gt;,false},
+        |          {end_tag,&lt;&lt;"title"&gt;&gt;},
+        |          {start_tag,&lt;&lt;"link"&gt;&gt;,[],true},
+        |          {data,&lt;&lt;"http://bob.pythonmac.org"&gt;&gt;,false},
+        |          {end_tag,&lt;&lt;"link"&gt;&gt;},
+        |          {start_tag,&lt;&lt;"description"&gt;&gt;,[],false},
+        |          {data,&lt;&lt;"Bob's Rants"&gt;&gt;,false},
+        |          {end_tag,&lt;&lt;"description"&gt;&gt;},
+        |          {end_tag,&lt;&lt;"channel"&gt;&gt;}],
+     1..|         tokens(D0)),
+     1..|      ok.
+        |  
+        |  to_tokens_test() -&gt;
+     1..|      ?assertEqual(
+        |         [{start_tag, &lt;&lt;"p"&gt;&gt;, [{class, 1}], false},
+        |          {end_tag, &lt;&lt;"p"&gt;&gt;}],
+     1..|         to_tokens({p, [{class, 1}], []})),
+     1..|      ?assertEqual(
+        |         [{start_tag, &lt;&lt;"p"&gt;&gt;, [], false},
+        |          {end_tag, &lt;&lt;"p"&gt;&gt;}],
+     1..|         to_tokens({p})),
+     1..|      ?assertEqual(
+        |         [{'=', &lt;&lt;"data"&gt;&gt;}],
+     1..|         to_tokens({'=', &lt;&lt;"data"&gt;&gt;})),
+     1..|      ?assertEqual(
+        |         [{comment, &lt;&lt;"comment"&gt;&gt;}],
+     1..|         to_tokens({comment, &lt;&lt;"comment"&gt;&gt;})),
+        |      %% This is only allowed in sub-tags:
+        |      %% {p, [{"class", "foo"}]} as {p, [{"class", "foo"}], []}
+        |      %% On the outside it's always treated as follows:
+        |      %% {p, [], [{"class", "foo"}]} as {p, [], [{"class", "foo"}]}
+     1..|      ?assertEqual(
+        |         [{start_tag, &lt;&lt;"html"&gt;&gt;, [], false},
+        |          {start_tag, &lt;&lt;"p"&gt;&gt;, [{class, 1}], false},
+        |          {end_tag, &lt;&lt;"p"&gt;&gt;},
+        |          {end_tag, &lt;&lt;"html"&gt;&gt;}],
+     1..|         to_tokens({html, [{p, [{class, 1}]}]})),
+     1..|      ok.
+        |  
+        |  parse2_test() -&gt;
+     1..|      D0 = &lt;&lt;"&lt;channel&gt;&lt;title&gt;from __future__ import *&lt;/title&gt;&lt;link&gt;http://bob.pythonmac.org&lt;br&gt;foo&lt;/link&gt;&lt;description&gt;Bob's Rants&lt;/description&gt;&lt;/channel&gt;"&gt;&gt;,
+     1..|      ?assertEqual(
+        |         {&lt;&lt;"channel"&gt;&gt;,[],
+        |          [{&lt;&lt;"title"&gt;&gt;,[],[&lt;&lt;"from __future__ import *"&gt;&gt;]},
+        |           {&lt;&lt;"link"&gt;&gt;,[],[
+        |                           &lt;&lt;"http://bob.pythonmac.org"&gt;&gt;,
+        |                           {&lt;&lt;"br"&gt;&gt;,[],[]},
+        |                           &lt;&lt;"foo"&gt;&gt;]},
+        |           {&lt;&lt;"description"&gt;&gt;,[],[&lt;&lt;"Bob's Rants"&gt;&gt;]}]},
+     1..|         parse(D0)),
+     1..|      ok.
+        |  
+        |  parse_tokens_test() -&gt;
+     1..|      D0 = [{doctype,[&lt;&lt;"HTML"&gt;&gt;,&lt;&lt;"PUBLIC"&gt;&gt;,&lt;&lt;"-//W3C//DTD HTML 4.01 Transitional//EN"&gt;&gt;]},
+        |            {data,&lt;&lt;"\n"&gt;&gt;,true},
+        |            {start_tag,&lt;&lt;"html"&gt;&gt;,[],false}],
+     1..|      ?assertEqual(
+        |         {&lt;&lt;"html"&gt;&gt;, [], []},
+     1..|         parse_tokens(D0)),
+     1..|      D1 = D0 ++ [{end_tag, &lt;&lt;"html"&gt;&gt;}],
+     1..|      ?assertEqual(
+        |         {&lt;&lt;"html"&gt;&gt;, [], []},
+     1..|         parse_tokens(D1)),
+     1..|      D2 = D0 ++ [{start_tag, &lt;&lt;"body"&gt;&gt;, [], false}],
+     1..|      ?assertEqual(
+        |         {&lt;&lt;"html"&gt;&gt;, [], [{&lt;&lt;"body"&gt;&gt;, [], []}]},
+     1..|         parse_tokens(D2)),
+     1..|      D3 = D0 ++ [{start_tag, &lt;&lt;"head"&gt;&gt;, [], false},
+        |                  {end_tag, &lt;&lt;"head"&gt;&gt;},
+        |                  {start_tag, &lt;&lt;"body"&gt;&gt;, [], false}],
+     1..|      ?assertEqual(
+        |         {&lt;&lt;"html"&gt;&gt;, [], [{&lt;&lt;"head"&gt;&gt;, [], []}, {&lt;&lt;"body"&gt;&gt;, [], []}]},
+     1..|         parse_tokens(D3)),
+     1..|      D4 = D3 ++ [{data,&lt;&lt;"\n"&gt;&gt;,true},
+        |                  {start_tag,&lt;&lt;"div"&gt;&gt;,[{&lt;&lt;"class"&gt;&gt;,&lt;&lt;"a"&gt;&gt;}],false},
+        |                  {start_tag,&lt;&lt;"a"&gt;&gt;,[{&lt;&lt;"name"&gt;&gt;,&lt;&lt;"#anchor"&gt;&gt;}],false},
+        |                  {end_tag,&lt;&lt;"a"&gt;&gt;},
+        |                  {end_tag,&lt;&lt;"div"&gt;&gt;},
+        |                  {start_tag,&lt;&lt;"div"&gt;&gt;,[{&lt;&lt;"class"&gt;&gt;,&lt;&lt;"b"&gt;&gt;}],false},
+        |                  {start_tag,&lt;&lt;"div"&gt;&gt;,[{&lt;&lt;"class"&gt;&gt;,&lt;&lt;"c"&gt;&gt;}],false},
+        |                  {end_tag,&lt;&lt;"div"&gt;&gt;},
+        |                  {end_tag,&lt;&lt;"div"&gt;&gt;}],
+     1..|      ?assertEqual(
+        |         {&lt;&lt;"html"&gt;&gt;, [],
+        |          [{&lt;&lt;"head"&gt;&gt;, [], []},
+        |           {&lt;&lt;"body"&gt;&gt;, [],
+        |            [{&lt;&lt;"div"&gt;&gt;, [{&lt;&lt;"class"&gt;&gt;, &lt;&lt;"a"&gt;&gt;}], [{&lt;&lt;"a"&gt;&gt;, [{&lt;&lt;"name"&gt;&gt;, &lt;&lt;"#anchor"&gt;&gt;}], []}]},
+        |             {&lt;&lt;"div"&gt;&gt;, [{&lt;&lt;"class"&gt;&gt;, &lt;&lt;"b"&gt;&gt;}], [{&lt;&lt;"div"&gt;&gt;, [{&lt;&lt;"class"&gt;&gt;, &lt;&lt;"c"&gt;&gt;}], []}]}
+        |            ]}]},
+     1..|         parse_tokens(D4)),
+     1..|      D5 = [{start_tag,&lt;&lt;"html"&gt;&gt;,[],false},
+        |            {data,&lt;&lt;"\n"&gt;&gt;,true},
+        |            {data,&lt;&lt;"boo"&gt;&gt;,false},
+        |            {data,&lt;&lt;"hoo"&gt;&gt;,false},
+        |            {data,&lt;&lt;"\n"&gt;&gt;,true},
+        |            {end_tag,&lt;&lt;"html"&gt;&gt;}],
+     1..|      ?assertEqual(
+        |         {&lt;&lt;"html"&gt;&gt;, [], [&lt;&lt;"\nboohoo\n"&gt;&gt;]},
+     1..|         parse_tokens(D5)),
+     1..|      D6 = [{start_tag,&lt;&lt;"html"&gt;&gt;,[],false},
+        |            {data,&lt;&lt;"\n"&gt;&gt;,true},
+        |            {data,&lt;&lt;"\n"&gt;&gt;,true},
+        |            {end_tag,&lt;&lt;"html"&gt;&gt;}],
+     1..|      ?assertEqual(
+        |         {&lt;&lt;"html"&gt;&gt;, [], []},
+     1..|         parse_tokens(D6)),
+     1..|      D7 = [{start_tag,&lt;&lt;"html"&gt;&gt;,[],false},
+        |            {start_tag,&lt;&lt;"ul"&gt;&gt;,[],false},
+        |            {start_tag,&lt;&lt;"li"&gt;&gt;,[],false},
+        |            {data,&lt;&lt;"word"&gt;&gt;,false},
+        |            {start_tag,&lt;&lt;"li"&gt;&gt;,[],false},
+        |            {data,&lt;&lt;"up"&gt;&gt;,false},
+        |            {end_tag,&lt;&lt;"li"&gt;&gt;},
+        |            {start_tag,&lt;&lt;"li"&gt;&gt;,[],false},
+        |            {data,&lt;&lt;"fdsa"&gt;&gt;,false},
+        |            {start_tag,&lt;&lt;"br"&gt;&gt;,[],true},
+        |            {data,&lt;&lt;"asdf"&gt;&gt;,false},
+        |            {end_tag,&lt;&lt;"ul"&gt;&gt;},
+        |            {end_tag,&lt;&lt;"html"&gt;&gt;}],
+     1..|      ?assertEqual(
+        |         {&lt;&lt;"html"&gt;&gt;, [],
+        |          [{&lt;&lt;"ul"&gt;&gt;, [],
+        |            [{&lt;&lt;"li"&gt;&gt;, [], [&lt;&lt;"word"&gt;&gt;]},
+        |             {&lt;&lt;"li"&gt;&gt;, [], [&lt;&lt;"up"&gt;&gt;]},
+        |             {&lt;&lt;"li"&gt;&gt;, [], [&lt;&lt;"fdsa"&gt;&gt;,{&lt;&lt;"br"&gt;&gt;, [], []}, &lt;&lt;"asdf"&gt;&gt;]}]}]},
+     1..|         parse_tokens(D7)),
+     1..|      ok.
+        |  
+        |  destack_test() -&gt;
+     1..|      {&lt;&lt;"a"&gt;&gt;, [], []} =
+        |          destack([{&lt;&lt;"a"&gt;&gt;, [], []}]),
+     1..|      {&lt;&lt;"a"&gt;&gt;, [], [{&lt;&lt;"b"&gt;&gt;, [], []}]} =
+        |          destack([{&lt;&lt;"b"&gt;&gt;, [], []}, {&lt;&lt;"a"&gt;&gt;, [], []}]),
+     1..|      {&lt;&lt;"a"&gt;&gt;, [], [{&lt;&lt;"b"&gt;&gt;, [], [{&lt;&lt;"c"&gt;&gt;, [], []}]}]} =
+        |       destack([{&lt;&lt;"c"&gt;&gt;, [], []}, {&lt;&lt;"b"&gt;&gt;, [], []}, {&lt;&lt;"a"&gt;&gt;, [], []}]),
+     1..|      [{&lt;&lt;"a"&gt;&gt;, [], [{&lt;&lt;"b"&gt;&gt;, [], [{&lt;&lt;"c"&gt;&gt;, [], []}]}]}] =
+        |       destack(&lt;&lt;"b"&gt;&gt;,
+        |               [{&lt;&lt;"c"&gt;&gt;, [], []}, {&lt;&lt;"b"&gt;&gt;, [], []}, {&lt;&lt;"a"&gt;&gt;, [], []}]),
+     1..|      [{&lt;&lt;"b"&gt;&gt;, [], [{&lt;&lt;"c"&gt;&gt;, [], []}]}, {&lt;&lt;"a"&gt;&gt;, [], []}] =
+        |       destack(&lt;&lt;"c"&gt;&gt;,
+        |               [{&lt;&lt;"c"&gt;&gt;, [], []}, {&lt;&lt;"b"&gt;&gt;, [], []},{&lt;&lt;"a"&gt;&gt;, [], []}]),
+     1..|      ok.
+        |  
+        |  doctype_test() -&gt;
+     1..|      ?assertEqual(
+        |         {&lt;&lt;"html"&gt;&gt;,[],[{&lt;&lt;"head"&gt;&gt;,[],[]}]},
+        |         mochiweb_html:parse("&lt;!DOCTYPE html PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\" \"http://www.w3.org/TR/html4/loose.dtd\"&gt;"
+     1..|                             "&lt;html&gt;&lt;head&gt;&lt;/head&gt;&lt;/body&gt;&lt;/html&gt;")),
+        |      %% http://code.google.com/p/mochiweb/issues/detail?id=52
+     1..|      ?assertEqual(
+        |         {&lt;&lt;"html"&gt;&gt;,[],[{&lt;&lt;"head"&gt;&gt;,[],[]}]},
+        |         mochiweb_html:parse("&lt;html&gt;"
+        |                             "&lt;!DOCTYPE html PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\" \"http://www.w3.org/TR/html4/loose.dtd\"&gt;"
+     1..|                             "&lt;head&gt;&lt;/head&gt;&lt;/body&gt;&lt;/html&gt;")),
+     1..|      ok.
+        |  
+        |  -endif.
+</pre>
+</body>
+</html>

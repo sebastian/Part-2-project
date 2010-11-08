@@ -1,0 +1,58 @@
+<html>
+<head><title>.eunit/mochiweb_acceptor.COVER.html</title></head><body bgcolor=white text=black>
+<pre>
+File generated from /Users/seb/Documents/part2project/app/deps/mochiweb/.eunit/mochiweb_acceptor.erl by COVER 2010-10-28 at 14:19:49
+
+****************************************************************************
+
+        |  %% @author Bob Ippolito &lt;bob@mochimedia.com&gt;
+        |  %% @copyright 2010 Mochi Media, Inc.
+        |  
+        |  %% @doc MochiWeb acceptor.
+        |  
+        |  -module(mochiweb_acceptor).
+        |  -author('bob@mochimedia.com').
+        |  
+        |  -include("internal.hrl").
+        |  
+        |  -export([start_link/3, init/3]).
+        |  
+        |  start_link(Server, Listen, Loop) -&gt;
+   544..|      proc_lib:spawn_link(?MODULE, init, [Server, Listen, Loop]).
+        |  
+        |  init(Server, Listen, Loop) -&gt;
+   544..|      T1 = now(),
+   544..|      case catch mochiweb_socket:accept(Listen) of
+        |          {ok, Socket} -&gt;
+    32..|              gen_server:cast(Server, {accepted, self(), timer:now_diff(now(), T1)}),
+    32..|              call_loop(Loop, Socket);
+        |          {error, closed} -&gt;
+   512..|              exit(normal);
+        |          {error, timeout} -&gt;
+<font color=red>     0..|              exit(normal);</font>
+        |          {error, esslaccept} -&gt;
+<font color=red>     0..|              exit(normal);</font>
+        |          Other -&gt;
+<font color=red>     0..|              error_logger:error_report(</font>
+        |                [{application, mochiweb},
+        |                 "Accept failed error",
+        |                 lists:flatten(io_lib:format("~p", [Other]))]),
+<font color=red>     0..|              exit({error, accept_failed})</font>
+        |      end.
+        |  
+        |  call_loop({M, F}, Socket) -&gt;
+<font color=red>     0..|      M:F(Socket);</font>
+        |  call_loop({M, F, A}, Socket) -&gt;
+<font color=red>     0..|      erlang:apply(M, F, [Socket | A]);</font>
+        |  call_loop(Loop, Socket) -&gt;
+    32..|      Loop(Socket).
+        |  
+        |  %%
+        |  %% Tests
+        |  %%
+        |  -include_lib("eunit/include/eunit.hrl").
+        |  -ifdef(TEST).
+        |  -endif.
+</pre>
+</body>
+</html>

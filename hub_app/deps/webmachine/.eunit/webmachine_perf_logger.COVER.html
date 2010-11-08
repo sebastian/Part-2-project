@@ -1,0 +1,220 @@
+<html>
+<head><title>.eunit/webmachine_perf_logger.COVER.html</title></head><body bgcolor=white text=black>
+<pre>
+File generated from /Users/seb/Documents/part2project/app/deps/webmachine/.eunit/webmachine_perf_logger.erl by COVER 2010-10-28 at 14:19:55
+
+****************************************************************************
+
+        |  %% @author Justin Sheehy &lt;justin@basho.com&gt;
+        |  %% @author Andy Gross &lt;andy@basho.com&gt;
+        |  %% @copyright 2007-2008 Basho Technologies
+        |  %%
+        |  %%    Licensed under the Apache License, Version 2.0 (the "License");
+        |  %%    you may not use this file except in compliance with the License.
+        |  %%    You may obtain a copy of the License at
+        |  %%
+        |  %%        http://www.apache.org/licenses/LICENSE-2.0
+        |  %%
+        |  %%    Unless required by applicable law or agreed to in writing, software
+        |  %%    distributed under the License is distributed on an "AS IS" BASIS,
+        |  %%    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+        |  %%    See the License for the specific language governing permissions and
+        |  %%    limitations under the License.
+        |  
+        |  -module(webmachine_perf_logger).
+        |  -author('Justin Sheehy &lt;justin@basho.com&gt;').
+        |  -author('Andy Gross &lt;andy@basho.com&gt;').
+        |  -behaviour(gen_server).
+        |  -export([start_link/1]).
+        |  -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
+        |           terminate/2, code_change/3]).
+        |  -export([log/1, refresh/0]).
+        |  -include("webmachine_logger.hrl").
+        |  -record(state, {hourstamp, filename, handle}).
+        |  
+        |  alog_path(BaseDir) -&gt;
+<font color=red>     0..|      filename:join(BaseDir, "perf.log").</font>
+        |  
+        |  start_link(BaseDir) -&gt;
+<font color=red>     0..|      gen_server:start_link({local, ?MODULE}, ?MODULE, [BaseDir], []).</font>
+        |  
+        |  init([BaseDir]) -&gt;
+<font color=red>     0..|      defer_refresh(),</font>
+<font color=red>     0..|      FileName = alog_path(BaseDir),</font>
+<font color=red>     0..|      DateHour = datehour(),</font>
+<font color=red>     0..|      filelib:ensure_dir(FileName),</font>
+<font color=red>     0..|      Handle = log_open(FileName, DateHour),</font>
+<font color=red>     0..|      {ok, #state{filename=FileName, handle=Handle, hourstamp=DateHour}}.</font>
+        |  
+        |  refresh() -&gt;
+<font color=red>     0..|      refresh(now()).</font>
+        |  
+        |  refresh(Time) -&gt;
+<font color=red>     0..|      gen_server:cast(?MODULE, {refresh, Time}).</font>
+        |  
+        |  log(#wm_log_data{}=D) -&gt;
+<font color=red>     0..|      gen_server:call(?MODULE, {log, D}, infinity).</font>
+        |  
+        |  handle_call({log, LogData}, _From, State) -&gt;
+<font color=red>     0..|      NewState = maybe_rotate(State, now()),</font>
+<font color=red>     0..|      Msg = format_req(LogData),</font>
+<font color=red>     0..|      log_write(NewState#state.handle, Msg),</font>
+<font color=red>     0..|      {reply, ok, NewState}.</font>
+        |  
+        |  handle_cast({refresh, Time}, State) -&gt;
+<font color=red>     0..|      {noreply, maybe_rotate(State, Time)}.</font>
+        |  
+        |  handle_info(_Info, State) -&gt;
+<font color=red>     0..|      {noreply, State}.</font>
+        |  
+        |  terminate(_Reason, _State) -&gt;
+<font color=red>     0..|      ok.</font>
+        |  
+        |  code_change(_OldVsn, State, _Extra) -&gt;
+<font color=red>     0..|      {ok, State}.</font>
+        |  
+        |  log_open(FileName, DateHour) -&gt;
+<font color=red>     0..|      LogName = FileName ++ suffix(DateHour),</font>
+<font color=red>     0..|      io:format("opening log file: ~p~n", [LogName]),</font>
+<font color=red>     0..|      {ok, FD} = file:open(LogName, [read, write, raw]),</font>
+<font color=red>     0..|      {ok, Location} = file:position(FD, eof),</font>
+<font color=red>     0..|      fix_log(FD, Location),</font>
+<font color=red>     0..|      file:truncate(FD),</font>
+<font color=red>     0..|      {?MODULE, LogName, FD}.</font>
+        |  
+        |  log_write({?MODULE, _Name, FD}, IoData) -&gt;
+<font color=red>     0..|      file:write(FD, lists:flatten(IoData)).</font>
+        |      
+        |  
+        |  log_close({?MODULE, Name, FD}) -&gt;
+<font color=red>     0..|      io:format("~p: closing log file: ~p~n", [?MODULE, Name]),</font>
+<font color=red>     0..|      file:close(FD).</font>
+        |  
+        |  maybe_rotate(State, Time) -&gt;
+<font color=red>     0..|      ThisHour = datehour(Time),</font>
+<font color=red>     0..|      if ThisHour == State#state.hourstamp -&gt;</font>
+<font color=red>     0..|              State;</font>
+        |         true -&gt;
+<font color=red>     0..|              defer_refresh(),</font>
+<font color=red>     0..|              log_close(State#state.handle),</font>
+<font color=red>     0..|              Handle = log_open(State#state.filename, ThisHour),</font>
+<font color=red>     0..|              State#state{hourstamp=ThisHour, handle=Handle}</font>
+        |      end.    
+        |  
+        |  format_req(#wm_log_data{resource_module=Mod,
+        |                          start_time=StartTime,
+        |                          method=Method, 
+        |                          peer=Peer, 
+        |                          path=Path,
+        |                          version=Version,
+        |                          response_code=ResponseCode,
+        |                          response_length=ResponseLength,
+        |                          end_time=EndTime,
+        |                          finish_time=FinishTime}) -&gt;
+<font color=red>     0..|      Time = fmtnow(),</font>
+<font color=red>     0..|      Status = integer_to_list(ResponseCode),</font>
+<font color=red>     0..|      Length = integer_to_list(ResponseLength),</font>
+<font color=red>     0..|      TTPD = webmachine_util:now_diff_milliseconds(EndTime, StartTime),</font>
+<font color=red>     0..|      TTPS = webmachine_util:now_diff_milliseconds(FinishTime, EndTime),</font>
+<font color=red>     0..|      fmt_plog(Time, Peer, atom_to_list(Method), Path, Version,</font>
+        |               Status, Length, atom_to_list(Mod), integer_to_list(TTPD),
+        |               integer_to_list(TTPS)).
+        |  
+        |  %% Seek backwards to the last valid log entry
+        |  fix_log(_FD, 0) -&gt;
+<font color=red>     0..|      ok;</font>
+        |  fix_log(FD, 1) -&gt;
+<font color=red>     0..|      {ok, 0} = file:position(FD, 0),</font>
+<font color=red>     0..|      ok;</font>
+        |  fix_log(FD, Location) -&gt;
+<font color=red>     0..|      case file:pread(FD, Location - 1, 1) of</font>
+        |          {ok, [$\n | _]} -&gt;
+<font color=red>     0..|              ok;</font>
+        |          {ok, _} -&gt;
+<font color=red>     0..|              fix_log(FD, Location - 1)</font>
+        |      end.
+        |  
+        |  defer_refresh() -&gt;
+<font color=red>     0..|      {_, {_, M, S}} = calendar:universal_time(),</font>
+<font color=red>     0..|      Time = 1000 * (3600 - ((M * 60) + S)),</font>
+<font color=red>     0..|      timer:apply_after(Time, ?MODULE, refresh, []).</font>
+        |  
+        |  datehour() -&gt;
+<font color=red>     0..|      datehour(now()).</font>
+        |  
+        |  datehour(Now) -&gt;
+<font color=red>     0..|      {{Y, M, D}, {H, _, _}} = calendar:now_to_universal_time(Now),</font>
+<font color=red>     0..|      {Y, M, D, H}.</font>
+        |  
+        |  zeropad_str(NumStr, Zeros) when Zeros &gt; 0 -&gt;
+<font color=red>     0..|      zeropad_str([$0 | NumStr], Zeros - 1);</font>
+        |  zeropad_str(NumStr, _) -&gt;
+<font color=red>     0..|      NumStr.</font>
+        |  
+        |  zeropad(Num, MinLength) -&gt;
+<font color=red>     0..|      NumStr = integer_to_list(Num),</font>
+<font color=red>     0..|      zeropad_str(NumStr, MinLength - length(NumStr)).</font>
+        |  
+        |  suffix({Y, M, D, H}) -&gt;
+<font color=red>     0..|      YS = zeropad(Y, 4),</font>
+<font color=red>     0..|      MS = zeropad(M, 2),</font>
+<font color=red>     0..|      DS = zeropad(D, 2),</font>
+<font color=red>     0..|      HS = zeropad(H, 2),</font>
+<font color=red>     0..|      lists:flatten([$., YS, $_, MS, $_, DS, $_, HS]).</font>
+        |  
+        |  fmt_plog(Time, Ip,  Method, Path, {VM,Vm}, Status, Length, Mod, TTPD, TTPS) -&gt;
+<font color=red>     0..|      [fmt_ip(Ip), " - ", [$\s], Time, [$\s, $"], Method, " ", Path,</font>
+        |       " HTTP/", integer_to_list(VM), ".", integer_to_list(Vm), [$",$\s],
+        |       Status, [$\s], Length, " " , Mod, " ", TTPD, " ", TTPS, $\n].
+        |  
+        |  month(1) -&gt;
+<font color=red>     0..|      "Jan";</font>
+        |  month(2) -&gt;
+<font color=red>     0..|      "Feb";</font>
+        |  month(3) -&gt;
+<font color=red>     0..|      "Mar";</font>
+        |  month(4) -&gt;
+<font color=red>     0..|      "Apr";</font>
+        |  month(5) -&gt;
+<font color=red>     0..|      "May";</font>
+        |  month(6) -&gt;
+<font color=red>     0..|      "Jun";</font>
+        |  month(7) -&gt;
+<font color=red>     0..|      "Jul";</font>
+        |  month(8) -&gt;
+<font color=red>     0..|      "Aug";</font>
+        |  month(9) -&gt;
+<font color=red>     0..|      "Sep";</font>
+        |  month(10) -&gt;
+<font color=red>     0..|      "Oct";</font>
+        |  month(11) -&gt;
+<font color=red>     0..|      "Nov";</font>
+        |  month(12) -&gt;
+<font color=red>     0..|      "Dec".</font>
+        |  zone() -&gt;
+<font color=red>     0..|      Time = erlang:universaltime(),</font>
+<font color=red>     0..|      LocalTime = calendar:universal_time_to_local_time(Time),</font>
+<font color=red>     0..|      DiffSecs = calendar:datetime_to_gregorian_seconds(LocalTime) - calendar:datetime_to_gregorian_seconds(Time),</font>
+<font color=red>     0..|      zone((DiffSecs/3600)*100).</font>
+        |  
+        |  %% Ugly reformatting code to get times like +0000 and -1300
+        |  
+        |  zone(Val) when Val &lt; 0 -&gt;
+<font color=red>     0..|      io_lib:format("-~4..0w", [trunc(abs(Val))]);</font>
+        |  zone(Val) when Val &gt;= 0 -&gt;
+<font color=red>     0..|      io_lib:format("+~4..0w", [trunc(abs(Val))]).</font>
+        |  
+        |  fmt_ip(IP) when is_tuple(IP) -&gt;
+<font color=red>     0..|      inet_parse:ntoa(IP);</font>
+        |  fmt_ip(undefined) -&gt;
+<font color=red>     0..|      "0.0.0.0";</font>
+        |  fmt_ip(HostName) -&gt;
+<font color=red>     0..|      HostName.</font>
+        |  
+        |  fmtnow() -&gt;
+<font color=red>     0..|      {{Year, Month, Date}, {Hour, Min, Sec}} = calendar:local_time(),</font>
+<font color=red>     0..|      io_lib:format("[~2..0w/~s/~4..0w:~2..0w:~2..0w:~2..0w ~s]",</font>
+        |                    [Date,month(Month),Year, Hour, Min, Sec, zone()]).
+</pre>
+</body>
+</html>

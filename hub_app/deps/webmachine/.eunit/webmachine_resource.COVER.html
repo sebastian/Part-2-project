@@ -1,0 +1,243 @@
+<html>
+<head><title>.eunit/webmachine_resource.COVER.html</title></head><body bgcolor=white text=black>
+<pre>
+File generated from /Users/seb/Documents/part2project/app/deps/webmachine/.eunit/webmachine_resource.erl by COVER 2010-10-28 at 14:19:55
+
+****************************************************************************
+
+        |  %% @author Justin Sheehy &lt;justin@basho.com&gt;
+        |  %% @author Andy Gross &lt;andy@basho.com&gt;
+        |  %% @copyright 2007-2009 Basho Technologies
+        |  %%
+        |  %%    Licensed under the Apache License, Version 2.0 (the "License");
+        |  %%    you may not use this file except in compliance with the License.
+        |  %%    You may obtain a copy of the License at
+        |  %%
+        |  %%        http://www.apache.org/licenses/LICENSE-2.0
+        |  %%
+        |  %%    Unless required by applicable law or agreed to in writing, software
+        |  %%    distributed under the License is distributed on an "AS IS" BASIS,
+        |  %%    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+        |  %%    See the License for the specific language governing permissions and
+        |  %%    limitations under the License.
+        |  
+        |  -module(webmachine_resource, [R_Mod, R_ModState, R_ModExports, R_Trace]).
+        |  -author('Justin Sheehy &lt;justin@basho.com&gt;').
+        |  -author('Andy Gross &lt;andy@basho.com&gt;').
+        |  -export([wrap/2]).
+        |  -export([do/2,log_d/1,stop/0]).
+        |  
+        |  -include_lib("include/wm_reqdata.hrl").
+        |  -include_lib("include/wm_reqstate.hrl").
+        |  
+        |  default(ping) -&gt;
+<font color=red>     0..|      no_default;</font>
+        |  default(service_available) -&gt;
+<font color=red>     0..|      true;</font>
+        |  default(resource_exists) -&gt;
+<font color=red>     0..|      true;</font>
+        |  default(auth_required) -&gt;
+<font color=red>     0..|      true;</font>
+        |  default(is_authorized) -&gt;
+<font color=red>     0..|      true;</font>
+        |  default(forbidden) -&gt;
+<font color=red>     0..|      false;</font>
+        |  default(allow_missing_post) -&gt;
+<font color=red>     0..|      false;</font>
+        |  default(malformed_request) -&gt;
+<font color=red>     0..|      false;</font>
+        |  default(uri_too_long) -&gt;
+<font color=red>     0..|      false;</font>
+        |  default(known_content_type) -&gt;
+<font color=red>     0..|      true;</font>
+        |  default(valid_content_headers) -&gt;
+<font color=red>     0..|      true;</font>
+        |  default(valid_entity_length) -&gt;
+<font color=red>     0..|      true;</font>
+        |  default(options) -&gt;
+<font color=red>     0..|      [];</font>
+        |  default(allowed_methods) -&gt;
+<font color=red>     0..|      ['GET', 'HEAD'];</font>
+        |  default(known_methods) -&gt;
+<font color=red>     0..|      ['GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'TRACE', 'CONNECT', 'OPTIONS'];</font>
+        |  default(content_types_provided) -&gt;
+<font color=red>     0..|      [{"text/html", to_html}];</font>
+        |  default(content_types_accepted) -&gt;
+<font color=red>     0..|      [];</font>
+        |  default(delete_resource) -&gt;
+<font color=red>     0..|      false;</font>
+        |  default(delete_completed) -&gt;
+<font color=red>     0..|      true;</font>
+        |  default(post_is_create) -&gt;
+<font color=red>     0..|      false;</font>
+        |  default(create_path) -&gt;
+<font color=red>     0..|      undefined;</font>
+        |  default(process_post) -&gt;
+<font color=red>     0..|      false;</font>
+        |  default(language_available) -&gt;
+<font color=red>     0..|      true;</font>
+        |  default(charsets_provided) -&gt;
+<font color=red>     0..|      no_charset; % this atom causes charset-negotation to short-circuit</font>
+        |      % the default setting is needed for non-charset responses such as image/png
+        |      %    an example of how one might do actual negotiation
+        |      %    [{"iso-8859-1", fun(X) -&gt; X end}, {"utf-8", make_utf8}];
+        |  default(encodings_provided) -&gt;
+<font color=red>     0..|      [{"identity", fun(X) -&gt; X end}];</font>
+        |      % this is handy for auto-gzip of GET-only resources:
+        |      %    [{"identity", fun(X) -&gt; X end}, {"gzip", fun(X) -&gt; zlib:gzip(X) end}];
+        |  default(variances) -&gt;
+<font color=red>     0..|      [];</font>
+        |  default(is_conflict) -&gt;
+<font color=red>     0..|      false;</font>
+        |  default(multiple_choices) -&gt;
+<font color=red>     0..|      false;</font>
+        |  default(previously_existed) -&gt;
+<font color=red>     0..|      false;</font>
+        |  default(moved_permanently) -&gt;
+<font color=red>     0..|      false;</font>
+        |  default(moved_temporarily) -&gt;
+<font color=red>     0..|      false;</font>
+        |  default(last_modified) -&gt;
+<font color=red>     0..|      undefined;</font>
+        |  default(expires) -&gt;
+<font color=red>     0..|      undefined;</font>
+        |  default(generate_etag) -&gt;
+<font color=red>     0..|      undefined;</font>
+        |  default(finish_request) -&gt;
+<font color=red>     0..|      true;</font>
+        |  default(_) -&gt;
+<font color=red>     0..|      no_default.</font>
+        |            
+        |  wrap(Mod, Args) -&gt;
+<font color=red>     0..|      case Mod:init(Args) of</font>
+        |          {ok, ModState} -&gt;
+<font color=red>     0..|              {ok, webmachine_resource:new(Mod, ModState, </font>
+        |                             dict:from_list(Mod:module_info(exports)), false)};
+        |          {{trace, Dir}, ModState} -&gt;
+<font color=red>     0..|              {ok, File} = open_log_file(Dir, Mod),</font>
+<font color=red>     0..|              log_decision(File, v3b14),</font>
+<font color=red>     0..|              log_call(File, attempt, Mod, init, Args),</font>
+<font color=red>     0..|              log_call(File, result, Mod, init, {{trace, Dir}, ModState}),</font>
+<font color=red>     0..|              {ok, webmachine_resource:new(Mod, ModState,</font>
+        |                  dict:from_list(Mod:module_info(exports)), File)};
+        |          _ -&gt;
+<font color=red>     0..|              {stop, bad_init_arg}</font>
+        |      end.
+        |  
+        |  do(Fun, ReqProps) when is_atom(Fun) andalso is_list(ReqProps) -&gt;
+<font color=red>     0..|      RState0 = proplists:get_value(reqstate, ReqProps),</font>
+<font color=red>     0..|      put(tmp_reqstate, empty),</font>
+<font color=red>     0..|      {Reply, ReqData, NewModState} = handle_wm_call(Fun, </font>
+        |                      (RState0#wm_reqstate.reqdata)#wm_reqdata{wm_state=RState0}),
+<font color=red>     0..|      ReqState = case get(tmp_reqstate) of</font>
+<font color=red>     0..|                     empty -&gt; RState0;</font>
+<font color=red>     0..|                     X -&gt; X</font>
+        |                 end,
+<font color=red>     0..|      {Reply,</font>
+        |       webmachine_resource:new(R_Mod, NewModState, R_ModExports, R_Trace),
+        |       ReqState#wm_reqstate{reqdata=ReqData}}.
+        |  
+        |  handle_wm_call(Fun, ReqData) -&gt;
+<font color=red>     0..|      case default(Fun) of</font>
+        |          no_default -&gt;
+<font color=red>     0..|              resource_call(Fun, ReqData);</font>
+        |          Default -&gt;
+<font color=red>     0..|              case dict:is_key(Fun, R_ModExports) of</font>
+        |                  true -&gt;
+<font color=red>     0..|                      resource_call(Fun, ReqData);</font>
+        |                  false -&gt;
+<font color=red>     0..|                      if is_pid(R_Trace) -&gt;</font>
+<font color=red>     0..|                              log_call(R_Trace,</font>
+        |                                       not_exported,
+        |                                       R_Mod, Fun, [ReqData, R_ModState]);
+<font color=red>     0..|                         true -&gt; ok</font>
+        |                      end,
+<font color=red>     0..|                      {Default, ReqData, R_ModState}</font>
+        |              end
+        |      end.
+        |  
+        |  trim_trace([{M,F,[RD = #wm_reqdata{},S]}|STRest]) -&gt;
+<font color=red>     0..|      TrimState = (RD#wm_reqdata.wm_state)#wm_reqstate{reqdata='REQDATA'},</font>
+<font color=red>     0..|      TrimRD = RD#wm_reqdata{wm_state=TrimState},</font>
+<font color=red>     0..|      [{M,F,[TrimRD,S]}|STRest];</font>
+<font color=red>     0..|  trim_trace(X) -&gt; X.</font>
+        |  
+        |  resource_call(F, ReqData) -&gt;
+<font color=red>     0..|      case R_Trace of</font>
+<font color=red>     0..|          false -&gt; nop;</font>
+<font color=red>     0..|          _ -&gt; log_call(R_Trace, attempt, R_Mod, F, [ReqData, R_ModState])</font>
+        |      end,
+<font color=red>     0..|      Result = try</font>
+<font color=red>     0..|          apply(R_Mod, F, [ReqData, R_ModState])</font>
+        |      catch C:R -&gt;
+<font color=red>     0..|              Reason = {C, R, trim_trace(erlang:get_stacktrace())},</font>
+<font color=red>     0..|              {{error, Reason}, ReqData, R_ModState}</font>
+        |      end,
+<font color=red>     0..|          case R_Trace of</font>
+<font color=red>     0..|          false -&gt; nop;</font>
+<font color=red>     0..|          _ -&gt; log_call(R_Trace, result, R_Mod, F, Result)</font>
+        |      end,
+<font color=red>     0..|      Result.</font>
+        |  
+        |  log_d(DecisionID) -&gt;
+<font color=red>     0..|      case R_Trace of</font>
+<font color=red>     0..|          false -&gt; nop;</font>
+<font color=red>     0..|          _ -&gt; log_decision(R_Trace, DecisionID)</font>
+        |      end.
+        |  
+<font color=red>     0..|  stop() -&gt; close_log_file(R_Trace).</font>
+        |      
+        |  log_call(File, Type, M, F, Data) -&gt;
+<font color=red>     0..|      io:format(File,</font>
+        |                "{~p, ~p, ~p,~n ~p}.~n",
+        |                [Type, M, F, escape_trace_data(Data)]).
+        |  
+        |  escape_trace_data(Fun) when is_function(Fun) -&gt;
+<font color=red>     0..|      {'WMTRACE_ESCAPED_FUN',</font>
+        |       [erlang:fun_info(Fun, module),
+        |        erlang:fun_info(Fun, name),
+        |        erlang:fun_info(Fun, arity),
+        |        erlang:fun_info(Fun, type)]};
+        |  escape_trace_data(Pid) when is_pid(Pid) -&gt;
+<font color=red>     0..|      {'WMTRACE_ESCAPED_PID', pid_to_list(Pid)};</font>
+        |  escape_trace_data(Port) when is_port(Port) -&gt;
+<font color=red>     0..|      {'WMTRACE_ESCAPED_PORT', erlang:port_to_list(Port)};</font>
+        |  escape_trace_data(List) when is_list(List) -&gt;
+<font color=red>     0..|      escape_trace_list(List, []);</font>
+        |  escape_trace_data(R=#wm_reqstate{}) -&gt;
+<font color=red>     0..|      list_to_tuple(</font>
+        |        escape_trace_data(
+        |          tuple_to_list(R#wm_reqstate{reqdata='WMTRACE_NESTED_REQDATA'})));
+        |  escape_trace_data(Tuple) when is_tuple(Tuple) -&gt;
+<font color=red>     0..|      list_to_tuple(escape_trace_data(tuple_to_list(Tuple)));</font>
+        |  escape_trace_data(Other) -&gt;
+<font color=red>     0..|      Other.</font>
+        |  
+        |  escape_trace_list([Head|Tail], Acc) -&gt;
+<font color=red>     0..|      escape_trace_list(Tail, [escape_trace_data(Head)|Acc]);</font>
+        |  escape_trace_list([], Acc) -&gt;
+        |      %% proper, nil-terminated list
+<font color=red>     0..|      lists:reverse(Acc);</font>
+        |  escape_trace_list(Final, Acc) -&gt;
+        |      %% non-nil-terminated list, like the dict module uses
+<font color=red>     0..|      lists:reverse(tl(Acc))++[hd(Acc)|escape_trace_data(Final)].</font>
+        |  
+        |  log_decision(File, DecisionID) -&gt;
+<font color=red>     0..|      io:format(File, "{decision, ~p}.~n", [DecisionID]).</font>
+        |  
+        |  open_log_file(Dir, Mod) -&gt;
+<font color=red>     0..|      Now = {_,_,US} = now(),</font>
+<font color=red>     0..|      {{Y,M,D},{H,I,S}} = calendar:now_to_universal_time(Now),</font>
+<font color=red>     0..|      Filename = io_lib:format(</font>
+        |                   "~s/~p-~4..0B-~2..0B-~2..0B"
+        |                   "-~2..0B-~2..0B-~2..0B.~6..0B.wmtrace",
+        |                   [Dir, Mod, Y, M, D, H, I, S, US]),
+<font color=red>     0..|      file:open(Filename, [write]).</font>
+        |  
+        |  close_log_file(File) when is_pid(File) -&gt;
+<font color=red>     0..|      file:close(File);</font>
+        |  close_log_file(_) -&gt;
+<font color=red>     0..|      ok.</font>
+</pre>
+</body>
+</html>

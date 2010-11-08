@@ -1,0 +1,150 @@
+<html>
+<head><title>.eunit/mochilogfile2.COVER.html</title></head><body bgcolor=white text=black>
+<pre>
+File generated from /Users/seb/Documents/part2project/app/deps/mochiweb/.eunit/mochilogfile2.erl by COVER 2010-10-28 at 14:19:48
+
+****************************************************************************
+
+        |  %% @author Bob Ippolito &lt;bob@mochimedia.com&gt;
+        |  %% @copyright 2010 Mochi Media, Inc.
+        |  
+        |  %% @doc Write newline delimited log files, ensuring that if a truncated
+        |  %%      entry is found on log open then it is fixed before writing. Uses
+        |  %%      delayed writes and raw files for performance.
+        |  -module(mochilogfile2).
+        |  -author('bob@mochimedia.com').
+        |  
+        |  -export([open/1, write/2, close/1, name/1]).
+        |  
+        |  %% @spec open(Name) -&gt; Handle
+        |  %% @doc Open the log file Name, creating or appending as necessary. All data
+        |  %%      at the end of the file will be truncated until a newline is found, to
+        |  %%      ensure that all records are complete.
+        |  open(Name) -&gt;
+     8..|      {ok, FD} = file:open(Name, [raw, read, write, delayed_write, binary]),
+     8..|      fix_log(FD),
+     8..|      {?MODULE, Name, FD}.
+        |  
+        |  %% @spec name(Handle) -&gt; string()
+        |  %% @doc Return the path of the log file.
+        |  name({?MODULE, Name, _FD}) -&gt;
+     1..|      Name.
+        |  
+        |  %% @spec write(Handle, IoData) -&gt; ok
+        |  %% @doc Write IoData to the log file referenced by Handle.
+        |  write({?MODULE, _Name, FD}, IoData) -&gt;
+     5..|      ok = file:write(FD, [IoData, $\n]),
+     5..|      ok.
+        |  
+        |  %% @spec close(Handle) -&gt; ok
+        |  %% @doc Close the log file referenced by Handle.
+        |  close({?MODULE, _Name, FD}) -&gt;
+     8..|      ok = file:sync(FD),
+     8..|      ok = file:close(FD),
+     8..|      ok.
+        |  
+        |  fix_log(FD) -&gt;
+     8..|      {ok, Location} = file:position(FD, eof),
+     8..|      Seek = find_last_newline(FD, Location),
+     8..|      {ok, Seek} = file:position(FD, Seek),
+     8..|      ok = file:truncate(FD),
+     8..|      ok.
+        |  
+        |  %% Seek backwards to the last valid log entry
+        |  find_last_newline(_FD, N) when N =&lt; 1 -&gt;
+     5..|      0;
+        |  find_last_newline(FD, Location) -&gt;
+    31..|      case file:pread(FD, Location - 1, 1) of
+        |          {ok, &lt;&lt;$\n&gt;&gt;} -&gt;
+     3..|              Location;
+        |          {ok, _} -&gt;
+    28..|              find_last_newline(FD, Location - 1)
+        |      end.
+        |  
+        |  %%
+        |  %% Tests
+        |  %%
+        |  -include_lib("eunit/include/eunit.hrl").
+        |  -ifdef(TEST).
+        |  name_test() -&gt;
+     1..|      D = mochitemp:mkdtemp(),
+     1..|      FileName = filename:join(D, "open_close_test.log"),
+     1..|      H = open(FileName),
+     1..|      ?assertEqual(
+        |         FileName,
+     1..|         name(H)),
+     1..|      close(H),
+     1..|      file:delete(FileName),
+     1..|      file:del_dir(D),
+     1..|      ok.
+        |  
+        |  open_close_test() -&gt;
+     1..|      D = mochitemp:mkdtemp(),
+     1..|      FileName = filename:join(D, "open_close_test.log"),
+     1..|      OpenClose = fun () -&gt;
+     2..|                          H = open(FileName),
+     2..|                          ?assertEqual(
+        |                             true,
+     2..|                             filelib:is_file(FileName)),
+     2..|                          ok = close(H),
+     2..|                          ?assertEqual(
+        |                             {ok, &lt;&lt;&gt;&gt;},
+     2..|                             file:read_file(FileName)),
+     2..|                          ok
+        |                  end,
+     1..|      OpenClose(),
+     1..|      OpenClose(),
+     1..|      file:delete(FileName),
+     1..|      file:del_dir(D),
+     1..|      ok.
+        |  
+        |  write_test() -&gt;
+     1..|      D = mochitemp:mkdtemp(),
+     1..|      FileName = filename:join(D, "write_test.log"),
+     1..|      F = fun () -&gt;
+     2..|                  H = open(FileName),
+     2..|                  write(H, "test line"),
+     2..|                  close(H),
+     2..|                  ok
+        |          end,
+     1..|      F(),
+     1..|      ?assertEqual(
+        |         {ok, &lt;&lt;"test line\n"&gt;&gt;},
+     1..|         file:read_file(FileName)),
+     1..|      F(),
+     1..|      ?assertEqual(
+        |         {ok, &lt;&lt;"test line\ntest line\n"&gt;&gt;},
+     1..|         file:read_file(FileName)),
+     1..|      file:delete(FileName),
+     1..|      file:del_dir(D),
+     1..|      ok.
+        |  
+        |  fix_log_test() -&gt;
+     1..|      D = mochitemp:mkdtemp(),
+     1..|      FileName = filename:join(D, "write_test.log"),
+     1..|      file:write_file(FileName, &lt;&lt;"first line good\nsecond line bad"&gt;&gt;),
+     1..|      F = fun () -&gt;
+     3..|                  H = open(FileName),
+     3..|                  write(H, "test line"),
+     3..|                  close(H),
+     3..|                  ok
+        |          end,
+     1..|      F(),
+     1..|      ?assertEqual(
+        |         {ok, &lt;&lt;"first line good\ntest line\n"&gt;&gt;},
+     1..|         file:read_file(FileName)),
+     1..|      file:write_file(FileName, &lt;&lt;"first line bad"&gt;&gt;),
+     1..|      F(),
+     1..|      ?assertEqual(
+        |         {ok, &lt;&lt;"test line\n"&gt;&gt;},
+     1..|         file:read_file(FileName)),
+     1..|      F(),
+     1..|      ?assertEqual(
+        |         {ok, &lt;&lt;"test line\ntest line\n"&gt;&gt;},
+     1..|         file:read_file(FileName)),
+     1..|      ok.
+        |  
+        |  -endif.
+</pre>
+</body>
+</html>

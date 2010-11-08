@@ -1,0 +1,299 @@
+<html>
+<head><title>.eunit/mochiweb.COVER.html</title></head><body bgcolor=white text=black>
+<pre>
+File generated from /Users/seb/Documents/part2project/app/deps/mochiweb/.eunit/mochiweb.erl by COVER 2010-10-28 at 14:19:49
+
+****************************************************************************
+
+        |  %% @author Bob Ippolito &lt;bob@mochimedia.com&gt;
+        |  %% @copyright 2007 Mochi Media, Inc.
+        |  
+        |  %% @doc Start and stop the MochiWeb server.
+        |  
+        |  -module(mochiweb).
+        |  -author('bob@mochimedia.com').
+        |  
+        |  -export([start/0, stop/0]).
+        |  -export([new_request/1, new_response/1]).
+        |  -export([all_loaded/0, all_loaded/1, reload/0]).
+        |  
+        |  %% @spec start() -&gt; ok
+        |  %% @doc Start the MochiWeb server.
+        |  start() -&gt;
+<font color=red>     0..|      ensure_started(crypto),</font>
+<font color=red>     0..|      application:start(mochiweb).</font>
+        |  
+        |  %% @spec stop() -&gt; ok
+        |  %% @doc Stop the MochiWeb server.
+        |  stop() -&gt;
+<font color=red>     0..|      Res = application:stop(mochiweb),</font>
+<font color=red>     0..|      application:stop(crypto),</font>
+<font color=red>     0..|      Res.</font>
+        |  
+        |  reload() -&gt;
+<font color=red>     0..|      [c:l(Module) || Module &lt;- all_loaded()].</font>
+        |  
+        |  all_loaded() -&gt;
+<font color=red>     0..|      all_loaded(filename:dirname(code:which(?MODULE))).</font>
+        |  
+        |  all_loaded(Base) when is_atom(Base) -&gt;
+<font color=red>     0..|      [];</font>
+        |  all_loaded(Base) -&gt;
+<font color=red>     0..|      FullBase = Base ++ "/",</font>
+<font color=red>     0..|      F = fun ({_Module, Loaded}, Acc) when is_atom(Loaded) -&gt;</font>
+<font color=red>     0..|                  Acc;</font>
+        |              ({Module, Loaded}, Acc) -&gt;
+<font color=red>     0..|                  case lists:prefix(FullBase, Loaded) of</font>
+        |                      true -&gt;
+<font color=red>     0..|                          [Module | Acc];</font>
+        |                      false -&gt;
+<font color=red>     0..|                          Acc</font>
+        |                  end
+        |          end,
+<font color=red>     0..|      lists:foldl(F, [], code:all_loaded()).</font>
+        |  
+        |  
+        |  %% @spec new_request({Socket, Request, Headers}) -&gt; MochiWebRequest
+        |  %% @doc Return a mochiweb_request data structure.
+        |  new_request({Socket, {Method, {abs_path, Uri}, Version}, Headers}) -&gt;
+   420..|      mochiweb_request:new(Socket,
+        |                           Method,
+        |                           Uri,
+        |                           Version,
+        |                           mochiweb_headers:make(Headers));
+        |  % this case probably doesn't "exist".
+        |  new_request({Socket, {Method, {absoluteURI, _Protocol, _Host, _Port, Uri},
+        |                        Version}, Headers}) -&gt;
+<font color=red>     0..|      mochiweb_request:new(Socket,</font>
+        |                           Method,
+        |                           Uri,
+        |                           Version,
+        |                           mochiweb_headers:make(Headers));
+        |  %% Request-URI is "*"
+        |  %% From http://www.w3.org/Protocols/rfc2616/rfc2616-sec5.html#sec5.1.2
+        |  new_request({Socket, {Method, '*'=Uri, Version}, Headers}) -&gt;
+<font color=red>     0..|      mochiweb_request:new(Socket,</font>
+        |                           Method,
+        |                           Uri,
+        |                           Version,
+        |                           mochiweb_headers:make(Headers)).
+        |  
+        |  %% @spec new_response({Request, integer(), Headers}) -&gt; MochiWebResponse
+        |  %% @doc Return a mochiweb_response data structure.
+        |  new_response({Request, Code, Headers}) -&gt;
+   420..|      mochiweb_response:new(Request,
+        |                            Code,
+        |                            mochiweb_headers:make(Headers)).
+        |  
+        |  %% Internal API
+        |  
+        |  ensure_started(App) -&gt;
+<font color=red>     0..|      case application:start(App) of</font>
+        |          ok -&gt;
+<font color=red>     0..|              ok;</font>
+        |          {error, {already_started, App}} -&gt;
+<font color=red>     0..|              ok</font>
+        |      end.
+        |  
+        |  
+        |  %%
+        |  %% Tests
+        |  %%
+        |  -include_lib("eunit/include/eunit.hrl").
+        |  -ifdef(TEST).
+        |  
+        |  -record(treq, {path, body= &lt;&lt;&gt;&gt;, xreply= &lt;&lt;&gt;&gt;}).
+        |  
+        |  ssl_cert_opts() -&gt;
+     8..|      EbinDir = filename:dirname(code:which(?MODULE)),
+     8..|      CertDir = filename:join([EbinDir, "..", "support", "test-materials"]),
+     8..|      CertFile = filename:join(CertDir, "test_ssl_cert.pem"),
+     8..|      KeyFile = filename:join(CertDir, "test_ssl_key.pem"),
+     8..|      [{certfile, CertFile}, {keyfile, KeyFile}].
+        |  
+        |  with_server(Transport, ServerFun, ClientFun) -&gt;
+    16..|      ServerOpts0 = [{ip, "127.0.0.1"}, {port, 0}, {loop, ServerFun}],
+    16..|      ServerOpts = case Transport of
+        |          plain -&gt;
+     8..|              ServerOpts0;
+        |          ssl -&gt;
+     8..|              ServerOpts0 ++ [{ssl, true}, {ssl_opts, ssl_cert_opts()}]
+        |      end,
+    16..|      {ok, Server} = mochiweb_http:start(ServerOpts),
+    16..|      Port = mochiweb_socket_server:get(Server, port),
+    16..|      Res = (catch ClientFun(Transport, Port)),
+    16..|      mochiweb_http:stop(Server),
+    16..|      Res.
+        |  
+        |  request_test() -&gt;
+     1..|      R = mochiweb_request:new(z, z, "/foo/bar/baz%20wibble+quux?qs=2", z, []),
+     1..|      "/foo/bar/baz wibble quux" = R:get(path),
+     1..|      ok.
+        |  
+        |  single_http_GET_test() -&gt;
+     1..|      do_GET(plain, 1).
+        |  
+        |  single_https_GET_test() -&gt;
+     1..|      do_GET(ssl, 1).
+        |  
+        |  multiple_http_GET_test() -&gt;
+     1..|      do_GET(plain, 3).
+        |  
+        |  multiple_https_GET_test() -&gt;
+     1..|      do_GET(ssl, 3).
+        |  
+        |  hundred_http_GET_test() -&gt;
+     1..|      do_GET(plain, 100).
+        |  
+        |  hundred_https_GET_test() -&gt;
+     1..|      do_GET(ssl, 100).
+        |  
+        |  single_128_http_POST_test() -&gt;
+     1..|      do_POST(plain, 128, 1).
+        |  
+        |  single_128_https_POST_test() -&gt;
+     1..|      do_POST(ssl, 128, 1).
+        |  
+        |  single_2k_http_POST_test() -&gt;
+     1..|      do_POST(plain, 2048, 1).
+        |  
+        |  single_2k_https_POST_test() -&gt;
+     1..|      do_POST(ssl, 2048, 1).
+        |  
+        |  single_100k_http_POST_test() -&gt;
+     1..|      do_POST(plain, 102400, 1).
+        |  
+        |  single_100k_https_POST_test() -&gt;
+     1..|      do_POST(ssl, 102400, 1).
+        |  
+        |  multiple_100k_http_POST_test() -&gt;
+     1..|      do_POST(plain, 102400, 3).
+        |  
+        |  multiple_100K_https_POST_test() -&gt;
+     1..|      do_POST(ssl, 102400, 3).
+        |  
+        |  hundred_128_http_POST_test() -&gt;
+     1..|      do_POST(plain, 128, 100).
+        |  
+        |  hundred_128_https_POST_test() -&gt;
+     1..|      do_POST(ssl, 128, 100).
+        |  
+        |  do_GET(Transport, Times) -&gt;
+     6..|      PathPrefix = "/whatever/",
+     6..|      ReplyPrefix = "You requested: ",
+     6..|      ServerFun = fun (Req) -&gt;
+   208..|                          Reply = ReplyPrefix ++ Req:get(path),
+   208..|                          Req:ok({"text/plain", Reply})
+        |                  end,
+     6..|      TestReqs = [begin
+   208..|                      Path = PathPrefix ++ integer_to_list(N),
+   208..|                      ExpectedReply = list_to_binary(ReplyPrefix ++ Path),
+   208..|                      #treq{path=Path, xreply=ExpectedReply}
+     6..|                  end || N &lt;- lists:seq(1, Times)],
+     6..|      ClientFun = new_client_fun('GET', TestReqs),
+     6..|      ok = with_server(Transport, ServerFun, ClientFun),
+     6..|      ok.
+        |  
+        |  do_POST(Transport, Size, Times) -&gt;
+    10..|      ServerFun = fun (Req) -&gt;
+   212..|                          Body = Req:recv_body(),
+   212..|                          Headers = [{"Content-Type", "application/octet-stream"}],
+   212..|                          Req:respond({201, Headers, Body})
+        |                  end,
+    10..|      TestReqs = [begin
+   212..|                      Path = "/stuff/" ++ integer_to_list(N),
+   212..|                      Body = crypto:rand_bytes(Size),
+   212..|                      #treq{path=Path, body=Body, xreply=Body}
+    10..|                  end || N &lt;- lists:seq(1, Times)],
+    10..|      ClientFun = new_client_fun('POST', TestReqs),
+    10..|      ok = with_server(Transport, ServerFun, ClientFun),
+    10..|      ok.
+        |  
+        |  new_client_fun(Method, TestReqs) -&gt;
+    16..|      fun (Transport, Port) -&gt;
+    16..|              client_request(Transport, Port, Method, TestReqs)
+        |      end.
+        |  
+        |  client_request(Transport, Port, Method, TestReqs) -&gt;
+    16..|      Opts = [binary, {active, false}, {packet, http}],
+    16..|      SockFun = case Transport of
+        |          plain -&gt;
+     8..|              {ok, Socket} = gen_tcp:connect("127.0.0.1", Port, Opts),
+     8..|              fun (recv) -&gt;
+  1268..|                      gen_tcp:recv(Socket, 0);
+        |                  ({recv, Length}) -&gt;
+   607..|                      gen_tcp:recv(Socket, Length);
+        |                  ({send, Data}) -&gt;
+   210..|                      gen_tcp:send(Socket, Data);
+        |                  ({setopts, L}) -&gt;
+   630..|                      inet:setopts(Socket, L)
+        |              end;
+        |          ssl -&gt;
+     8..|              {ok, Socket} = ssl:connect("127.0.0.1", Port, [{ssl_imp, new} | Opts]),
+     8..|              fun (recv) -&gt;
+  1268..|                      ssl:recv(Socket, 0);
+        |                  ({recv, Length}) -&gt;
+   607..|                      ssl:recv(Socket, Length);
+        |                  ({send, Data}) -&gt;
+   210..|                      ssl:send(Socket, Data);
+        |                  ({setopts, L}) -&gt;
+   630..|                      ssl:setopts(Socket, L)
+        |              end
+        |      end,
+    16..|      client_request(SockFun, Method, TestReqs).
+        |  
+        |  client_request(SockFun, _Method, []) -&gt;
+    16..|      {the_end, {error, closed}} = {the_end, SockFun(recv)},
+    16..|      ok;
+        |  client_request(SockFun, Method,
+        |                 [#treq{path=Path, body=Body, xreply=ExReply} | Rest]) -&gt;
+   420..|      Request = [atom_to_list(Method), " ", Path, " HTTP/1.1\r\n",
+        |                 client_headers(Body, Rest =:= []),
+        |                 "\r\n",
+        |                 Body],
+   420..|      ok = SockFun({send, Request}),
+   420..|      case Method of
+        |          'GET' -&gt;
+   208..|              {ok, {http_response, {1,1}, 200, "OK"}} = SockFun(recv);
+        |          'POST' -&gt;
+   212..|              {ok, {http_response, {1,1}, 201, "Created"}} = SockFun(recv)
+        |      end,
+   420..|      ok = SockFun({setopts, [{packet, httph}]}),
+   420..|      {ok, {http_header, _, 'Server', _, "MochiWeb" ++ _}} = SockFun(recv),
+   420..|      {ok, {http_header, _, 'Date', _, _}} = SockFun(recv),
+   420..|      {ok, {http_header, _, 'Content-Type', _, _}} = SockFun(recv),
+   420..|      {ok, {http_header, _, 'Content-Length', _, ConLenStr}} = SockFun(recv),
+   420..|      ContentLength = list_to_integer(ConLenStr),
+   420..|      {ok, http_eoh} = SockFun(recv),
+   420..|      ok = SockFun({setopts, [{packet, raw}]}),
+   420..|      {payload, ExReply} = {payload, drain_reply(SockFun, ContentLength, &lt;&lt;&gt;&gt;)},
+   420..|      ok = SockFun({setopts, [{packet, http}]}),
+   420..|      client_request(SockFun, Method, Rest).
+        |  
+        |  client_headers(Body, IsLastRequest) -&gt;
+   420..|      ["Host: localhost\r\n",
+        |       case Body of
+        |          &lt;&lt;&gt;&gt; -&gt;
+   208..|              "";
+        |          _ -&gt;
+   212..|              ["Content-Type: application/octet-stream\r\n",
+        |               "Content-Length: ", integer_to_list(byte_size(Body)), "\r\n"]
+        |       end,
+        |       case IsLastRequest of
+        |           true -&gt;
+    16..|               "Connection: close\r\n";
+        |           false -&gt;
+   404..|               ""
+        |       end].
+        |  
+        |  drain_reply(_SockFun, 0, Acc) -&gt;
+   420..|      Acc;
+        |  drain_reply(SockFun, Length, Acc) -&gt;
+  1214..|      Sz = erlang:min(Length, 1024),
+  1214..|      {ok, B} = SockFun({recv, Sz}),
+  1214..|      drain_reply(SockFun, Length - Sz, &lt;&lt;Acc/bytes, B/bytes&gt;&gt;).
+        |  
+        |  -endif.
+</pre>
+</body>
+</html>

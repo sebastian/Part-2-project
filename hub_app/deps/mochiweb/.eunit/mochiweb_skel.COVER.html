@@ -1,0 +1,94 @@
+<html>
+<head><title>.eunit/mochiweb_skel.COVER.html</title></head><body bgcolor=white text=black>
+<pre>
+File generated from /Users/seb/Documents/part2project/app/deps/mochiweb/.eunit/mochiweb_skel.erl by COVER 2010-10-28 at 14:19:50
+
+****************************************************************************
+
+        |  -module(mochiweb_skel).
+        |  -export([skelcopy/2]).
+        |  
+        |  -include_lib("kernel/include/file.hrl").
+        |  
+        |  %% External API
+        |  
+        |  skelcopy(DestDir, Name) -&gt;
+<font color=red>     0..|      ok = ensuredir(DestDir),</font>
+<font color=red>     0..|      LDst = case length(filename:dirname(DestDir)) of</font>
+        |                 1 -&gt; %% handle case when dirname returns "/"
+<font color=red>     0..|                     0;</font>
+        |                 N -&gt;
+<font color=red>     0..|                     N + 1</font>
+        |             end,
+<font color=red>     0..|      skelcopy(src(), DestDir, Name, LDst),</font>
+<font color=red>     0..|      ok = file:make_symlink(</font>
+        |          filename:join(filename:dirname(code:which(?MODULE)), ".."),
+        |          filename:join([DestDir, Name, "deps", "mochiweb-src"])).
+        |  
+        |  %% Internal API
+        |  
+        |  src() -&gt;
+<font color=red>     0..|      Dir = filename:dirname(code:which(?MODULE)),</font>
+<font color=red>     0..|      filename:join(Dir, "../priv/skel").</font>
+        |  
+        |  skel() -&gt;
+<font color=red>     0..|      "skel".</font>
+        |  
+        |  skelcopy(Src, DestDir, Name, LDst) -&gt;
+<font color=red>     0..|      Dest = re:replace(filename:basename(Src), skel(), Name,</font>
+        |                        [global, {return, list}]),
+<font color=red>     0..|      case file:read_file_info(Src) of</font>
+        |          {ok, #file_info{type=directory, mode=Mode}} -&gt;
+<font color=red>     0..|              Dir = DestDir ++ "/" ++ Dest,</font>
+<font color=red>     0..|              EDst = lists:nthtail(LDst, Dir),</font>
+<font color=red>     0..|              ok = ensuredir(Dir),</font>
+<font color=red>     0..|              ok = file:write_file_info(Dir, #file_info{mode=Mode}),</font>
+<font color=red>     0..|              case filename:basename(Src) of</font>
+        |                  "ebin" -&gt;
+<font color=red>     0..|                      ok;</font>
+        |                  _ -&gt;
+<font color=red>     0..|                      {ok, Files} = file:list_dir(Src),</font>
+<font color=red>     0..|                      io:format("~s/~n", [EDst]),</font>
+<font color=red>     0..|                      lists:foreach(fun ("." ++ _) -&gt; ok;</font>
+        |                                        (F) -&gt;
+<font color=red>     0..|                                            skelcopy(filename:join(Src, F),</font>
+        |                                                     Dir,
+        |                                                     Name,
+        |                                                     LDst)
+        |                                    end,
+        |                                    Files),
+<font color=red>     0..|                          ok</font>
+        |              end;
+        |          {ok, #file_info{type=regular, mode=Mode}} -&gt;
+<font color=red>     0..|              OutFile = filename:join(DestDir, Dest),</font>
+<font color=red>     0..|              {ok, B} = file:read_file(Src),</font>
+<font color=red>     0..|              S = re:replace(binary_to_list(B), skel(), Name,</font>
+        |                             [{return, list}, global]),
+<font color=red>     0..|              ok = file:write_file(OutFile, list_to_binary(S)),</font>
+<font color=red>     0..|              ok = file:write_file_info(OutFile, #file_info{mode=Mode}),</font>
+<font color=red>     0..|              io:format("    ~s~n", [filename:basename(Src)]),</font>
+<font color=red>     0..|              ok;</font>
+        |          {ok, _} -&gt;
+<font color=red>     0..|              io:format("ignored source file: ~p~n", [Src]),</font>
+<font color=red>     0..|              ok</font>
+        |      end.
+        |  
+        |  ensuredir(Dir) -&gt;
+<font color=red>     0..|      case file:make_dir(Dir) of</font>
+        |          ok -&gt;
+<font color=red>     0..|              ok;</font>
+        |          {error, eexist} -&gt;
+<font color=red>     0..|              ok;</font>
+        |          E -&gt;
+<font color=red>     0..|              E</font>
+        |      end.
+        |  
+        |  %%
+        |  %% Tests
+        |  %%
+        |  -include_lib("eunit/include/eunit.hrl").
+        |  -ifdef(TEST).
+        |  -endif.
+</pre>
+</body>
+</html>

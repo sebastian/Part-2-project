@@ -1,0 +1,94 @@
+<html>
+<head><title>.eunit/mochiweb_socket.COVER.html</title></head><body bgcolor=white text=black>
+<pre>
+File generated from /Users/seb/Documents/part2project/app/deps/mochiweb/.eunit/mochiweb_socket.erl by COVER 2010-10-28 at 14:19:50
+
+****************************************************************************
+
+        |  %% @copyright 2010 Mochi Media, Inc.
+        |  
+        |  %% @doc MochiWeb socket - wrapper for plain and ssl sockets.
+        |  
+        |  -module(mochiweb_socket).
+        |  
+        |  -export([listen/4, accept/1, recv/3, send/2, close/1, port/1, peername/1,
+        |           setopts/2, type/1]).
+        |  
+        |  -define(ACCEPT_TIMEOUT, 2000).
+        |  
+        |  listen(Ssl, Port, Opts, SslOpts) -&gt;
+    32..|      case Ssl of
+        |          true -&gt;
+    16..|              case ssl:listen(Port, Opts ++ SslOpts) of
+        |                  {ok, ListenSocket} -&gt;
+    16..|                      {ok, {ssl, ListenSocket}};
+        |                  {error, _} = Err -&gt;
+<font color=red>     0..|                      Err</font>
+        |              end;
+        |          false -&gt;
+    16..|              gen_tcp:listen(Port, Opts)
+        |      end.
+        |  
+        |  accept({ssl, ListenSocket}) -&gt;
+        |      % There's a bug in ssl:transport_accept/2 at the moment, which is the
+        |      % reason for the try...catch block. Should be fixed in OTP R14.
+   272..|      try ssl:transport_accept(ListenSocket) of
+        |          {ok, Socket} -&gt;
+    16..|              case ssl:ssl_accept(Socket) of
+        |                  ok -&gt;
+    16..|                      {ok, {ssl, Socket}};
+        |                  {error, _} = Err -&gt;
+<font color=red>     0..|                      Err</font>
+        |              end;
+        |          {error, _} = Err -&gt;
+   256..|              Err
+        |      catch
+        |          error:{badmatch, {error, Reason}} -&gt;
+<font color=red>     0..|              {error, Reason}</font>
+        |      end;
+        |  accept(ListenSocket) -&gt;
+   272..|      gen_tcp:accept(ListenSocket, ?ACCEPT_TIMEOUT).
+        |  
+        |  recv({ssl, Socket}, Length, Timeout) -&gt;
+  1015..|      ssl:recv(Socket, Length, Timeout);
+        |  recv(Socket, Length, Timeout) -&gt;
+  1015..|      gen_tcp:recv(Socket, Length, Timeout).
+        |  
+        |  send({ssl, Socket}, Data) -&gt;
+   428..|      ssl:send(Socket, Data);
+        |  send(Socket, Data) -&gt;
+   428..|      gen_tcp:send(Socket, Data).
+        |  
+        |  close({ssl, Socket}) -&gt;
+    24..|      ssl:close(Socket);
+        |  close(Socket) -&gt;
+    24..|      gen_tcp:close(Socket).
+        |  
+        |  port({ssl, Socket}) -&gt;
+    16..|      case ssl:sockname(Socket) of
+        |          {ok, {_, Port}} -&gt;
+    16..|              {ok, Port};
+        |          {error, _} = Err -&gt;
+<font color=red>     0..|              Err</font>
+        |      end;
+        |  port(Socket) -&gt;
+    16..|      inet:port(Socket).
+        |  
+        |  peername({ssl, Socket}) -&gt;
+<font color=red>     0..|      ssl:peername(Socket);</font>
+        |  peername(Socket) -&gt;
+<font color=red>     0..|      inet:peername(Socket).</font>
+        |  
+        |  setopts({ssl, Socket}, Opts) -&gt;
+   630..|      ssl:setopts(Socket, Opts);
+        |  setopts(Socket, Opts) -&gt;
+   630..|      inet:setopts(Socket, Opts).
+        |  
+        |  type({ssl, _}) -&gt;
+<font color=red>     0..|      ssl;</font>
+        |  type(_) -&gt;
+<font color=red>     0..|      plain.</font>
+        |  
+</pre>
+</body>
+</html>

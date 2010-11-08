@@ -1,0 +1,341 @@
+<html>
+<head><title>.eunit/mochinum.COVER.html</title></head><body bgcolor=white text=black>
+<pre>
+File generated from /Users/seb/Documents/part2project/app/deps/mochiweb/.eunit/mochinum.erl by COVER 2010-10-28 at 14:19:48
+
+****************************************************************************
+
+        |  %% @copyright 2007 Mochi Media, Inc.
+        |  %% @author Bob Ippolito &lt;bob@mochimedia.com&gt;
+        |  
+        |  %% @doc Useful numeric algorithms for floats that cover some deficiencies
+        |  %% in the math module. More interesting is digits/1, which implements
+        |  %% the algorithm from:
+        |  %% http://www.cs.indiana.edu/~burger/fp/index.html
+        |  %% See also "Printing Floating-Point Numbers Quickly and Accurately"
+        |  %% in Proceedings of the SIGPLAN '96 Conference on Programming Language
+        |  %% Design and Implementation.
+        |  
+        |  -module(mochinum).
+        |  -author("Bob Ippolito &lt;bob@mochimedia.com&gt;").
+        |  -export([digits/1, frexp/1, int_pow/2, int_ceil/1]).
+        |  
+        |  %% IEEE 754 Float exponent bias
+        |  -define(FLOAT_BIAS, 1022).
+        |  -define(MIN_EXP, -1074).
+        |  -define(BIG_POW, 4503599627370496).
+        |  
+        |  %% External API
+        |  
+        |  %% @spec digits(number()) -&gt; string()
+        |  %% @doc  Returns a string that accurately represents the given integer or float
+        |  %%       using a conservative amount of digits. Great for generating
+        |  %%       human-readable output, or compact ASCII serializations for floats.
+        |  digits(N) when is_integer(N) -&gt;
+     1..|      integer_to_list(N);
+        |  digits(0.0) -&gt;
+     1..|      "0.0";
+        |  digits(Float) -&gt;
+    37..|      {Frac, Exp} = frexp(Float),
+    37..|      Exp1 = Exp - 53,
+    37..|      Frac1 = trunc(abs(Frac) * (1 bsl 53)),
+    37..|      [Place | Digits] = digits1(Float, Exp1, Frac1),
+    37..|      R = insert_decimal(Place, [$0 + D || D &lt;- Digits]),
+    37..|      case Float &lt; 0 of
+        |          true -&gt;
+     6..|              [$- | R];
+        |          _ -&gt;
+    31..|              R
+        |      end.
+        |  
+        |  %% @spec frexp(F::float()) -&gt; {Frac::float(), Exp::float()}
+        |  %% @doc  Return the fractional and exponent part of an IEEE 754 double,
+        |  %%       equivalent to the libc function of the same name.
+        |  %%       F = Frac * pow(2, Exp).
+        |  frexp(F) -&gt;
+    44..|      frexp1(unpack(F)).
+        |  
+        |  %% @spec int_pow(X::integer(), N::integer()) -&gt; Y::integer()
+        |  %% @doc  Moderately efficient way to exponentiate integers.
+        |  %%       int_pow(10, 2) = 100.
+        |  int_pow(_X, 0) -&gt;
+     5..|      1;
+        |  int_pow(X, N) when N &gt; 0 -&gt;
+    38..|      int_pow(X, N, 1).
+        |  
+        |  %% @spec int_ceil(F::float()) -&gt; integer()
+        |  %% @doc  Return the ceiling of F as an integer. The ceiling is defined as
+        |  %%       F when F == trunc(F);
+        |  %%       trunc(F) when F &lt; 0;
+        |  %%       trunc(F) + 1 when F &gt; 0.
+        |  int_ceil(X) -&gt;
+    43..|      T = trunc(X),
+    43..|      case (X - T) of
+    15..|          Neg when Neg &lt; 0 -&gt; T;
+    25..|          Pos when Pos &gt; 0 -&gt; T + 1;
+     3..|          _ -&gt; T
+        |      end.
+        |  
+        |  
+        |  %% Internal API
+        |  
+        |  int_pow(X, N, R) when N &lt; 2 -&gt;
+    38..|      R * X;
+        |  int_pow(X, N, R) -&gt;
+   100..|      int_pow(X * X, N bsr 1, case N band 1 of 1 -&gt; R * X; 0 -&gt; R end).
+        |  
+        |  insert_decimal(0, S) -&gt;
+     2..|      "0." ++ S;
+        |  insert_decimal(Place, S) when Place &gt; 0 -&gt;
+    25..|      L = length(S),
+    25..|      case Place - L of
+        |           0 -&gt;
+     5..|              S ++ ".0";
+        |          N when N &lt; 0 -&gt;
+     9..|              {S0, S1} = lists:split(L + N, S),
+     9..|              S0 ++ "." ++ S1;
+        |          N when N &lt; 6 -&gt;
+        |              %% More places than digits
+     4..|              S ++ lists:duplicate(N, $0) ++ ".0";
+        |          _ -&gt;
+     7..|              insert_decimal_exp(Place, S)
+        |      end;
+        |  insert_decimal(Place, S) when Place &gt; -6 -&gt;
+     2..|      "0." ++ lists:duplicate(abs(Place), $0) ++ S;
+        |  insert_decimal(Place, S) -&gt;
+     8..|      insert_decimal_exp(Place, S).
+        |  
+        |  insert_decimal_exp(Place, S) -&gt;
+    15..|      [C | S0] = S,
+    15..|      S1 = case S0 of
+        |               [] -&gt;
+     1..|                   "0";
+        |               _ -&gt;
+    14..|                   S0
+        |           end,
+    15..|      Exp = case Place &lt; 0 of
+        |                true -&gt;
+     8..|                    "e-";
+        |                false -&gt;
+     7..|                    "e+"
+        |            end,
+    15..|      [C] ++ "." ++ S1 ++ Exp ++ integer_to_list(abs(Place - 1)).
+        |  
+        |  
+        |  digits1(Float, Exp, Frac) -&gt;
+    37..|      Round = ((Frac band 1) =:= 0),
+    37..|      case Exp &gt;= 0 of
+        |          true -&gt;
+     3..|              BExp = 1 bsl Exp,
+     3..|              case (Frac =/= ?BIG_POW) of
+        |                  true -&gt;
+     2..|                      scale((Frac * BExp * 2), 2, BExp, BExp,
+        |                            Round, Round, Float);
+        |                  false -&gt;
+     1..|                      scale((Frac * BExp * 4), 4, (BExp * 2), BExp,
+        |                            Round, Round, Float)
+        |              end;
+        |          false -&gt;
+    34..|              case (Exp =:= ?MIN_EXP) orelse (Frac =/= ?BIG_POW) of
+        |                  true -&gt;
+    28..|                      scale((Frac * 2), 1 bsl (1 - Exp), 1, 1,
+        |                            Round, Round, Float);
+        |                  false -&gt;
+     6..|                      scale((Frac * 4), 1 bsl (2 - Exp), 2, 1,
+        |                            Round, Round, Float)
+        |              end
+        |      end.
+        |  
+        |  scale(R, S, MPlus, MMinus, LowOk, HighOk, Float) -&gt;
+    37..|      Est = int_ceil(math:log10(abs(Float)) - 1.0e-10),
+        |      %% Note that the scheme implementation uses a 326 element look-up table
+        |      %% for int_pow(10, N) where we do not.
+    37..|      case Est &gt;= 0 of
+        |          true -&gt;
+    26..|              fixup(R, S * int_pow(10, Est), MPlus, MMinus, Est,
+        |                    LowOk, HighOk);
+        |          false -&gt;
+    11..|              Scale = int_pow(10, -Est),
+    11..|              fixup(R * Scale, S, MPlus * Scale, MMinus * Scale, Est,
+        |                    LowOk, HighOk)
+        |      end.
+        |  
+        |  fixup(R, S, MPlus, MMinus, K, LowOk, HighOk) -&gt;
+    37..|      TooLow = case HighOk of
+        |                   true -&gt;
+    27..|                       (R + MPlus) &gt;= S;
+        |                   false -&gt;
+    10..|                       (R + MPlus) &gt; S
+        |               end,
+    37..|      case TooLow of
+        |          true -&gt;
+    10..|              [(K + 1) | generate(R, S, MPlus, MMinus, LowOk, HighOk)];
+        |          false -&gt;
+    27..|              [K | generate(R * 10, S, MPlus * 10, MMinus * 10, LowOk, HighOk)]
+        |      end.
+        |  
+        |  generate(R0, S, MPlus, MMinus, LowOk, HighOk) -&gt;
+   239..|      D = R0 div S,
+   239..|      R = R0 rem S,
+   239..|      TC1 = case LowOk of
+        |                true -&gt;
+   170..|                    R =&lt; MMinus;
+        |                false -&gt;
+    69..|                    R &lt; MMinus
+        |            end,
+   239..|      TC2 = case HighOk of
+        |                true -&gt;
+   170..|                    (R + MPlus) &gt;= S;
+        |                false -&gt;
+    69..|                    (R + MPlus) &gt; S
+        |            end,
+   239..|      case TC1 of
+        |          false -&gt;
+   209..|              case TC2 of
+        |                  false -&gt;
+   202..|                      [D | generate(R * 10, S, MPlus * 10, MMinus * 10,
+        |                                    LowOk, HighOk)];
+        |                  true -&gt;
+     7..|                      [D + 1]
+        |              end;
+        |          true -&gt;
+    30..|              case TC2 of
+        |                  false -&gt;
+    24..|                      [D];
+        |                  true -&gt;
+     6..|                      case R * 2 &lt; S of
+        |                          true -&gt;
+     4..|                              [D];
+        |                          false -&gt;
+     2..|                              [D + 1]
+        |                      end
+        |              end
+        |      end.
+        |  
+        |  unpack(Float) -&gt;
+    44..|      &lt;&lt;Sign:1, Exp:11, Frac:52&gt;&gt; = &lt;&lt;Float:64/float&gt;&gt;,
+    44..|      {Sign, Exp, Frac}.
+        |  
+        |  frexp1({_Sign, 0, 0}) -&gt;
+     1..|      {0.0, 0};
+        |  frexp1({Sign, 0, Frac}) -&gt;
+     6..|      Exp = log2floor(Frac),
+     6..|      &lt;&lt;Frac1:64/float&gt;&gt; = &lt;&lt;Sign:1, ?FLOAT_BIAS:11, (Frac-1):52&gt;&gt;,
+     6..|      {Frac1, -(?FLOAT_BIAS) - 52 + Exp};
+        |  frexp1({Sign, Exp, Frac}) -&gt;
+    37..|      &lt;&lt;Frac1:64/float&gt;&gt; = &lt;&lt;Sign:1, ?FLOAT_BIAS:11, Frac:52&gt;&gt;,
+    37..|      {Frac1, Exp - ?FLOAT_BIAS}.
+        |  
+        |  log2floor(Int) -&gt;
+     6..|      log2floor(Int, 0).
+        |  
+        |  log2floor(0, N) -&gt;
+     6..|      N;
+        |  log2floor(Int, N) -&gt;
+   159..|      log2floor(Int bsr 1, 1 + N).
+        |  
+        |  
+        |  %%
+        |  %% Tests
+        |  %%
+        |  -include_lib("eunit/include/eunit.hrl").
+        |  -ifdef(TEST).
+        |  
+        |  int_ceil_test() -&gt;
+     1..|      1 = int_ceil(0.0001),
+     1..|      0 = int_ceil(0.0),
+     1..|      1 = int_ceil(0.99),
+     1..|      1 = int_ceil(1.0),
+     1..|      -1 = int_ceil(-1.5),
+     1..|      -2 = int_ceil(-2.0),
+     1..|      ok.
+        |  
+        |  int_pow_test() -&gt;
+     1..|      1 = int_pow(1, 1),
+     1..|      1 = int_pow(1, 0),
+     1..|      1 = int_pow(10, 0),
+     1..|      10 = int_pow(10, 1),
+     1..|      100 = int_pow(10, 2),
+     1..|      1000 = int_pow(10, 3),
+     1..|      ok.
+        |  
+        |  digits_test() -&gt;
+     1..|      ?assertEqual("0",
+     1..|                   digits(0)),
+     1..|      ?assertEqual("0.0",
+     1..|                   digits(0.0)),
+     1..|      ?assertEqual("1.0",
+     1..|                   digits(1.0)),
+     1..|      ?assertEqual("-1.0",
+     1..|                   digits(-1.0)),
+     1..|      ?assertEqual("0.1",
+     1..|                   digits(0.1)),
+     1..|      ?assertEqual("0.01",
+     1..|                   digits(0.01)),
+     1..|      ?assertEqual("0.001",
+     1..|                   digits(0.001)),
+     1..|      ?assertEqual("1.0e+6",
+     1..|                   digits(1000000.0)),
+     1..|      ?assertEqual("0.5",
+     1..|                   digits(0.5)),
+     1..|      ?assertEqual("4503599627370496.0",
+     1..|                   digits(4503599627370496.0)),
+        |      %% small denormalized number
+        |      %% 4.94065645841246544177e-324
+     1..|      &lt;&lt;SmallDenorm/float&gt;&gt; = &lt;&lt;0,0,0,0,0,0,0,1&gt;&gt;,
+     1..|      ?assertEqual("4.9406564584124654e-324",
+     1..|                   digits(SmallDenorm)),
+     1..|      ?assertEqual(SmallDenorm,
+     1..|                   list_to_float(digits(SmallDenorm))),
+        |      %% large denormalized number
+        |      %% 2.22507385850720088902e-308
+     1..|      &lt;&lt;BigDenorm/float&gt;&gt; = &lt;&lt;0,15,255,255,255,255,255,255&gt;&gt;,
+     1..|      ?assertEqual("2.225073858507201e-308",
+     1..|                   digits(BigDenorm)),
+     1..|      ?assertEqual(BigDenorm,
+     1..|                   list_to_float(digits(BigDenorm))),
+        |      %% small normalized number
+        |      %% 2.22507385850720138309e-308
+     1..|      &lt;&lt;SmallNorm/float&gt;&gt; = &lt;&lt;0,16,0,0,0,0,0,0&gt;&gt;,
+     1..|      ?assertEqual("2.2250738585072014e-308",
+     1..|                   digits(SmallNorm)),
+     1..|      ?assertEqual(SmallNorm,
+     1..|                   list_to_float(digits(SmallNorm))),
+        |      %% large normalized number
+        |      %% 1.79769313486231570815e+308
+     1..|      &lt;&lt;LargeNorm/float&gt;&gt; = &lt;&lt;127,239,255,255,255,255,255,255&gt;&gt;,
+     1..|      ?assertEqual("1.7976931348623157e+308",
+     1..|                   digits(LargeNorm)),
+     1..|      ?assertEqual(LargeNorm,
+     1..|                   list_to_float(digits(LargeNorm))),
+     1..|      ok.
+        |  
+        |  frexp_test() -&gt;
+        |      %% zero
+     1..|      {0.0, 0} = frexp(0.0),
+        |      %% one
+     1..|      {0.5, 1} = frexp(1.0),
+        |      %% negative one
+     1..|      {-0.5, 1} = frexp(-1.0),
+        |      %% small denormalized number
+        |      %% 4.94065645841246544177e-324
+     1..|      &lt;&lt;SmallDenorm/float&gt;&gt; = &lt;&lt;0,0,0,0,0,0,0,1&gt;&gt;,
+     1..|      {0.5, -1073} = frexp(SmallDenorm),
+        |      %% large denormalized number
+        |      %% 2.22507385850720088902e-308
+     1..|      &lt;&lt;BigDenorm/float&gt;&gt; = &lt;&lt;0,15,255,255,255,255,255,255&gt;&gt;,
+     1..|      {0.99999999999999978, -1022} = frexp(BigDenorm),
+        |      %% small normalized number
+        |      %% 2.22507385850720138309e-308
+     1..|      &lt;&lt;SmallNorm/float&gt;&gt; = &lt;&lt;0,16,0,0,0,0,0,0&gt;&gt;,
+     1..|      {0.5, -1021} = frexp(SmallNorm),
+        |      %% large normalized number
+        |      %% 1.79769313486231570815e+308
+     1..|      &lt;&lt;LargeNorm/float&gt;&gt; = &lt;&lt;127,239,255,255,255,255,255,255&gt;&gt;,
+     1..|      {0.99999999999999989, 1024} = frexp(LargeNorm),
+     1..|      ok.
+        |  
+        |  -endif.
+</pre>
+</body>
+</html>
