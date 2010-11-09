@@ -82,7 +82,8 @@ stabilize() ->
 
 init(_Args) -> 
   Port = utilities:get_chord_port(),
-  NodeId = utilities:key_for_node(utilities:get_ip(), Port),
+  Ip = utilities:get_ip(),
+  NodeId = utilities:key_for_node(Ip, Port),
 
   % We initialize the finger table with 160 records.
   % Since we are using 160-bit keys, we will also use
@@ -91,9 +92,12 @@ init(_Args) ->
   % from the end.
   FingerTable = lists:reverse(create_finger_table(NodeId)),
   
+  % Get node that can be used to join the chord network:
+  utilities:get_join_node(Ip, Port),
+
   State = #chord_state{self =
     #node{
-      ip = utilities:get_ip(),
+      ip = Ip,
       port = Port, 
       key = NodeId 
     },

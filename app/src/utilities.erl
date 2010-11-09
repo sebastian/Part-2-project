@@ -13,10 +13,19 @@
 -include_lib("eunit/include/eunit.hrl").
 -endif.
 
+get_join_node(Ip, Port) ->
+  Host = "http://127.0.0.1",
+  HostPort = 8000,
+  Url = string:join([Host, ":", HostPort, "/?port=", Port, "&ip=", Ip], ""),
+  io:format("About to contact Url: ~p", [Url]),
+  {ok, Result} = httpc:request(Url),
+  Data = mochijson2:decode(Result),
+  io:format("Received: ~p", [Data]).
+
 %% @doc: returns the port number at which chord is listening.
 -spec(get_chord_port/0::() -> number()).
 get_chord_port() ->
-  Port = case init:get_argument(chord_port) of
+  case init:get_argument(chord_port) of
     {ok, [[PortNumber]]} ->
       list_to_integer(PortNumber);
     _ -> ?CHORD_PORT

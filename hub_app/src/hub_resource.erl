@@ -12,6 +12,16 @@ init([]) -> {ok, []}.
 to_html(ReqData, State) ->
   ClientIp = wrq:get_qs_value("ip", ReqData),
   ClientPort = wrq:get_qs_value("port", ReqData),
-  Data = {ClientIp, ClientPort},
-  ReturnValue = node_srv:reg_and_get_peer(Data),
-  {term_to_binary(ReturnValue), ReqData, State}.
+
+  Value = ({struct,
+    case node_srv:reg_and_get_peer({ClientIp, ClientPort}) of
+      {Ip, Port} -> 
+        [
+          {<<"ip">>, list_to_bitstring(Ip)},
+          {<<"port">>, list_to_integer(Port)}
+        ];
+      first -> [{<<"first">>, true}]
+    end
+  }),
+
+  {Value, ReqData, State}.

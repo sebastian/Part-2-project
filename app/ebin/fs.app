@@ -17,7 +17,8 @@
                   stdlib,
                   crypto,
                   mochiweb,
-                  webmachine
+                  webmachine,
+                  inets
                  ]},
   {mod, { fs_app, []}},
   {env, []}
