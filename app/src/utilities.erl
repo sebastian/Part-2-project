@@ -14,13 +14,42 @@
 -endif.
 
 get_join_node(Ip, Port) ->
-  Host = "http://127.0.0.1",
-  HostPort = 8000,
-  Url = string:join([Host, ":", HostPort, "/?port=", Port, "&ip=", Ip], ""),
-  io:format("About to contact Url: ~p", [Url]),
+  Url = get_join_node_url(Ip, Port),
   {ok, Result} = httpc:request(Url),
-  Data = mochijson2:decode(Result),
-  io:format("Received: ~p", [Data]).
+  Body = case Result of 
+    {_, _, B} -> B;
+    {_, B} -> B
+  end,
+  {struct, Data} = mochijson2:decode(Body),
+  case proplists:get_value(<<"ip">>, Data) of
+    undefined ->
+      % Check if we are the first to join, if not, fail.
+      case proplists:get_value(<<"first">>, Data) of
+        true ->
+          first
+      end;
+    IpVal ->
+      % We have an Ip value. Extract the port and return the pair.
+      JoinIp = get_ip_from_data(IpVal),
+      JoinPort = proplists:get_value(<<"port">>, Data),
+      {JoinIp, JoinPort}
+  end.
+
+-spec(get_ip_from_data/1::(Ip::bitstring()) -> ip()).
+get_ip_from_data(Ip) ->
+  erlang:list_to_tuple(
+      lists:map(fun(S) -> list_to_integer(S) end, 
+          string:tokens(erlang:bitstring_to_list(Ip), "."))).
+
+%% @doc: Returns the Url of the server used to find nodes to join.
+%% The default server is used unless the -joinsrvaddr and -joinsrvport
+%% have been specified.
+%% @todo: Have it check for user values.
+-spec(get_join_node_url/2::(Ip::string(), Port::integer()) ->
+    string()).
+get_join_node_url(Ip, Port) ->
+  Host = "http://127.0.0.1:8000",
+  Host ++ "/?port=" ++ integer_to_list(Port) ++ "&ip=" ++ Ip.
 
 %% @doc: returns the port number at which chord is listening.
 -spec(get_chord_port/0::() -> number()).
@@ -275,4 +304,40 @@ key_for_node_test() ->
   ?assert(key_for_node(IP1, Port1) =/= key_for_node(IP1, Port2)),
   ?assert(key_for_node(IP1, Port1) =:= key_for_node(IP1, Port1)).
 
+get_join_node_url_test() ->
+  Ip = "1", Port = 2,
+  ?assertEqual("http://127.0.0.1:8000/?port=2&ip=1",
+    get_join_node_url(Ip, Port)).
+
+get_join_node_test_() ->
+  {setup,
+    fun start_hub_app_test/0,
+    fun stop_hub_app_test/1,
+    ?_test(begin
+      Ip1 = "127.0.0.1", Port1 = 1234,
+      Ip2 = "128.0.0.1", Port2 = 5678,
+
+      % The first person, should be told that she is first
+      ?assertEqual(first, get_join_node(Ip1, Port1)),
+      % The results should be the same for repeated invocations
+      ?assertEqual(first, get_join_node(Ip1, Port1)),
+
+      % The next person should get some other result
+      ?assertEqual({{127,0,0,1}, Port1}, get_join_node(Ip2, Port2))
+
+    end)
+  }.
+
+start_hub_app_test() ->
+  % @todo: Automatically start and stop the hub_app.
+  application:start(inets).
+
+stop_hub_app_test(_) ->
+  application:stop(inets).
+
+get_ip_from_data_test_() ->
+  [
+    ?_assertEqual({1,2,3,4}, get_ip_from_data(<<"1.2.3.4">>)),
+    ?_assertEqual({127,0,0,1}, get_ip_from_data(<<"127.0.0.1">>))
+  ].
 -endif.

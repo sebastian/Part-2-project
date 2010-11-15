@@ -93,7 +93,7 @@ init(_Args) ->
   FingerTable = lists:reverse(create_finger_table(NodeId)),
   
   % Get node that can be used to join the chord network:
-  utilities:get_join_node(Ip, Port),
+  %% utilities:get_join_node(Ip, Port),
 
   State = #chord_state{self =
     #node{
@@ -196,12 +196,14 @@ code_change(_OldVsn, State, _Extra) ->
 %% @doc: This task runs in the background, and automatically executes
 %% chord - stabilize at given intervals.
 stabilizer() ->
-  perform_task(stabilize, ?STABILIZER_INTERVAL).
+  ok.
+  %perform_task(stabilize, ?STABILIZER_INTERVAL).
 
 %% @doc: This task runs in the background, and automatically executes
 %% chord - fix_fingers at given intervals.
 fingerFixer() ->
-  perform_task(fix_fingers, ?FIX_FINGER_INTERVAL).
+  ok.
+  %perform_task(fix_fingers, ?FIX_FINGER_INTERVAL).
 
 perform_task(Task, Interval) ->
   receive stop -> ok
