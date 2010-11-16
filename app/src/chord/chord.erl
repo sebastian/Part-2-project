@@ -20,6 +20,7 @@
 
 -export([start_link/0, start/0, stop/0]).
 -export([get/1, set/2, preceding_finger/1, find_successor/1, get_predecessor/0]).
+-export([notified/1]).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Exports
@@ -69,7 +70,7 @@ get_predecessor() ->
 %%      the internal state is updated.
 -spec(notified/1::(Node::#node{}) -> ok).
 notified(Node) ->
-  gen_server:call(chord, {notified, Node}).
+  gen_server:call(chord, {notified, Node}), ok.
 
 -spec(stabilize/0::() -> ok).
 stabilize() ->
@@ -144,14 +145,14 @@ handle_call({find_successor, Key}, From, State) ->
   {noreply, State};
 
 handle_call(get_predecessor, _From, #chord_state{predecessor = Predecessor} = State) ->
-  {reply, Predecessor, State}.
+  {reply, {ok, Predecessor}, State}.
 
 %% Casts:
 handle_cast({notified, #node{key = NewKey} = Node}, 
     #chord_state{predecessor = Pred, self = Self} = State) ->
-  NewState = case ((Pred =:= #node{}) or 
+  NewState = case ((Pred =:= #node{}) or
       utilities:in_range(NewKey, Pred#node.key, Self#node.key)) of
-    true  -> Node#chord_state{predecessor = Node};
+    true  -> State#chord_state{predecessor = Node};
     false -> State
   end,
   {noreply, NewState};
@@ -164,8 +165,17 @@ handle_cast({set_finger, N, NewFinger},  #chord_state{fingers = Fingers} = State
 handle_cast({set_successor, Pred}, State) ->
   {noreply, State#chord_state{successor = Pred}};
 
-handle_cast(stabilize, State) ->
-  spawn(fun() -> perform_stabilize(State) end),
+handle_cast(stabilize, #chord_state{self = Us} = State) ->
+  Stabilize = fun() ->
+    Succ = case perform_stabilize(State) of
+      {updated_succ, NewSucc} ->
+        gen_server:cast(chord, {set_successor, NewSucc});
+      {ok, S} -> S
+    end,
+    chord_tcp:notify_successor(Succ, Us)
+  end,
+  % Perform stabilization    
+  spawn(Stabilize),
   {noreply, State};
 
 handle_cast(fix_fingers, State) ->
@@ -220,26 +230,22 @@ fix_finger(FingerNum, #chord_state{fingers = Fingers} = State) ->
   gen_server:cast(chord, {set_finger, FingerNum, UpdatedFinger}).
 
 
--spec(perform_stabilize/1::(#chord_state{}) -> #chord_state{}).
+-spec(perform_stabilize/1::(#chord_state{}) -> 
+    {ok, #node{}} | {updated_succ, #node{}}).
 perform_stabilize(#chord_state{self = ThisNode, successor = Succ} = State) ->
   case chord_tcp:get_predecessor(Succ#node.ip, Succ#node.port) of
-    {ok, Pred} ->
+    {ok, SuccPred} ->
       % Check if predecessor is between ourselves and successor
-      NewSuccessor = case utilities:in_range(Pred#node.key, ThisNode#node.key, Succ#node.key) of
+      case utilities:in_range(SuccPred#node.key, ThisNode#node.key, Succ#node.key) of
         true  -> 
-          % The successors predecessor is now our new successor
-          gen_server:cast(chord, {set_successor, Pred}),
-          Pred;
+          {updated_succ, SuccPred};
         false -> 
-          State#chord_state.successor
-      end,
-
-      chord_tcp:notify_successor(NewSuccessor, ThisNode);
-
+          % We still have the same successor.
+          {ok, State#chord_state.successor}
+      end;
     {error, Reason} ->
       % @todo: Handle error and try another successor.
-      ok
-
+      {ok, State#chord_state.successor}
   end.
 
 -spec(create_finger_table/1::(NodeKey::key()) -> [#finger_entry{}]).
@@ -303,7 +309,7 @@ find_successor(Key, #node{key = NKey, ip = NIp, port = NPort}) ->
 
 
 -spec(closest_preceding_finger/2::(Key::key(), 
-    State::#chord_state{}) -> #node{}).
+    State::#chord_state{}) -> _::#node{}).
 closest_preceding_finger(Key, State) ->
   closest_preceding_finger(Key, 
     State#chord_state.fingers,
@@ -312,7 +318,7 @@ closest_preceding_finger(Key, State) ->
 
 -spec(closest_preceding_finger/3::(Key::key(), 
     [#finger_entry{}],
-    CurrentNode::key()) -> key()).
+    CurrentNode::#node{}) -> _::#node{}).
 closest_preceding_finger(_Key, [], CurrentNode) -> CurrentNode;
 closest_preceding_finger(Key, [Finger|Fingers], CurrentNode) ->
   Node = Finger#finger_entry.node,
@@ -350,24 +356,6 @@ join(State, NodeToAsk) ->
 -ifdef(TEST).
 
 nForKey(Key) -> #node{key = Key}.
-test_get_run_state() ->
-  #chord_state{
-    fingers = [#finger_entry{start = 5, interval = {5,1}, node = nForKey(6)},
-               #finger_entry{start = 3, interval = {3,5}, node = nForKey(3)},
-               #finger_entry{start = 2, interval = {2,3}, node = nForKey(3)}],
-    self = #node{key = 1},
-    predecessor = #node{key = 0},
-    successor = #node{key = 5}
-  }.
-test_get_state() ->
-  #chord_state{
-    fingers = [#finger_entry{start = 4, interval = {4,0}, node = nForKey(0)},
-              #finger_entry{start = 2, interval = {2,4}, node = nForKey(3)},
-              #finger_entry{start = 1, interval = {1,2}, node = nForKey(1)}],
-    self = #node{key = 0},
-    % We have set the successors Id to 1. All request for keys > 1 will go to successor
-    successor = #node{ip = {127,0,0,1}, port = utilities:get_chord_port(), key = 1}
-  }.
 
 %% @todo: Missing test for fix_finger
 
@@ -390,6 +378,27 @@ find_successor_on_same_node_test() ->
   State = test_get_state(),
   ?assertEqual({ok, State#chord_state.successor}, find_successor(1, State)).
 
+
+%% *** find_successor tests ***
+test_get_run_state() ->
+  #chord_state{
+    fingers = [#finger_entry{start = 5, interval = {5,1}, node = nForKey(6)},
+               #finger_entry{start = 3, interval = {3,5}, node = nForKey(3)},
+               #finger_entry{start = 2, interval = {2,3}, node = nForKey(3)}],
+    self = nForKey(1),
+    predecessor = nForKey(0),
+    successor = nForKey(5)
+  }.
+test_get_state() ->
+  #chord_state{
+    fingers = [#finger_entry{start = 4, interval = {4,0}, node = nForKey(0)},
+              #finger_entry{start = 2, interval = {2,4}, node = nForKey(3)},
+              #finger_entry{start = 1, interval = {1,2}, node = nForKey(1)}],
+    self = nForKey(0),
+    % We have set the successors Id to 1.
+    % All request for keys > 1 will go to successor
+    successor = #node{ip = {127,0,0,1}, port = utilities:get_chord_port(), key = 1}
+  }.
 find_successor_on_other_node_test_() ->
   {setup,
     fun setup_find_successor/0,
@@ -408,16 +417,61 @@ successor_test2() ->
 successor_test3() ->
   State = test_get_state(),
   ?assertEqual({ok, #node{key = 5}}, find_successor(5, State)).
-
 setup_find_successor() ->
   chord_tcp:start(),     
   start(),
   set_state(test_get_run_state()).
-
 teardown_find_successor(_State) ->
   chord:stop(), 
   chord_tcp:stop().
 
+
+%% *** perform_stabilize tests ***
+perform_stabilize_state_local() ->
+  #chord_state{
+    self = nForKey(0),
+    successor = #node{ip = {127,0,0,1}, port = utilities:get_chord_port(), key = 5}
+  }.
+perform_stabilize_state_remote_new_successor() ->
+  #chord_state{
+    self = nForKey(5),
+    predecessor = nForKey(2)
+  }.
+perform_stabilize_state_remote_same_successor() ->
+  #chord_state{
+    self = nForKey(5),
+    predecessor = nForKey(0)
+  }.
+perform_stabilize_test_() ->
+  {setup,
+    fun setup_perform_stabilize/0,
+    fun teardown_perform_stabilize/1, [
+      fun perform_stabilize_test1/0,
+      fun perform_stabilize_test2/0
+    ]
+  }.
+% In this test, the successor still has us as the predecessor.
+perform_stabilize_test1() ->
+  State = perform_stabilize_state_local(),
+  set_state(perform_stabilize_state_remote_same_successor()),
+  % We should get returned our original successor node.
+  ?assertEqual({ok, State#chord_state.successor}, perform_stabilize(State)).
+% In this test, the successor has registered a fresh predecessor,
+% between outselves and our current successor.
+perform_stabilize_test2() ->
+  State = perform_stabilize_state_local(),
+  set_state(perform_stabilize_state_remote_new_successor()),
+  % We should get returned a successor with an Id suceeding our own.
+  ?assertEqual({updated_succ, #node{key = 2}}, perform_stabilize(State)).
+setup_perform_stabilize() ->
+  chord_tcp:start(),     
+  start().
+teardown_perform_stabilize(_State) ->
+  chord:stop(), 
+  chord_tcp:stop().
+
+
+%% *** Setting up finger table tests ***
 % Test data from Chord paper.
 get_start_test_() ->
   {inparallel,
@@ -434,13 +488,11 @@ get_start_test_() ->
     ?_assertEqual(5, get_start(3, 2)),
     ?_assertEqual(7, get_start(3, 3))
   ]}.
-
 create_start_entry_test() ->
   NodeId = 0,
   [E1,E2 | _Rest] = create_start_entry(NodeId, ?NUMBER_OF_FINGERS),
   ?assertEqual(get_start(NodeId, 1), E1#finger_entry.start),
   ?assertEqual(get_start(NodeId, 2), E2#finger_entry.start).
-
 add_interval_test() ->
   CurrentNodeId = 0,
   CreateEntry = fun(N) -> #finger_entry{ start = N } end,
@@ -450,13 +502,14 @@ add_interval_test() ->
   ?assertEqual({2,4}, E2#finger_entry.interval),
   ?assertEqual({4,0}, E3#finger_entry.interval).
 
+
+%% *** join tests ***
 join_test_() ->
   {setup,
     fun setup_find_successor/0,
     fun teardown_find_successor/1, [
       fun join_test1/0
   ]}.
-
 join_test1() ->
   State = (test_get_state())#chord_state{predecessor = #node{key = 1234}, 
       self = #node{key = 2}},

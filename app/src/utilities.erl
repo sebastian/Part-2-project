@@ -177,21 +177,18 @@ entry_for_record(#link{name_fragment = NameFrag} = Link) ->
   }.
 
 
--spec(get_ip/0::() -> {ok, ip_address()} | {error, instance}).
+-spec(get_ip/0::() -> ip_address()).
 get_ip() ->
   case inet:gethostname() of
     {ok, HostName} ->
       case inet:gethostbyname(HostName) of
         {ok, Hostent} ->
-          {ok, hd(Hostent#hostent.h_addr_list)};
-        _ -> {error, instance}
-      end;
-    _ -> 
-      {error, instance}
+          hd(Hostent#hostent.h_addr_list)
+      end
   end.
      
 
--spec(key_for_node/2::(Ip::ip_address(), Port::port_number()) -> binary()).
+-spec(key_for_node/2::(Ip::ip(), Port::port_number()) -> number()).
 key_for_node(Ip, Port) ->
   key_for_data({Ip, Port}).
 
@@ -292,7 +289,7 @@ entry_for_link_test() ->
 
 get_ip_test() ->
   % Should return a set of IP values
-  {ok, {_A, _B, _C, _D}} = get_ip().
+  {_A, _B, _C, _D} = get_ip().
 
 key_for_node_test() ->
   IP1 = {1,2,3,4},

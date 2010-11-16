@@ -1,7 +1,7 @@
 -type(key() :: number()).
 -type(binary_string() :: bitstring()).
 -type(port_number() :: integer()).
--type(ip() :: {integer(), integer(), integer(), integer()}).
+-type(ip() :: {byte(),byte(),byte(),byte()}).
 -define(ENTRY_TIMEOUT, 60*60*5).
 
 -record(link,

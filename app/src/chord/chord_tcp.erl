@@ -34,18 +34,18 @@
 %% API Function Definitions
 %% ------------------------------------------------------------------
 
--spec(rpc_get_closest_preceding_finger/3::(Key::key(), Ip::ip(), Port::port()) ->
-    {ok, {#node{}, key()}} | {error, term()}).
+-spec(rpc_get_closest_preceding_finger/3::(Key::key(), Ip::ip(), 
+    Port::port_number()) -> {ok, {_::#node{}, _::#node{}}} | {error, _}).
 rpc_get_closest_preceding_finger(Key, Ip, Port) ->
   perform_rpc({preceding_finger, Key}, Ip, Port).
 
--spec(rpc_find_successor/3::(Key::key(), Ip::ip(), Port::port()) ->
-    {ok, #node{}} | {error, term()}).
+-spec(rpc_find_successor/3::(Key::key(), Ip::ip(), Port::port_number()) ->
+    {ok, #node{}} | {error, _}).
 rpc_find_successor(Key, Ip, Port) ->
   perform_rpc({find_successor, Key}, Ip, Port).
 
--spec(get_predecessor/2::(Ip::ip(), Port::port()) ->
-    {ok, #node{}} | {error, term()}).
+-spec(get_predecessor/2::(Ip::ip(), Port::port_number()) ->
+    {ok, #node{}} | {error, _}).
 get_predecessor(Ip, Port) ->
   perform_rpc(get_predecessor, Ip, Port).
 
@@ -54,8 +54,8 @@ notify_successor(#node{ip = Ip, port = Port}, CurrentNode) ->
   perform_rpc({notify_about_predecessor, CurrentNode}, Ip, Port),
   ok.
 
--spec(perform_rpc/3::(Message::term(), Ip::ip(), Port::port()) ->
-    {ok, term()} | {error, insatnce} | {error, timeout} | {error, atom()}).
+-spec(perform_rpc/3::(Message::term(), Ip::ip(), Port::port_number()) ->
+    {ok, _} | {error, _}).
 perform_rpc(Message, Ip, Port) ->
   {ok, Socket} = gen_tcp:connect(Ip, Port, [binary, {packet, 0}]),
   gen_tcp:send(Socket, term_to_binary(Message)),
