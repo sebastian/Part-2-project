@@ -111,7 +111,8 @@ init(_Args) ->
     {JoinIp, JoinPort} ->
       % Connect to the new node.
       SeedNode = #node{ip = JoinIp, port = JoinPort},
-      join(State, SeedNode);
+      {ok, NewState} = join(State, SeedNode),
+      {ok, NewState};
     first ->
       % We are the first in the network. Return the current state.
       {ok, State}

@@ -15,6 +15,7 @@
 
 -spec(get_join_node/2::(Ip::ip(), Port::port_number()) -> {ip(), port_number()} | first).
 get_join_node(Ip, Port) ->
+  io:format("Trying to connect to Ip: ~p, and port ~p", [Ip, Port]),
   Url = get_join_node_url(Ip, Port),
   {ok, Result} = httpc:request(Url),
   Body = case Result of 
@@ -46,11 +47,12 @@ get_ip_from_data(Ip) ->
 %% The default server is used unless the -joinsrvaddr and -joinsrvport
 %% have been specified.
 %% @todo: Have it check for user values.
--spec(get_join_node_url/2::(Ip::string(), Port::integer()) ->
+-spec(get_join_node_url/2::(ip(), Port::integer()) ->
     string()).
-get_join_node_url(Ip, Port) ->
+get_join_node_url({A,B,C,D}, Port) ->
+  ConvertedIp = io_lib:format("~p.~p.~p.~p", [A,B,C,D]),
   Host = "http://127.0.0.1:8000",
-  Host ++ "/?port=" ++ integer_to_list(Port) ++ "&ip=" ++ Ip.
+  Host ++ "/?port=" ++ integer_to_list(Port) ++ "&ip=" ++ ConvertedIp.
 
 %% @doc: returns the port number at which chord is listening.
 -spec(get_chord_port/0::() -> number()).
@@ -59,6 +61,15 @@ get_chord_port() ->
     {ok, [[PortNumber]]} ->
       list_to_integer(PortNumber);
     _ -> ?CHORD_PORT
+  end.
+
+%% @doc: returns the port number at which the webserver should be listening.
+-spec(get_webmachine_port/0::() -> number()).
+get_webmachine_port() ->
+  case init:get_argument(fs_web_port) of
+    {ok, [[PortNumber]]} ->
+      list_to_integer(PortNumber);
+    _ -> none
   end.
 
 %% @doc Returns true if Key is in the range of Start and End. Since the
@@ -303,8 +314,8 @@ key_for_node_test() ->
   ?assert(key_for_node(IP1, Port1) =:= key_for_node(IP1, Port1)).
 
 get_join_node_url_test() ->
-  Ip = "1", Port = 2,
-  ?assertEqual("http://127.0.0.1:8000/?port=2&ip=1",
+  Ip = {1,2,3,4}, Port = 2,
+  ?assertEqual("http://127.0.0.1:8000/?port=2&ip=1.2.3.4",
     get_join_node_url(Ip, Port)).
 
 get_join_node_test_() ->
@@ -328,14 +339,15 @@ get_join_node_test_() ->
 
 start_hub_app() ->
   % add hub app to code path
-  ?assertEqual(true, code:add_path(["./../../hub_app/ebin"])),
+  ?assertEqual(true, code:add_path(["../../hub_app/ebin"])),
+  ?debugFmt("Current path ~p", [code:get_path()]),
   % Start hub app
   hub:start(),
   application:start(inets).
 stop_hub_app(_) ->
   hub:stop(),
   application:stop(inets),
-  ?assertEqual(true, code:del_path(["./../../hub_app/ebin"])).
+  ?assertEqual(true, code:del_path(["../../hub_app/ebin"])).
 
 get_ip_from_data_test_() ->
   [

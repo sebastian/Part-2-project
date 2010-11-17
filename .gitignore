@@ -13,3 +13,4 @@ Code/apps/fs_web/ebin/.*.beam
 hub_app/priv
 app/priv/log
 app/ebin/priv
+app/erl_crash.dump

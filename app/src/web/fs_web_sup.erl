@@ -45,13 +45,21 @@ init([]) ->
     {ok, Dispatch} = file:consult(filename:join(
                          [filename:dirname(code:which(?MODULE)),
                           "..", "priv", "dispatch.conf"])),
-    WebConfig = [
-                 {ip, Ip},
-                 {port, 3000},
-                 {log_dir, "priv/log"},
-                 {dispatch, Dispatch}],
-    Web = {webmachine_mochiweb,
-           {webmachine_mochiweb, start, [WebConfig]},
-           permanent, 5000, worker, dynamic},
-    Processes = [Web],
+
+    % Only launch webmachine if it is explicitly asked for.
+    Processes = case utilities:get_webmachine_port() of 
+      none ->
+        % It shouldn't launch webmachine
+        [];
+      Port ->
+        WebConfig = [
+                     {ip, Ip},
+                     {port, Port},
+                     {log_dir, "priv/log"},
+                     {dispatch, Dispatch}],
+        Web = {webmachine_mochiweb,
+               {webmachine_mochiweb, start, [WebConfig]},
+               permanent, 5000, worker, dynamic},
+        [Web]
+    end,
     {ok, { {one_for_one, 10, 10}, Processes} }.
