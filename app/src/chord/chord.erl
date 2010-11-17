@@ -93,9 +93,6 @@ init(_Args) ->
   % from the end.
   FingerTable = lists:reverse(create_finger_table(NodeId)),
   
-  % Get node that can be used to join the chord network:
-  %% utilities:get_join_node(Ip, Port),
-
   State = #chord_state{self =
     #node{
       ip = Ip,
@@ -109,14 +106,16 @@ init(_Args) ->
     pidFixFingers = spawn(fun() -> fingerFixer() end)
   },
 
-
-  % Join chord network!
-  % First we need to get a seed node:
-  % SeedNode = ...
-  % Now connect to it:
-  {ok, ConnectedState} = {ok, State}, %join(State, SeedNode),
-
-  {ok, ConnectedState}.
+  % Get node that can be used to join the chord network:
+  case utilities:get_join_node(Ip, Port) of
+    {JoinIp, JoinPort} ->
+      % Connect to the new node.
+      SeedNode = #node{ip = JoinIp, port = JoinPort},
+      join(State, SeedNode);
+    first ->
+      % We are the first in the network. Return the current state.
+      {ok, State}
+  end.
 
 %% Call:
 handle_call({set_state, NewState}, _From, _State) ->
@@ -464,9 +463,11 @@ perform_stabilize_test2() ->
   % We should get returned a successor with an Id suceeding our own.
   ?assertEqual({updated_succ, #node{key = 2}}, perform_stabilize(State)).
 setup_perform_stabilize() ->
+  utilities:start_hub_app(),
   chord_tcp:start(),     
   start().
 teardown_perform_stabilize(_State) ->
+  utilities:stop_hub_app(go_party),
   chord:stop(), 
   chord_tcp:stop().
 

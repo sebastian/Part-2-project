@@ -13,6 +13,7 @@
 -include_lib("eunit/include/eunit.hrl").
 -endif.
 
+-spec(get_join_node/2::(Ip::ip(), Port::port_number()) -> {ip(), port_number()} | first).
 get_join_node(Ip, Port) ->
   Url = get_join_node_url(Ip, Port),
   {ok, Result} = httpc:request(Url),
@@ -308,8 +309,8 @@ get_join_node_url_test() ->
 
 get_join_node_test_() ->
   {setup,
-    fun start_hub_app_test/0,
-    fun stop_hub_app_test/1,
+    fun start_hub_app/0,
+    fun stop_hub_app/1,
     ?_test(begin
       Ip1 = "127.0.0.1", Port1 = 1234,
       Ip2 = "128.0.0.1", Port2 = 5678,
@@ -325,20 +326,16 @@ get_join_node_test_() ->
     end)
   }.
 
-start_hub_app_test() ->
+start_hub_app() ->
   % add hub app to code path
-  Paths = ["./../../hub_app/ebin"],
-  [?assertEqual(true, code:add_path(Path)) || Path <- Paths],
+  ?assertEqual(true, code:add_path(["./../../hub_app/ebin"])),
   % Start hub app
   hub:start(),
-  application:start(inets),
-  Paths.
-  % @todo: Automatically start and stop the hub_app.
-
-stop_hub_app_test(Paths) ->
+  application:start(inets).
+stop_hub_app(_) ->
   hub:stop(),
   application:stop(inets),
-  [?assertEqual(true, code:del_path(Path)) || Path <- Paths].
+  ?assertEqual(true, code:del_path(["./../../hub_app/ebin"])).
 
 get_ip_from_data_test_() ->
   [
