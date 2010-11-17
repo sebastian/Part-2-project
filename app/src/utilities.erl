@@ -326,11 +326,19 @@ get_join_node_test_() ->
   }.
 
 start_hub_app_test() ->
+  % add hub app to code path
+  Paths = ["./../../hub_app/ebin"],
+  [?assertEqual(true, code:add_path(Path)) || Path <- Paths],
+  % Start hub app
+  hub:start(),
+  application:start(inets),
+  Paths.
   % @todo: Automatically start and stop the hub_app.
-  application:start(inets).
 
-stop_hub_app_test(_) ->
-  application:stop(inets).
+stop_hub_app_test(Paths) ->
+  hub:stop(),
+  application:stop(inets),
+  [?assertEqual(true, code:del_path(Path)) || Path <- Paths].
 
 get_ip_from_data_test_() ->
   [
