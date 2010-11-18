@@ -21,6 +21,7 @@
 -export([start_link/0, start/0, stop/0]).
 -export([get/1, set/2, preceding_finger/1, find_successor/1, get_predecessor/0]).
 -export([notified/1]).
+-export([get_state/0]).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Exports
@@ -44,6 +45,10 @@ stop() ->
 -spec(set_state/1::(#chord_state{}) -> ok).
 set_state(NewState) ->
   gen_server:call(chord, {set_state, NewState}).
+
+-spec(get_state/0::() -> #chord_state{}).
+get_state() ->
+  gen_server:call(chord, get_state).
 
 -spec(get/1::(Key::key()) -> [#entry{}]).
 get(Key) ->
@@ -100,6 +105,8 @@ init(_Args) ->
       key = NodeId 
     },
     fingers = FingerTable,
+    successor = #node{},
+    predecessor = #node{},
 
     % Admin stuff
     pidStabilizer = spawn(fun() -> stabilizer() end),
@@ -119,6 +126,9 @@ init(_Args) ->
   end.
 
 %% Call:
+handle_call(get_state, _From, State) ->
+  {reply, State, State};
+
 handle_call({set_state, NewState}, _From, _State) ->
   {reply, ok, NewState};
 
@@ -243,7 +253,7 @@ perform_stabilize(#chord_state{self = ThisNode, successor = Succ} = State) ->
           % We still have the same successor.
           {ok, State#chord_state.successor}
       end;
-    {error, Reason} ->
+    {error, _Reason} ->
       % @todo: Handle error and try another successor.
       {ok, State#chord_state.successor}
   end.
@@ -251,7 +261,7 @@ perform_stabilize(#chord_state{self = ThisNode, successor = Succ} = State) ->
 -spec(create_finger_table/1::(NodeKey::key()) -> [#finger_entry{}]).
 create_finger_table(NodeKey) ->
   StartEntries = create_start_entry(NodeKey, ?NUMBER_OF_FINGERS),
-  add_interval(StartEntries, NodeKey).
+  [F#finger_entry{node = #node{}} || F <- add_interval(StartEntries, NodeKey)].
 
 
 -spec(create_start_entry/2::(NodeKey::key(), N::integer()) -> 
