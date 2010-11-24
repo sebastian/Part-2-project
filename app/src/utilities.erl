@@ -18,6 +18,7 @@ get_join_node(Ip, Port) ->
   io:format("Trying to connect to Ip: ~p, and port ~p", [Ip, Port]),
   Url = get_join_node_url(Ip, Port),
   {ok, Result} = httpc:request(Url),
+  ?debugFmt("Result: ~p", [Result]),
   Body = case Result of 
     {_, _, B} -> B;
     {_, B} -> B
@@ -49,10 +50,13 @@ get_ip_from_data(Ip) ->
 %% @todo: Have it check for user values.
 -spec(get_join_node_url/2::(ip(), Port::integer()) ->
     string()).
-get_join_node_url({A,B,C,D}, Port) ->
-  ConvertedIp = io_lib:format("~p.~p.~p.~p", [A,B,C,D]),
+get_join_node_url(Ip, Port) ->
   Host = "http://127.0.0.1:8000",
-  Host ++ "/?port=" ++ integer_to_list(Port) ++ "&ip=" ++ ConvertedIp.
+  Host ++ "/?port=" ++ integer_to_list(Port) ++ "&ip=" ++ ip_to_string(Ip).
+
+-spec(ip_to_string/1::(ip()) -> string()).
+ip_to_string({A,B,C,D}) ->
+  io_lib:format("~p.~p.~p.~p", [A,B,C,D]).
 
 %% @doc: returns the port number at which chord is listening.
 -spec(get_chord_port/0::() -> number()).
@@ -318,40 +322,32 @@ get_join_node_url_test() ->
   ?assertEqual("http://127.0.0.1:8000/?port=2&ip=1.2.3.4",
     get_join_node_url(Ip, Port)).
 
-get_join_node_test_() ->
-  {setup,
-    fun start_hub_app/0,
-    fun stop_hub_app/1,
-    ?_test(begin
-      Ip1 = "127.0.0.1", Port1 = 1234,
-      Ip2 = "128.0.0.1", Port2 = 5678,
+get_join_node_test() ->
+  Ip = {127,0,0,1}, Port = 5678,
 
-      % The first person, should be told that she is first
-      ?assertEqual(first, get_join_node(Ip1, Port1)),
-      % The results should be the same for repeated invocations
-      ?assertEqual(first, get_join_node(Ip1, Port1)),
+  ServerReturn = {{"HTTP/1.1",200,"OK"},
+   [{"date","Thu, 18 Nov 2010 10:47:54 GMT"},
+    {"server",
+     "MochiWeb/1.1 WebMachine/1.7.3 (participate in the frantic)"},
+    {"content-length","34"},
+    {"content-type","text/html"}],
+   "{\"ip\":\"127.0.0.2\",\"port\":1234}"},
 
-      % The next person should get some other result
-      ?assertEqual({{127,0,0,1}, Port1}, get_join_node(Ip2, Port2))
+  Url = get_join_node_url(Ip, Port),
 
-    end)
-  }.
-
-start_hub_app() ->
-  % add hub app to code path
-  ?assertEqual(true, code:add_path(["../../hub_app/ebin"])),
-  ?debugFmt("Current path ~p", [code:get_path()]),
-  % Start hub app
-  hub:start(),
-  application:start(inets).
-stop_hub_app(_) ->
-  hub:stop(),
-  application:stop(inets),
-  ?assertEqual(true, code:del_path(["../../hub_app/ebin"])).
+  erlymock:start(),
+  erlymock:strict(httpc, request, Url, [{return, ServerReturn}]),
+  erlymock:replay(), 
+  ?assertEqual({{127,0,0,2}, 1235}, get_join_node(Ip, Port)),
+  erlymock:verify().
 
 get_ip_from_data_test_() ->
   [
     ?_assertEqual({1,2,3,4}, get_ip_from_data(<<"1.2.3.4">>)),
     ?_assertEqual({127,0,0,1}, get_ip_from_data(<<"127.0.0.1">>))
   ].
+
+ip_to_string_test() ->
+  ?assertEqual("127.0.0.1", ip_to_string({127,0,0,1})).
+
 -endif.

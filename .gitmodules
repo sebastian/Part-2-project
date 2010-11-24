@@ -1,3 +1,6 @@
 [submodule "app/deps/gen_listener_tcp"]
 	path = app/deps/gen_listener_tcp
 	url = http://github.com/kaos/gen_listener_tcp.git
+[submodule "vendor/erlymock"]
+	path = vendor/erlymock
+	url = https://github.com/nialscorva/erlymock.git
