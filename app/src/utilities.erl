@@ -13,12 +13,12 @@
 -include_lib("eunit/include/eunit.hrl").
 -endif.
 
+
 -spec(get_join_node/2::(Ip::ip(), Port::port_number()) -> {ip(), port_number()} | first).
 get_join_node(Ip, Port) ->
-  io:format("Trying to connect to Ip: ~p, and port ~p", [Ip, Port]),
   Url = get_join_node_url(Ip, Port),
-  {ok, Result} = httpc:request(Url),
-  ?debugFmt("Result: ~p", [Result]),
+  %{ok, Result} = httpc:request(Url),
+  {ok, Result} = tcp_utils:get_url(Url),
   Body = case Result of 
     {_, _, B} -> B;
     {_, B} -> B
@@ -56,7 +56,7 @@ get_join_node_url(Ip, Port) ->
 
 -spec(ip_to_string/1::(ip()) -> string()).
 ip_to_string({A,B,C,D}) ->
-  io_lib:format("~p.~p.~p.~p", [A,B,C,D]).
+  lists:flatten(io_lib:format("~p.~p.~p.~p", [A,B,C,D])).
 
 %% @doc: returns the port number at which chord is listening.
 -spec(get_chord_port/0::() -> number()).
@@ -322,7 +322,7 @@ get_join_node_url_test() ->
   ?assertEqual("http://127.0.0.1:8000/?port=2&ip=1.2.3.4",
     get_join_node_url(Ip, Port)).
 
-get_join_node_test() ->
+get_join_node_not_first_test() ->
   Ip = {127,0,0,1}, Port = 5678,
 
   ServerReturn = {{"HTTP/1.1",200,"OK"},
@@ -336,9 +336,28 @@ get_join_node_test() ->
   Url = get_join_node_url(Ip, Port),
 
   erlymock:start(),
-  erlymock:strict(httpc, request, Url, [{return, ServerReturn}]),
+  erlymock:strict(tcp_utils, get_url, [Url], [{return, {ok, ServerReturn}}]),
   erlymock:replay(), 
-  ?assertEqual({{127,0,0,2}, 1235}, get_join_node(Ip, Port)),
+  ?assertEqual({{127,0,0,2}, 1234}, get_join_node(Ip, Port)),
+  erlymock:verify().
+
+get_join_node_first_test() ->
+  Ip = {127,0,0,1}, Port = 5678,
+
+  ServerReturn = {{"HTTP/1.1",200,"OK"},
+     [{"date","Wed, 01 Dec 2010 09:25:54 GMT"},
+      {"server",
+       "MochiWeb/1.1 WebMachine/1.7.3 (participate in the frantic)"},
+      {"content-length","14"},
+      {"content-type","text/html"}],
+     "{\"first\":true}"},
+ 
+  Url = get_join_node_url(Ip, Port),
+
+  erlymock:start(),
+  erlymock:strict(tcp_utils, get_url, [Url], [{return, {ok, ServerReturn}}]),
+  erlymock:replay(), 
+  ?assertEqual(first, get_join_node(Ip, Port)),
   erlymock:verify().
 
 get_ip_from_data_test_() ->

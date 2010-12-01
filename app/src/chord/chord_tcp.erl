@@ -20,8 +20,8 @@
 %% ------------------------------------------------------------------
 
 -export([start_link/0, start/0, stop/0]).
--export([rpc_get_closest_preceding_finger/3, rpc_find_successor/3]).
--export([notify_successor/2, get_predecessor/2]).
+-export([rpc_get_closest_preceding_finger_and_succ/2, rpc_find_successor/3]).
+-export([notify_successor/2, get_predecessor/1]).
 
 %% ------------------------------------------------------------------
 %% gen_listener_tcp Function Exports
@@ -34,9 +34,9 @@
 %% API Function Definitions
 %% ------------------------------------------------------------------
 
--spec(rpc_get_closest_preceding_finger/3::(Key::key(), Ip::ip(), 
-    Port::port_number()) -> {ok, {_::#node{}, _::#node{}}} | {error, _}).
-rpc_get_closest_preceding_finger(Key, Ip, Port) ->
+-spec(rpc_get_closest_preceding_finger_and_succ/2::(Key::key(), Node::#node{}) 
+    -> {ok, {_::#node{}, _::#node{}}} | {error, _}).
+rpc_get_closest_preceding_finger_and_succ(Key, #node{ip=Ip, port=Port}) ->
   perform_rpc({preceding_finger, Key}, Ip, Port).
 
 -spec(rpc_find_successor/3::(Key::key(), Ip::ip(), Port::port_number()) ->
@@ -44,9 +44,9 @@ rpc_get_closest_preceding_finger(Key, Ip, Port) ->
 rpc_find_successor(Key, Ip, Port) ->
   perform_rpc({find_successor, Key}, Ip, Port).
 
--spec(get_predecessor/2::(Ip::ip(), Port::port_number()) ->
+-spec(get_predecessor/1::(#node{}) ->
     {ok, #node{}} | {error, _}).
-get_predecessor(Ip, Port) ->
+get_predecessor(#node{ip=Ip, port=Port}) ->
   perform_rpc(get_predecessor, Ip, Port).
 
 -spec(notify_successor/2::(#node{}, CurrentNode::#node{}) -> ok).

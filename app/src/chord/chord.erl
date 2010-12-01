@@ -243,7 +243,7 @@ fix_finger(FingerNum, #chord_state{fingers = Fingers} = State) ->
 -spec(perform_stabilize/1::(#chord_state{}) -> 
     {ok, #node{}} | {updated_succ, #node{}}).
 perform_stabilize(#chord_state{self = ThisNode, successor = Succ} = State) ->
-  case chord_tcp:get_predecessor(Succ#node.ip, Succ#node.port) of
+  case chord_tcp:get_predecessor(Succ) of
     {ok, SuccPred} ->
       % Check if predecessor is between ourselves and successor
       case utilities:in_range(SuccPred#node.key, ThisNode#node.key, Succ#node.key) of
@@ -306,15 +306,11 @@ find_successor(Key,
     % Try looking successively through successors successors.
     false -> find_successor(Key, Succ)
   end;
-find_successor(Key, #node{key = NKey, ip = NIp, port = NPort}) ->
-  case chord_tcp:rpc_get_closest_preceding_finger(Key, NIp, NPort) of
-    {ok, {NextFinger, NSucc}} ->
-      case utilities:in_inclusive_range(Key, NKey, NSucc#node.key) of
-        true  -> {ok, NSucc};
-        false -> find_successor(Key, NextFinger)
-      end;
-    {error, Reason} ->
-      {error, Reason}
+find_successor(Key, #node{key = NKey} = CurrentNext) ->
+  {ok, {NextFinger, NSucc}} = chord_tcp:rpc_get_closest_preceding_finger_and_succ(Key, CurrentNext),
+  case utilities:in_inclusive_range(Key, NKey, NSucc#node.key) of
+    true  -> {ok, NSucc};
+    false -> find_successor(Key, NextFinger)
   end.
 
 
@@ -351,12 +347,8 @@ join(State, NodeToAsk) ->
   OwnKey = (State#chord_state.self)#node.key,
 
   % Find the successor node
-  case chord_tcp:rpc_find_successor(OwnKey, NIp, NPort) of
-    {ok, Succ} ->
-      {ok, PredState#chord_state{successor = Succ}};
-    {error, Reason} ->
-      {error, Reason, PredState}
-  end.
+  {ok, Succ} = chord_tcp:rpc_find_successor(OwnKey, NIp, NPort),
+  {ok, PredState#chord_state{successor = Succ}}.
 
 
 %% ------------------------------------------------------------------
@@ -390,15 +382,6 @@ find_successor_on_same_node_test() ->
 
 
 %% *** find_successor tests ***
-test_get_run_state() ->
-  #chord_state{
-    fingers = [#finger_entry{start = 5, interval = {5,1}, node = nForKey(6)},
-               #finger_entry{start = 3, interval = {3,5}, node = nForKey(3)},
-               #finger_entry{start = 2, interval = {2,3}, node = nForKey(3)}],
-    self = nForKey(1),
-    predecessor = nForKey(0),
-    successor = nForKey(5)
-  }.
 test_get_state() ->
   #chord_state{
     fingers = [#finger_entry{start = 4, interval = {4,0}, node = nForKey(0)},
@@ -409,78 +392,81 @@ test_get_state() ->
     % All request for keys > 1 will go to successor
     successor = #node{ip = {127,0,0,1}, port = utilities:get_chord_port(), key = 1}
   }.
-find_successor_on_other_node_test_() ->
-  {setup,
-    fun setup_find_successor/0,
-    fun teardown_find_successor/1, [
-      fun successor_test1/0,
-      fun successor_test2/0,
-      fun successor_test3/0
-    ]
-  }.
-successor_test1() ->
-  State = test_get_state(),
-  ?assertEqual({ok, #node{key = 5}}, find_successor(2, State)).
-successor_test2() ->
-  State = test_get_state(),
-  ?assertEqual({ok, #node{key = 5}}, find_successor(4, State)).
-successor_test3() ->
-  State = test_get_state(),
-  ?assertEqual({ok, #node{key = 5}}, find_successor(5, State)).
-setup_find_successor() ->
-  chord_tcp:start(),     
-  start(),
-  set_state(test_get_run_state()).
-teardown_find_successor(_State) ->
-  chord:stop(), 
-  chord_tcp:stop().
 
+% Test when the successor is directly in our finger table
+find_successor_test() ->
+  % Our current successor is node 1.
+  State = test_get_state(),
+  ?assertEqual({ok, State#chord_state.successor}, find_successor(1, State)).
+
+% Test when the successor is one hop away
+find_successor_next_hop_test() ->
+  % Our current successor is node 1.
+  State = test_get_state(),
+
+  NextFinger = #node{},
+  NextSuccessor = #node{key = 6},
+  RpcReturn = {ok, {NextFinger, NextSuccessor}},
+
+  Key = 4,
+
+  erlymock:start(),
+  erlymock:strict(chord_tcp, rpc_get_closest_preceding_finger_and_succ, [Key, State#chord_state.successor], [{return, RpcReturn}]),
+  erlymock:replay(), 
+  ?assertEqual({ok, NextSuccessor}, find_successor(Key, State)),
+  erlymock:verify().
+
+% Test when the successor is multiple hops away
+find_successor_subsequent_hop_test() ->
+  % Our current successor is node 1.
+  State = test_get_state(),
+
+  FirstNextFinger = #node{},
+  FirstNextSuccessor = #node{key = 6},
+  FirstRpcReturn = {ok, {FirstNextFinger, FirstNextSuccessor}},
+
+  SecondNextFinger = #node{},
+  SecondNextSuccessor = #node{key = 14},
+  SecondRpcReturn = {ok, {SecondNextFinger, SecondNextSuccessor}},
+
+  Key = 10,
+
+  erlymock:start(),
+  erlymock:strict(chord_tcp, rpc_get_closest_preceding_finger_and_succ, [Key, State#chord_state.successor], [{return, FirstRpcReturn}]),
+  erlymock:strict(chord_tcp, rpc_get_closest_preceding_finger_and_succ, [Key, FirstNextFinger], [{return, SecondRpcReturn}]),
+  erlymock:replay(), 
+  ?assertEqual({ok, SecondNextSuccessor}, find_successor(Key, State)),
+  erlymock:verify().
 
 %% *** perform_stabilize tests ***
-perform_stabilize_state_local() ->
-  #chord_state{
-    self = nForKey(0),
-    successor = #node{ip = {127,0,0,1}, port = utilities:get_chord_port(), key = 5}
-  }.
-perform_stabilize_state_remote_new_successor() ->
-  #chord_state{
-    self = nForKey(5),
-    predecessor = nForKey(2)
-  }.
-perform_stabilize_state_remote_same_successor() ->
-  #chord_state{
-    self = nForKey(5),
-    predecessor = nForKey(0)
-  }.
-perform_stabilize_test_() ->
-  {setup,
-    fun setup_perform_stabilize/0,
-    fun teardown_perform_stabilize/1, [
-      fun perform_stabilize_test1/0,
-      fun perform_stabilize_test2/0
-    ]
-  }.
-% In this test, the successor still has us as the predecessor.
-perform_stabilize_test1() ->
-  State = perform_stabilize_state_local(),
-  set_state(perform_stabilize_state_remote_same_successor()),
-  % We should get returned our original successor node.
-  ?assertEqual({ok, State#chord_state.successor}, perform_stabilize(State)).
-% In this test, the successor has registered a fresh predecessor,
-% between outselves and our current successor.
-perform_stabilize_test2() ->
-  State = perform_stabilize_state_local(),
-  set_state(perform_stabilize_state_remote_new_successor()),
-  % We should get returned a successor with an Id suceeding our own.
-  ?assertEqual({updated_succ, #node{key = 2}}, perform_stabilize(State)).
-setup_perform_stabilize() ->
-  utilities:start_hub_app(),
-  chord_tcp:start(),     
-  start().
-teardown_perform_stabilize(_State) ->
-  utilities:stop_hub_app(go_party),
-  chord:stop(), 
-  chord_tcp:stop().
+% The successor hasn't changed
+perform_stabilize_same_successor_test() ->
+  % Successor is 5, own id is 0
+  Succ = nForKey(10),
+  State = #chord_state{self=nForKey(0), successor=Succ},
+
+  erlymock:start(),
+  erlymock:strict(chord_tcp, get_predecessor, [Succ], [{return, {ok, Succ}}]),
+  erlymock:replay(),
+
+  ?assertEqual({ok, Succ}, perform_stabilize(State)),
+
+  erlymock:verify().
+
+% The successor has changed
+perform_stabilize_updated_successor_test() ->
+  % Successor is 5, own id is 0
+  Succ = nForKey(10),
+  State = #chord_state{self=nForKey(0), successor=Succ},
+  NewSuccessor = #node{key=3},
+
+  erlymock:start(),
+  erlymock:strict(chord_tcp, get_predecessor, [Succ], [{return, {ok, NewSuccessor}}]),
+  erlymock:replay(),
+
+  ?assertEqual({updated_succ, NewSuccessor}, perform_stabilize(State)),
+
+  erlymock:verify().
 
 
 %% *** Setting up finger table tests ***
@@ -516,20 +502,30 @@ add_interval_test() ->
 
 
 %% *** join tests ***
-join_test_() ->
-  {setup,
-    fun setup_find_successor/0,
-    fun teardown_find_successor/1, [
-      fun join_test1/0
-  ]}.
-join_test1() ->
-  State = (test_get_state())#chord_state{predecessor = #node{key = 1234}, 
-      self = #node{key = 2}},
-  {ok, NewState} = join(State, #node{ip = {127,0,0,1}, 
-      port = utilities:get_chord_port()}),
+join_test() ->
+  % Initial state
+  Key = 1234,
+  Predecessor = #node{key = 1234567890},
+  State = #chord_state{predecessor = Predecessor, self = #node{key = Key}},
+
+  % The node to join
+  JoinIp = {1,2,3,4},
+  JoinPort = 4321,
+  JoinNode = #node{ip = JoinIp, port=JoinPort},
+
+  % Our successor node as given by the system
+  SuccessorNode = #node{key = 20},
+
+  erlymock:start(),
+  erlymock:strict(chord_tcp, rpc_find_successor, [Key, JoinIp, JoinPort], [{return, {ok, SuccessorNode}}]),
+  erlymock:replay(),
+
+  {ok, NewState} = join(State, JoinNode),
   % Ensure the precesseccor has been removed
-  ?assert((NewState#chord_state.predecessor)#node.key =/= 1234),
+  ?assert((NewState#chord_state.predecessor)#node.key =/= 1234567890),
   % Make sure that it has set the right successor
-  ?assertEqual(#node{key = 5}, NewState#chord_state.successor).
+  ?assertEqual(SuccessorNode, NewState#chord_state.successor),
+
+  erlymock:verify().
     
 -endif.
