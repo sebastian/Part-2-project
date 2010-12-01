@@ -160,7 +160,7 @@ handle_call(get_predecessor, _From, #chord_state{predecessor = Predecessor} = St
 %% Casts:
 handle_cast({notified, #node{key = NewKey} = Node}, 
     #chord_state{predecessor = Pred, self = Self} = State) ->
-  NewState = case ((Pred =:= #node{}) or
+  NewState = case ((Pred =:= #node{}) orelse
       utilities:in_range(NewKey, Pred#node.key, Self#node.key)) of
     true  -> State#chord_state{predecessor = Node};
     false -> State
@@ -243,18 +243,13 @@ fix_finger(FingerNum, #chord_state{fingers = Fingers} = State) ->
 -spec(perform_stabilize/1::(#chord_state{}) -> 
     {ok, #node{}} | {updated_succ, #node{}}).
 perform_stabilize(#chord_state{self = ThisNode, successor = Succ} = State) ->
-  case chord_tcp:get_predecessor(Succ) of
-    {ok, SuccPred} ->
-      % Check if predecessor is between ourselves and successor
-      case utilities:in_range(SuccPred#node.key, ThisNode#node.key, Succ#node.key) of
-        true  -> 
-          {updated_succ, SuccPred};
-        false -> 
-          % We still have the same successor.
-          {ok, State#chord_state.successor}
-      end;
-    {error, _Reason} ->
-      % @todo: Handle error and try another successor.
+  {ok, SuccPred} = chord_tcp:get_predecessor(Succ),
+  % Check if predecessor is between ourselves and successor
+  case utilities:in_range(SuccPred#node.key, ThisNode#node.key, Succ#node.key) of
+    true  -> 
+      {updated_succ, SuccPred};
+    false -> 
+      % We still have the same successor.
       {ok, State#chord_state.successor}
   end.
 
@@ -330,8 +325,7 @@ closest_preceding_finger(Key, [Finger|Fingers], CurrentNode) ->
   Node = Finger#finger_entry.node,
   NodeId = Node#node.key,
   case ((CurrentNode#node.key < NodeId) and (NodeId < Key)) of
-    true -> 
-      Node;
+    true -> Node;
     false -> closest_preceding_finger(Key, Fingers, CurrentNode)
   end.
 
