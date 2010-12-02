@@ -91,12 +91,9 @@ init(_Args) ->
   Ip = utilities:get_ip(),
   NodeId = utilities:key_for_node(Ip, Port),
 
-  % We initialize the finger table with 160 records.
-  % Since we are using 160-bit keys, we will also use
-  % 160 entries for the table.
-  % We reverse the list since find predecessor accesses them
-  % from the end.
-  FingerTable = lists:reverse(create_finger_table(NodeId)),
+  % We initialize the finger table with 160 records since
+  % we have 160-bit keys.
+  FingerTable = create_finger_table(NodeId),
   
   State = #chord_state{self =
     #node{
@@ -255,23 +252,33 @@ perform_stabilize(#chord_state{self = ThisNode, successor = Succ} = State) ->
 
 -spec(create_finger_table/1::(NodeKey::key()) -> [#finger_entry{}]).
 create_finger_table(NodeKey) ->
-  StartEntries = create_start_entry(NodeKey, ?NUMBER_OF_FINGERS),
+  StartEntries = create_start_entry(NodeKey, 0, array:new(160)),
   [F#finger_entry{node = #node{}} || F <- add_interval(StartEntries, NodeKey)].
 
 
--spec(create_start_entry/2::(NodeKey::key(), N::integer()) -> 
+-spec(create_start_entry/3::(NodeKey::key(), N::integer(), Array::array()) -> 
     [#finger_entry{}]).
-create_start_entry(_NodeKey, 0) -> [];
-create_start_entry(NodeKey, N) ->
-  [#finger_entry{
-    % Get start entry for each node from 1 upto and including 160
-    start = get_start(NodeKey, ?NUMBER_OF_FINGERS - N + 1)
-  } | create_start_entry(NodeKey, N-1)].
+create_start_entry(_NodeKey, 160, Array) -> Array;
+create_start_entry(NodeKey, N, Array) ->
+  create_start_entry(NodeKey, N+1, array:set(N, finger_entry_node(NodeKey, N), Array)).
 
+
+finger_entry_node(NodeKey, Number) ->
+  #finger_entry{
+    start = get_start(NodeKey, Number),
+    interval = interval_for(NodeKey, Number)
+  }.
+
+interval_for(NodeKey, 159) ->
+  % If it is the last node entry, then its interval loops around
+  % to the first finger entry.
+  {get_start(NodeKey, 159), get_start(NodeKey, 0)};
+interval_for(NodeKey, Number) ->
+  {get_start(NodeKey, Number), get_start(NodeKey, Number+1)}.
 
 -spec(get_start/2::(NodeKey::key(), N::integer()) -> key()).
 get_start(NodeKey, N) ->
-  (NodeKey + (1 bsl (N-1))) rem (1 bsl 160).
+  (NodeKey + (1 bsl N)) rem (1 bsl 160).
 
 
 -spec(add_interval/2::(Entries::[#finger_entry{}], CurrentKey::key()) ->
@@ -468,23 +475,18 @@ perform_stabilize_updated_successor_test() ->
 get_start_test_() ->
   {inparallel,
    [
-    ?_assertEqual(1, get_start(0, 1)),
-    ?_assertEqual(2, get_start(0, 2)),
-    ?_assertEqual(4, get_start(0, 3)),
+    ?_assertEqual(1, get_start(0, 0)),
+    ?_assertEqual(2, get_start(0, 1)),
+    ?_assertEqual(4, get_start(0, 2)),
 
-    ?_assertEqual(2, get_start(1, 1)),
-    ?_assertEqual(3, get_start(1, 2)),
-    ?_assertEqual(5, get_start(1, 3)),
+    ?_assertEqual(2, get_start(1, 0)),
+    ?_assertEqual(3, get_start(1, 1)),
+    ?_assertEqual(5, get_start(1, 2)),
     
-    ?_assertEqual(4, get_start(3, 1)),
-    ?_assertEqual(5, get_start(3, 2)),
-    ?_assertEqual(7, get_start(3, 3))
+    ?_assertEqual(4, get_start(3, 0)),
+    ?_assertEqual(5, get_start(3, 1)),
+    ?_assertEqual(7, get_start(3, 2))
   ]}.
-create_start_entry_test() ->
-  NodeId = 0,
-  [E1,E2 | _Rest] = create_start_entry(NodeId, ?NUMBER_OF_FINGERS),
-  ?assertEqual(get_start(NodeId, 1), E1#finger_entry.start),
-  ?assertEqual(get_start(NodeId, 2), E2#finger_entry.start).
 add_interval_test() ->
   CurrentNodeId = 0,
   CreateEntry = fun(N) -> #finger_entry{ start = N } end,
@@ -493,7 +495,30 @@ add_interval_test() ->
   ?assertEqual({1,2}, E1#finger_entry.interval),
   ?assertEqual({2,4}, E2#finger_entry.interval),
   ?assertEqual({4,0}, E3#finger_entry.interval).
+create_start_entry_test() ->
+  NodeId = 0,
+  Entries = create_start_entry(NodeId, 0, array:new(160)),
+  ?assertEqual(get_start(NodeId, 0), (array:get(0,Entries))#finger_entry.start),
+  ?assertEqual(get_start(NodeId, 1), (array:get(1,Entries))#finger_entry.start).
+finger_entry_node_test_() ->
+  {inparallel,
+    [
+      % For first node (k=1 (but thought of as 0 in this system)).
+      ?_assertEqual(1, (finger_entry_node(0,0))#finger_entry.start),
+      ?_assertEqual({1,2}, (finger_entry_node(0,0))#finger_entry.interval),
 
+      % The last node (k=160 (but thought of as 159 in this system)).
+      ?_assertEqual(trunc(math:pow(2,159)), (finger_entry_node(0,159))#finger_entry.start),
+      ?_assertEqual({trunc(math:pow(2,159)),1}, (finger_entry_node(0,159))#finger_entry.interval),
+
+      % Node with other Id (k=2 (but thought of as 1 in this system)).
+      ?_assertEqual(7, (finger_entry_node(5,1))#finger_entry.start),
+      ?_assertEqual({7,9}, (finger_entry_node(5,1))#finger_entry.interval),
+
+      % It should not have defined the node itself
+      ?_assertEqual(undefined, (finger_entry_node(0,0))#finger_entry.node)
+    ]
+  }.
 
 %% *** join tests ***
 join_test() ->
