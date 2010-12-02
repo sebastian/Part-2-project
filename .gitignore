@@ -14,3 +14,4 @@ hub_app/priv
 app/priv/log
 app/ebin/priv
 app/erl_crash.dump
+app/deps/*

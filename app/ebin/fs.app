@@ -9,9 +9,9 @@
 	chord, chord_sup, chord_tcp, 
 	gen_listener_tcp,
 	datastore,
-	utilities, tcp_utils, test_utils,
+	utilities, tcp_utils, test_utils
   % For testing
-  erlymock, erlymock_tcp, erlymock_recorder
+  %erlymock, erlymock_tcp, erlymock_recorder
   ]},
   {registered, []},
   {applications, [
