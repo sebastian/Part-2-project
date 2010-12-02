@@ -227,6 +227,7 @@ perform_task(Task, Interval) ->
     perform_task(Task, Interval)
   end.
 
+
 -spec(fix_finger/2::(FingerNum::integer(), #chord_state{}) -> ok).
 fix_finger(FingerNum, #chord_state{fingers = Fingers} = State) ->
   Finger = lists:nth(FingerNum, Fingers),
@@ -249,6 +250,7 @@ perform_stabilize(#chord_state{self = ThisNode} = State) ->
       {ok, Succ}
   end.
 
+
 -spec(create_finger_table/1::(NodeKey::key()) -> [#finger_entry{}]).
 create_finger_table(NodeKey) ->
   create_start_entries(NodeKey, 0, array:new(160)).
@@ -261,18 +263,24 @@ create_start_entries(NodeKey, N, Array) ->
   create_start_entries(NodeKey, N+1, array:set(N, finger_entry_node(NodeKey, N), Array)).
 
 
+-spec(finger_entry_node/2::(NodeKey::key(), Number::integer()) ->
+    #finger_entry{}).
 finger_entry_node(NodeKey, Number) ->
   #finger_entry{
     start = get_start(NodeKey, Number),
     interval = interval_for(NodeKey, Number)
   }.
 
+
+-spec(interval_for/2::(NodeKey::key(), Number::integer()) ->
+    {integer(), integer()}).
 interval_for(NodeKey, 159) ->
   % If it is the last node entry, then its interval loops around
   % to the first finger entry.
   {get_start(NodeKey, 159), get_start(NodeKey, 0)};
 interval_for(NodeKey, Number) ->
   {get_start(NodeKey, Number), get_start(NodeKey, Number+1)}.
+
 
 -spec(get_start/2::(NodeKey::key(), N::integer()) -> key()).
 get_start(NodeKey, N) ->
