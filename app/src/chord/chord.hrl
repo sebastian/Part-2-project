@@ -10,7 +10,6 @@
   }).
 -record(chord_state, {
     self :: #node{},
-    successor :: #node{},
     predecessor :: #node{},
 
     % The finger list is in inverse order from what is described
