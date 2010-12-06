@@ -71,8 +71,11 @@ get_predecessor() ->
   gen_server:call(chord, get_predecessor).
 
 %% @doc Notified receives messages from predecessors identifying themselves.
-%%      If the node is a closer predecessor than the current one, then
-%%      the internal state is updated.
+%% If the node is a closer predecessor than the current one, then
+%% the internal state is updated.
+%% Additionally, and this is a hack to bootstrap the system,
+%% if the current node doesn't have any successor, then add the predecessor
+%% as the successor.
 -spec(notified/1::(Node::#node{}) -> ok).
 notified(Node) ->
   gen_server:call(chord, {notified, Node}), ok.
@@ -140,14 +143,14 @@ handle_call({set, _Key, _Entry}, _From, State) ->
   {reply, ok, State};
 
 handle_call({get_preceding_finger, Key}, _From, State) ->
+  io:format("Getting preceding finger for ~p, from State: ~p", [Key, State]),
   Finger = closest_preceding_finger(Key, State),
   Succ = get_successor(State),
   Msg = {ok, {Finger, Succ}},
   {reply, Msg, State};
 
-handle_call({find_successor, Key}, From, State) ->
-  spawn(fun() -> gen_server:reply(From, find_successor(Key, State)) end),
-  {noreply, State};
+handle_call({find_successor, Key}, _From, State) ->
+  {reply, find_successor(Key,State), State};
 
 handle_call(get_predecessor, _From, #chord_state{predecessor = Predecessor} = State) ->
   {reply, {ok, Predecessor}, State}.
@@ -155,12 +158,19 @@ handle_call(get_predecessor, _From, #chord_state{predecessor = Predecessor} = St
 %% Casts:
 handle_cast({notified, #node{key = NewKey} = Node}, 
     #chord_state{predecessor = Pred, self = Self} = State) ->
-  NewState = case ((Pred =:= #node{}) orelse
+  State1 = case ((Pred =:= #node{}) orelse
       utilities:in_range(NewKey, Pred#node.key, Self#node.key)) of
     true  -> State#chord_state{predecessor = Node};
     false -> State
   end,
-  {noreply, NewState};
+  % If the current node doesn't have any successor,
+  % then use the predecessor as the successor.
+  % This is only done when the network is bootstrapped.
+  State2 = case get_successor(State1) of
+    undefined -> set_successor(Node, State1);
+    _ -> State1
+  end,
+  {noreply, State2};
 
 handle_cast({set_finger, N, NewFinger},  #chord_state{fingers = Fingers} = State) ->
   NewFingers = lists:sublist(Fingers, 1, N-1) ++ NewFinger ++ lists:nthtail(N, Fingers),
@@ -292,13 +302,20 @@ get_start(NodeKey, N) ->
     -> {ok, #node{}} | {error, instance}).
 find_successor(Key, 
     #chord_state{self = #node{key = NodeId}} = State) ->
-  Succ = get_successor(State),
-  % First check locally to see if it is in the range
-  % of this node and this nodes successor.
-  case utilities:in_inclusive_range(Key, NodeId, Succ#node.key) of
-    true  -> {ok, Succ};
-    % Try looking successively through successors successors.
-    false -> find_successor(Key, Succ)
+  case get_successor(State) of
+    undefined -> 
+      % This case only happens when the chord circle is new
+      % and the second node joins. Then the first node does
+      % not yet have any successors.
+      State#chord_state.self;
+    Succ ->
+      % First check locally to see if it is in the range
+      % of this node and this nodes successor.
+      case utilities:in_inclusive_range(Key, NodeId, Succ#node.key) of
+        true  -> {ok, Succ};
+        % Try looking successively through successors successors.
+        false -> find_successor(Key, Succ)
+      end
   end;
 find_successor(Key, #node{key = NKey} = CurrentNext) ->
   {ok, {NextFinger, NSucc}} = chord_tcp:rpc_get_closest_preceding_finger_and_succ(Key, CurrentNext),
@@ -321,11 +338,17 @@ closest_preceding_finger(Key, State) ->
     CurrentNode::#node{}) -> #node{}).
 closest_preceding_finger(_Key, _Fingers, -1, CurrentNode) -> CurrentNode;
 closest_preceding_finger(Key, Fingers, CurrentFinger, CurrentNode) ->
-  Node = (array:get(CurrentFinger, Fingers))#finger_entry.node,
-  NodeId = Node#node.key,
-  case ((CurrentNode#node.key < NodeId) andalso (NodeId < Key)) of
-    true -> Node;
-    false -> closest_preceding_finger(Key, Fingers, CurrentFinger-1, CurrentNode)
+  Finger = array:get(CurrentFinger, Fingers),
+  case Finger#finger_entry.node of
+    undefined ->
+      % The finger entry is empty. We skip it
+      closest_preceding_finger(Key, Fingers, CurrentFinger-1, CurrentNode);
+    Node ->
+      NodeId = Node#node.key,
+      case ((CurrentNode#node.key < NodeId) andalso (NodeId < Key)) of
+        true -> Node;
+        false -> closest_preceding_finger(Key, Fingers, CurrentFinger-1, CurrentNode)
+      end
   end.
 
 
@@ -395,6 +418,12 @@ find_closest_preceding_finger_test_() ->
     ?_assertEqual(nForKey(3), closest_preceding_finger(7, test_get_state()))
   ]}.
 
+% When finger table entries are empty, they should be skipped rather than cause an exception
+closest_preceding_finger_for_empty_fingers_test() ->
+  Self = #node{key=1234},
+  State = #chord_state{self = Self, fingers = create_finger_table(Self#node.key)},
+  ?assertEqual(Self, closest_preceding_finger(0, State)).
+
 
 %% *** find_successor tests ***
 
@@ -445,8 +474,9 @@ find_successor_subsequent_hop_test() ->
 % When a node has no known successor, then we are
 % working with a fresh chord ring, and return ourselves.
 find_successor_for_missing_successor_test() ->
-  Self = #node{key = 1234}
-  State = #chord_state{self = Self},
+  Self = #node{key = 1234},
+  Id = 100,
+  State = #chord_state{self = Self, fingers = create_finger_table(Id)},
   ?assertEqual(Self, find_successor(0, State)).
 
 

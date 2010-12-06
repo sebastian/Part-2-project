@@ -8,7 +8,7 @@
 %% ------------------------------------------------------------------
 
 -export([start_link/0, start/0, stop/0]).
--export([reg_and_get_peer/1]).
+-export([reg_and_get_peer/1, clear/0]).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Exports
@@ -27,10 +27,13 @@ start_link() ->
   gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
 stop() ->
-  gen_server:call(chord, stop).
+  gen_server:call(?MODULE, stop).
 
 reg_and_get_peer(NodeDetails) ->
-  gen_server:call(node_srv, {register, NodeDetails}).
+  gen_server:call(?MODULE, {register, NodeDetails}).
+
+clear() ->
+  gen_server:call(?MODULE, clear).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Definitions
@@ -50,8 +53,10 @@ handle_call({register, Details}, _From, State) ->
     true -> State;
     false -> [Details|State]
   end,
-  {reply, Peer, NewState}.
+  {reply, Peer, NewState};
 
+handle_call(clear, _From, _State) ->
+  {reply, ok, []}.
 
 %% Casts:
 handle_cast(_Msg, State) ->
