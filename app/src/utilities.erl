@@ -17,7 +17,6 @@
 -spec(get_join_node/2::(Ip::ip(), Port::port_number()) -> {ip(), port_number()} | first).
 get_join_node(Ip, Port) ->
   Url = get_join_node_url(Ip, Port),
-  %{ok, Result} = httpc:request(Url),
   {ok, Result} = tcp_utils:get_url(Url),
   Body = case Result of 
     {_, _, B} -> B;
