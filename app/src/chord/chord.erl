@@ -287,6 +287,7 @@ get_start(NodeKey, N) ->
   (NodeKey + (1 bsl N)) rem (1 bsl 160).
 
 
+%% @doc: Returns the node succeeding a key.
 -spec(find_successor/2::(Key::key(), #chord_state{} | #node{})
     -> {ok, #node{}} | {error, instance}).
 find_successor(Key, 
@@ -440,6 +441,14 @@ find_successor_subsequent_hop_test() ->
   erlymock:replay(), 
   ?assertEqual({ok, SecondNextSuccessor}, find_successor(Key, State)),
   erlymock:verify().
+
+% When a node has no known successor, then we are
+% working with a fresh chord ring, and return ourselves.
+find_successor_for_missing_successor_test() ->
+  Self = #node{key = 1234}
+  State = #chord_state{self = Self},
+  ?assertEqual(Self, find_successor(0, State)).
+
 
 %% *** perform_stabilize tests ***
 get_state_for_node_with_successor(NodeId, Succ) ->
