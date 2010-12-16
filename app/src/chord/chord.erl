@@ -160,7 +160,7 @@ handle_cast({notified, Node}, State) ->
   {noreply, perform_notify(Node, State)};
 
 handle_cast({set_finger, N, NewFinger},  #chord_state{fingers = Fingers} = State) ->
-  NewFingers = lists:sublist(Fingers, 1, N-1) ++ NewFinger ++ lists:nthtail(N, Fingers),
+  NewFingers = array:set(N, NewFinger, Fingers),
   NewState = State#chord_state{fingers = NewFingers},
   {noreply, NewState};
 
@@ -222,8 +222,7 @@ stabilizer() ->
 %% @doc: This task runs in the background, and automatically executes
 %% chord - fix_fingers at given intervals.
 fingerFixer() ->
-  ok.
-  %perform_task(fix_fingers, ?FIX_FINGER_INTERVAL).
+  perform_task(fix_fingers, ?FIX_FINGER_INTERVAL).
 
 perform_task(Task, Interval) ->
   receive stop -> ok
@@ -235,7 +234,7 @@ perform_task(Task, Interval) ->
 
 -spec(fix_finger/2::(FingerNum::integer(), #chord_state{}) -> ok).
 fix_finger(FingerNum, #chord_state{fingers = Fingers} = State) ->
-  Finger = lists:nth(FingerNum, Fingers),
+  Finger = array:get(FingerNum, Fingers),
   {ok, Succ} = find_successor(Finger#finger_entry.start, State),
   UpdatedFinger = Finger#finger_entry{node = Succ},
   gen_server:cast(chord, {set_finger, FingerNum, UpdatedFinger}).
@@ -388,6 +387,7 @@ set_successor(Successor, State) ->
   Fingers = State#chord_state.fingers,
   SuccessorFinger = (array:get(0, Fingers))#finger_entry{node=Successor},
   State#chord_state{fingers = array:set(0, SuccessorFinger, Fingers)}.
+
 
 -spec(perform_notify/2::(Node::#node{}, State::#chord_state{}) ->
     #chord_state{}).
