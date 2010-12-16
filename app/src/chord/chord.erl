@@ -481,7 +481,7 @@ find_successor_for_missing_successor_test() ->
   Self = #node{key = 1234},
   Id = 100,
   State = #chord_state{self = Self, fingers = create_finger_table(Id)},
-  ?assertEqual(Self, find_successor(0, State)).
+  ?assertEqual({ok, Self}, find_successor(0, State)).
 
 
 %% *** perform_stabilize tests ***
