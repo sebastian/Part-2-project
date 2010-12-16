@@ -64,7 +64,6 @@ preceding_finger(Key) ->
 
 -spec(find_successor/1::(Key::key()) -> {ok, #node{}}).
 find_successor(Key) ->
-  io:format("In chord. Calling gen server find successor~n"),
   gen_server:call(chord, {find_successor, Key}).
 
 -spec(get_predecessor/0::() -> #node{}).
@@ -79,7 +78,8 @@ get_predecessor() ->
 %% as the successor.
 -spec(notified/1::(Node::#node{}) -> ok).
 notified(Node) ->
-  gen_server:call(chord, {notified, Node}), ok.
+  gen_server:cast(chord, {notified, Node}), 
+  {ok, noreply}.
 
 -spec(stabilize/0::() -> ok).
 stabilize() ->
@@ -108,8 +108,8 @@ init(_Args) ->
     fingers = FingerTable,
 
     % Admin stuff
-    pidStabilizer = spawn(fun() -> stabilizer() end),
-    pidFixFingers = spawn(fun() -> fingerFixer() end)
+    pidStabilizer = spawn_link(fun() -> stabilizer() end),
+    pidFixFingers = spawn_link(fun() -> fingerFixer() end)
   },
 
   % Get node that can be used to join the chord network:
@@ -144,7 +144,6 @@ handle_call({set, _Key, _Entry}, _From, State) ->
   {reply, ok, State};
 
 handle_call({get_preceding_finger, Key}, _From, State) ->
-  io:format("Getting preceding finger for ~p, from State: ~p", [Key, State]),
   Finger = closest_preceding_finger(Key, State),
   Succ = get_successor(State),
   Msg = {ok, {Finger, Succ}},
@@ -157,38 +156,34 @@ handle_call(get_predecessor, _From, #chord_state{predecessor = Predecessor} = St
   {reply, {ok, Predecessor}, State}.
 
 %% Casts:
-handle_cast({notified, #node{key = NewKey} = Node}, 
-    #chord_state{predecessor = Pred, self = Self} = State) ->
-  State1 = case ((Pred =:= #node{}) orelse
-      utilities:in_range(NewKey, Pred#node.key, Self#node.key)) of
-    true  -> State#chord_state{predecessor = Node};
-    false -> State
-  end,
-  % If the current node doesn't have any successor,
-  % then use the predecessor as the successor.
-  % This is only done when the network is bootstrapped.
-  State2 = case get_successor(State1) of
-    undefined -> set_successor(Node, State1);
-    _ -> State1
-  end,
-  {noreply, State2};
+handle_cast({notified, Node}, State) ->
+  {noreply, perform_notify(Node, State)};
 
 handle_cast({set_finger, N, NewFinger},  #chord_state{fingers = Fingers} = State) ->
   NewFingers = lists:sublist(Fingers, 1, N-1) ++ NewFinger ++ lists:nthtail(N, Fingers),
   NewState = State#chord_state{fingers = NewFingers},
   {noreply, NewState};
 
-handle_cast({set_successor, Pred}, State) ->
-  {noreply, set_successor(Pred, State)};
+handle_cast({set_successor, Succ}, State) ->
+  {noreply, set_successor(Succ, State)};
 
 handle_cast(stabilize, #chord_state{self = Us} = State) ->
   Stabilize = fun() ->
     Succ = case perform_stabilize(State) of
       {updated_succ, NewSucc} ->
-        gen_server:cast(chord, {set_successor, NewSucc});
-      {ok, S} -> S
+        gen_server:cast(chord, {set_successor, NewSucc}),
+        NewSucc;
+      {ok, S} -> 
+        S
     end,
-    chord_tcp:notify_successor(Succ, Us)
+    case Succ of
+      % If we don't have a successor yet (when only one chord node exists)
+      % then don't attempt to update it.
+      undefined -> 
+        ok;
+      _ ->
+        chord_tcp:notify_successor(Succ, Us)
+    end
   end,
   % Perform stabilization    
   spawn(Stabilize),
@@ -222,8 +217,7 @@ code_change(_OldVsn, State, _Extra) ->
 %% @doc: This task runs in the background, and automatically executes
 %% chord - stabilize at given intervals.
 stabilizer() ->
-  ok.
-  %perform_task(stabilize, ?STABILIZER_INTERVAL).
+  perform_task(stabilize, ?STABILIZER_INTERVAL).
 
 %% @doc: This task runs in the background, and automatically executes
 %% chord - fix_fingers at given intervals.
@@ -233,7 +227,7 @@ fingerFixer() ->
 
 perform_task(Task, Interval) ->
   receive stop -> ok
-  after Interval ->
+  after (Interval*1000) ->
     gen_server:cast(chord, Task),
     perform_task(Task, Interval)
   end.
@@ -250,15 +244,26 @@ fix_finger(FingerNum, #chord_state{fingers = Fingers} = State) ->
 -spec(perform_stabilize/1::(#chord_state{}) -> 
     {ok, #node{}} | {updated_succ, #node{}}).
 perform_stabilize(#chord_state{self = ThisNode} = State) ->
-  Succ = get_successor(State),
-  {ok, SuccPred} = chord_tcp:get_predecessor(Succ),
-  % Check if predecessor is between ourselves and successor
-  case utilities:in_range(SuccPred#node.key, ThisNode#node.key, Succ#node.key) of
-    true  -> 
-      {updated_succ, SuccPred};
-    false -> 
-      % We still have the same successor.
-      {ok, Succ}
+  case get_successor(State) of
+    undefined -> {ok, undefined};
+    Succ ->
+      case chord_tcp:get_predecessor(Succ) of
+        {ok, undefined} ->
+          % The other node doesn't have a predecessor yet.
+          % That is the case when it is a new chord ring.
+          % By setting the node as a new successor we update
+          % the state in ourselves and the successor.
+          {updated_succ, Succ};
+        {ok, SuccPred} ->
+          % Check if predecessor is between ourselves and successor
+          case utilities:in_range(SuccPred#node.key, ThisNode#node.key, Succ#node.key) of
+            true  -> 
+              {updated_succ, SuccPred};
+            false -> 
+              % We still have the same successor.
+              {ok, Succ}
+          end
+      end
   end.
 
 
@@ -303,13 +308,11 @@ get_start(NodeKey, N) ->
     -> {ok, #node{}} | {error, instance}).
 find_successor(Key, 
     #chord_state{self = #node{key = NodeId}} = State) ->
-  io:format("In find_successor, looking for successor of ~p~n", [Key]),
   case get_successor(State) of
     undefined -> 
       % This case only happens when the chord circle is new
       % and the second node joins. Then the first node does
       % not yet have any successors.
-      io:format("Returning self~n"),
       {ok, State#chord_state.self};
     Succ ->
       % First check locally to see if it is in the range
@@ -359,7 +362,7 @@ closest_preceding_finger(Key, Fingers, CurrentFinger, CurrentNode) ->
 -spec(join/2::(State::#chord_state{}, NodeToAsk::#node{}) -> 
     {ok, #chord_state{}} | {error, atom(), #chord_state{}}).
 join(State, NodeToAsk) ->
-  PredState = State#chord_state{predecessor = #node{}},
+  PredState = State#chord_state{predecessor = undefined},
 
   % Find state needed for request
   NIp = NodeToAsk#node.ip,
@@ -368,7 +371,6 @@ join(State, NodeToAsk) ->
 
   % Find the successor node
   {ok, Succ} = chord_tcp:rpc_find_successor(OwnKey, NIp, NPort),
-  io:format("Got successor in join: ~p", [Succ]),
   {ok, set_successor(Succ, PredState)}.
 
 
@@ -387,6 +389,17 @@ set_successor(Successor, State) ->
   SuccessorFinger = (array:get(0, Fingers))#finger_entry{node=Successor},
   State#chord_state{fingers = array:set(0, SuccessorFinger, Fingers)}.
 
+-spec(perform_notify/2::(Node::#node{}, State::#chord_state{}) ->
+    #chord_state{}).
+perform_notify(Node, #chord_state{predecessor = undefined} = State) ->
+  set_successor(Node, State#chord_state{predecessor = Node});
+perform_notify(#node{key = NewKey} = Node, 
+    #chord_state{predecessor = Pred, self = Self} = State) ->
+  case utilities:in_range(NewKey, Pred#node.key, Self#node.key) of
+    true  -> State#chord_state{predecessor = Node};
+    false -> State
+  end.
+
 %% ------------------------------------------------------------------
 %% Tests
 %% ------------------------------------------------------------------
@@ -395,10 +408,15 @@ set_successor(Successor, State) ->
 
 nForKey(Key) -> #node{key = Key}.
 
+
+
 %% @todo: Missing test for fix_finger
 
 %% @todo: Missing test that checks that notify actually works!
 %%        Missing test where the successors predecessor is not ourself.
+
+test_get_empty_state() ->
+  #chord_state{fingers = create_finger_table(0)}.
 
 test_get_state() ->
   Fingers = array:set(0, #finger_entry{start = 1, interval = {1,2}, node = nForKey(1)},
@@ -487,6 +505,11 @@ find_successor_for_missing_successor_test() ->
 %% *** perform_stabilize tests ***
 get_state_for_node_with_successor(NodeId, Succ) ->
   set_successor(Succ, #chord_state{self=nForKey(NodeId), fingers = create_finger_table(0)}).
+
+perform_stabilize_with_empty_state_test() ->
+  State = test_get_empty_state(),
+  ?assertEqual(undefined, get_successor(State)),
+  ?assertEqual({ok, undefined}, perform_stabilize(State)).
 
 % The successor hasn't changed
 perform_stabilize_same_successor_test() ->
@@ -609,4 +632,28 @@ join_test() ->
 
   erlymock:verify().
     
+%% *** cast notified tests ***
+perform_notify_no_previous_predecessor_test() ->
+  % Being notified when you have no previous predecessor
+  % should set the predecessor.
+  State = test_get_empty_state(),
+  NewNode = #node{key=1234},
+  NewState = perform_notify(NewNode, State),
+  ?assertEqual(NewNode, NewState#chord_state.predecessor).
+perform_notify_no_successor_test() ->
+  % If there is no successor in the state, then the predecessor
+  % should also become the successor.
+  State = set_successor(undefined, test_get_empty_state()),
+  NewNode = #node{key=1234},
+  NewState = perform_notify(NewNode, State),
+  ?assertEqual(NewNode, get_successor(NewState)).
+perform_notify_should_update_newer_predecessors_test() ->
+  % If the predecessor is closer in the chord ring than
+  % the one currently in the state, then update the state.
+  OldPred = nForKey(1),
+  NewPred = nForKey(2),
+  State = #chord_state{predecessor = OldPred, self=nForKey(3)},
+  NewState = perform_notify(NewPred, State),
+  ?assertEqual(NewPred, NewState#chord_state.predecessor).
+
 -endif.
