@@ -98,7 +98,9 @@ chord_tcp_client(Socket) ->
     {tcp, Socket, Data} ->
       Message = binary_to_term(Data, [safe]),
       error_logger:info_msg("Got Data: ~p", [Message]),
+      io:format("About to call handle_msg~n"),
       {ok, Value} = handle_msg(Message),
+      io:format("Handlet message and got value in response: ~p~n", [Value]),
       gen_tcp:send(Socket, term_to_binary(Value)),
       chord_tcp_client(Socket);
     {tcp_closed, Socket} ->
@@ -139,6 +141,7 @@ handle_msg({preceding_finger, Key}) ->
   chord:preceding_finger(Key);
 
 handle_msg({find_successor, Key}) ->
+  io:format("Calling: chord:find_successor for key: ~p", [Key]),
   chord:find_successor(Key);
 
 handle_msg(get_predecessor) ->

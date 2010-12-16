@@ -64,6 +64,7 @@ preceding_finger(Key) ->
 
 -spec(find_successor/1::(Key::key()) -> {ok, #node{}}).
 find_successor(Key) ->
+  io:format("In chord. Calling gen server find successor~n"),
   gen_server:call(chord, {find_successor, Key}).
 
 -spec(get_predecessor/0::() -> #node{}).
@@ -302,12 +303,14 @@ get_start(NodeKey, N) ->
     -> {ok, #node{}} | {error, instance}).
 find_successor(Key, 
     #chord_state{self = #node{key = NodeId}} = State) ->
+  io:format("In find_successor, looking for successor of ~p~n", [Key]),
   case get_successor(State) of
     undefined -> 
       % This case only happens when the chord circle is new
       % and the second node joins. Then the first node does
       % not yet have any successors.
-      State#chord_state.self;
+      io:format("Returning self~n"),
+      {ok, State#chord_state.self};
     Succ ->
       % First check locally to see if it is in the range
       % of this node and this nodes successor.
@@ -365,6 +368,7 @@ join(State, NodeToAsk) ->
 
   % Find the successor node
   {ok, Succ} = chord_tcp:rpc_find_successor(OwnKey, NIp, NPort),
+  io:format("Got successor in join: ~p", [Succ]),
   {ok, set_successor(Succ, PredState)}.
 
 
