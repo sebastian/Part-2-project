@@ -20,14 +20,14 @@ test_person_sebastianB() ->
 test_person_entry_1a() ->
   #entry{
     key = <<"ABCD">>,
-    timeout = 60*60*5,
+    timeout = utilities:get_time() + 10,
     data = test_person_sebastianA()
   }.
 
 test_person_entry_1b() ->
   #entry{
     key = <<"ABCD">>,
-    timeout = 60*60*5,
+    timeout = utilities:get_time() + 10,
     data = test_person_sebastianB()
   }.
 

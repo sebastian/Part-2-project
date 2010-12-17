@@ -108,8 +108,8 @@ init(_Args) ->
     fingers = FingerTable,
 
     % Admin stuff
-    pidStabilizer = spawn_link(fun() -> stabilizer() end),
-    pidFixFingers = spawn_link(fun() -> fingerFixer() end)
+    pidStabilizer = utilities:start_periodic_task(chord, stabilize, ?STABILIZER_INTERVAL),    
+    pidFixFingers = utilities:start_periodic_task(chord, fix_fingers, ?FIX_FINGER_INTERVAL)
   },
 
   % Get node that can be used to join the chord network:
@@ -213,24 +213,6 @@ code_change(_OldVsn, State, _Extra) ->
 %% ------------------------------------------------------------------
 %% Internal Function Definitions
 %% ------------------------------------------------------------------
-
-%% @doc: This task runs in the background, and automatically executes
-%% chord - stabilize at given intervals.
-stabilizer() ->
-  perform_task(stabilize, ?STABILIZER_INTERVAL).
-
-%% @doc: This task runs in the background, and automatically executes
-%% chord - fix_fingers at given intervals.
-fingerFixer() ->
-  perform_task(fix_fingers, ?FIX_FINGER_INTERVAL).
-
-perform_task(Task, Interval) ->
-  receive stop -> ok
-  after (Interval*1000) ->
-    gen_server:cast(chord, Task),
-    perform_task(Task, Interval)
-  end.
-
 
 -spec(fix_finger/2::(FingerNum::integer(), #chord_state{}) -> ok).
 fix_finger(FingerNum, #chord_state{fingers = Fingers} = State) ->
@@ -626,7 +608,7 @@ join_test() ->
 
   {ok, NewState} = join(State, JoinNode),
   % Ensure the precesseccor has been removed
-  ?assert((NewState#chord_state.predecessor)#node.key =/= 1234567890),
+  ?assert(NewState#chord_state.predecessor =/= Predecessor),
   % Make sure that it has set the right successor
   ?assertEqual(SuccessorNode, get_successor(NewState)),
 
