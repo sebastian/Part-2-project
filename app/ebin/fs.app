@@ -8,7 +8,7 @@
  	fs_web_sup, entries_resource, search_resource, static_resource,
 	chord, chord_sup, chord_tcp, 
 	gen_listener_tcp,
-	datastore,
+	datastore, datastore_srv, datastore_sup,
 	utilities, tcp_utils, test_utils
   % For testing
   %erlymock, erlymock_tcp, erlymock_recorder

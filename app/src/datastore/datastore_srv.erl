@@ -4,6 +4,10 @@
 -behaviour(gen_server).
 -define(SERVER, ?MODULE).
 
+-ifdef(TEST).
+-include_lib("eunit/include/eunit.hrl").
+-endif.
+
 -include("../fs.hrl").
 
 %% ------------------------------------------------------------------
@@ -30,7 +34,7 @@ start_link() ->
   gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
 stop() ->
-  gen_server:call(chord, stop).
+  gen_server:call(?SERVER, stop).
 
 %% ------------------------------------------------------------------
 %% Public API
@@ -45,7 +49,7 @@ set(Key, Value) ->
 %%     might potentially be empty.
 -spec(get/1::(Key::key()) -> [#entry{}]).
 get(Key) ->
-  get_server:call(?MODULE, {get, Key}).
+  gen_server:call(?MODULE, {get, Key}).
 
 %% @doc Filters out all items that have expired.
 -spec(spring_cleaning/0::() -> ok).
@@ -74,8 +78,24 @@ handle_call(stop, _From, State) ->
 handle_cast(spring_cleaning, State) ->
   {noreply, datastore:spring_cleaning(State)}.
 
-terminate(_Reason, State) ->
+terminate(_Reason, _State) ->
   ok.
 
 code_change(_OldVsn, State, _Extra) ->
   {ok, State}.
+
+%% ------------------------------------------------------------------
+%% Tests
+%% ------------------------------------------------------------------
+
+-ifdef(TEST).
+
+datastore_srv_integration_test() ->
+  start(),
+  Value = #entry{timeout = utilities:get_time() + 20},
+  ?assertEqual([], datastore_srv:get(<<"unknown key">>)),
+  ?assertEqual(ok, datastore_srv:set(<<"key">>, Value)),
+  ?assertEqual([Value], datastore_srv:get(<<"key">>)),
+  stop().
+
+-endif.

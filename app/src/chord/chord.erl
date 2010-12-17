@@ -21,7 +21,6 @@
 -export([start_link/0, start/0, stop/0]).
 -export([get/1, set/2, preceding_finger/1, find_successor/1, get_predecessor/0]).
 -export([notified/1]).
--export([get_state/0]).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Exports
@@ -41,14 +40,6 @@ start_link() ->
 
 stop() ->
   gen_server:call(chord, stop).
-
--spec(set_state/1::(#chord_state{}) -> ok).
-set_state(NewState) ->
-  gen_server:call(chord, {set_state, NewState}).
-
--spec(get_state/0::() -> #chord_state{}).
-get_state() ->
-  gen_server:call(chord, get_state).
 
 -spec(get/1::(Key::key()) -> [#entry{}]).
 get(Key) ->
@@ -80,11 +71,6 @@ get_predecessor() ->
 notified(Node) ->
   gen_server:cast(chord, {notified, Node}), 
   {ok, noreply}.
-
--spec(stabilize/0::() -> ok).
-stabilize() ->
-  gen_server:cast(stabilize),
-  ok.
 
 %% ------------------------------------------------------------------
 %% gen_server Function Definitions
@@ -134,13 +120,11 @@ handle_call({set_state, NewState}, _From, _State) ->
 handle_call(stop, _From, State) ->
   {stop, normal, ok, State};
 
-handle_call({get, _Key}, _From, State) ->
-  % Do lookup
-  Results = some_call,
-  {reply, Results, State};
+handle_call({get, Key}, _From, State) ->
+  {reply, datastore_srv:get(Key), State};
 
-handle_call({set, _Key, _Entry}, _From, State) ->
-  % Store value in network
+handle_call({set, Key, Entry}, _From, State) ->
+  datastore_srv:set(Key, Entry),
   {reply, ok, State};
 
 handle_call({get_preceding_finger, Key}, _From, State) ->
