@@ -58,7 +58,7 @@ These kinds of records can be stored for partial names in order to allow predict
 * key of full user record (hash of full name of user) (this is potentially redundant, but might speed things up lookups? Should remove?)
 
 
-## FriendIndex
+## FriendSearch
 The friend search module keeps a list of records owned by the current instance
 and is responsible for keeping them allive in the search index by using the DHT
 set methods.

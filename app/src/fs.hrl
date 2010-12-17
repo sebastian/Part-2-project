@@ -50,3 +50,13 @@
     %     multiple keys.
     data :: #person{} | #link{}
   }).
+
+-record(datastore_state, {
+    timer,
+    data
+  }).
+-record(friendsearch_state, {
+    dht, 
+    entries,
+    link_entries
+  }).

@@ -1,11 +1,8 @@
 %% @author Sebastian Probst Eide
 %% @doc DataStore server module for storing and retrieving values.
--module(datastore_srv).
+-module(friendsearch_srv).
 -behaviour(gen_server).
 -define(SERVER, ?MODULE).
-
-% Clear out old data once every minute
--define(CLEAN_INTERVAL, 60 * 1000).
 
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
@@ -17,14 +14,14 @@
 %% API Function Exports
 %% ------------------------------------------------------------------
 
--export([set/2, get/1, spring_cleaning/0]).
+-export([list/0, add/1, delete/1, find/1]).
 -export([start_link/0, start/0, stop/0]).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Exports
 %% ------------------------------------------------------------------
 
--export([init/1, handle_call/3, handle_cast/2, terminate/2, code_change/3]).
+-export([init/1, handle_call/3, terminate/2, code_change/3]).
 
 %% ------------------------------------------------------------------
 %% API Function Definitions
@@ -43,45 +40,52 @@ stop() ->
 %% Public API
 %% ------------------------------------------------------------------
 
-%% @doc Adds a value for a key. A key can contain several entries
--spec(set/2::(Key::key(), Value::#entry{}) -> ok).
-set(Key, Value) ->
-  gen_server:call(?MODULE, {set, Key, Value}).
+%% @doc: lists all entries maintained by the local node.
+-spec(list/0::() -> [#person{}]).
+list() ->
+  gen_server:call(?MODULE, list).
 
-%% @doc Returns a list of values for a given key. The list
-%%     might potentially be empty.
--spec(get/1::(Key::key()) -> [#entry{}]).
-get(Key) ->
-  gen_server:call(?MODULE, {get, Key}).
+%% @doc: adds a new entry to the list of entries maintained by the local node.
+-spec(add/1::(Entry::#person{}) -> ok).
+add(Entry) ->
+  gen_server:call(?MODULE, {add, Entry}).
 
-%% @doc Filters out all items that have expired.
--spec(spring_cleaning/0::() -> ok).
-spring_cleaning() ->
-  gen_server:cast(?MODULE, spring_cleaning). 
+%% @doc: removes an entry from the list of entries maintained by the local node. 
+%% The entry isn't removed from the global index before it times out.`
+-spec(delete/1::(_) -> ok).
+delete(Key) ->
+  gen_server:call(?MODULE, {delete, Key}).
+
+%% @doc: queries the storage network for entries matching some find.
+-spec(find/1::(Query::bitstring()) -> [#person{}]).
+find(Query) ->
+  gen_server:call(?MODULE, {find, Query}).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Definitions
 %% ------------------------------------------------------------------
 
 init(_Args) -> 
-  {ok, TimerRef} = timer:apply_interval(?CLEAN_INTERVAL, ?MODULE, spring_cleaning, []),
-  {ok, #datastore_state{timer = TimerRef, data = datastore:init()}}.
+  State = friendsearch:init(),
+  {ok, State}.
 
-handle_call({get, Key}, _From, State) ->
-  {reply, datastore:get(Key, State), State};
+%% Call:
+handle_call(list, _From, State) ->
+  {reply, friendsearch:list(State), State};
 
-handle_call({set, Key, Value}, _From, State) ->
-  {ok, NewState} = datastore:set(Key, Value, State),
-  {reply, ok, NewState};
+handle_call({add, Entry}, _From, State) ->
+  {reply, ok, friendsearch:add(Entry, State)};
+
+handle_call({delete, Key}, _From, State) ->
+  {reply, ok, friendsearch:delete(Key, State)};
+
+handle_call({find, Query}, _From, State) ->
+  {reply, friendsearch:find(Query, State), State};
 
 handle_call(stop, _From, State) ->
   {stop, normal, ok, State}.
 
-handle_cast(spring_cleaning, State) ->
-  {noreply, datastore:spring_cleaning(State)}.
-
-terminate(_Reason, State) ->
-  timer:cancel(State#datastore_state.timer),
+terminate(_Reason, _State) ->
   ok.
 
 code_change(_OldVsn, State, _Extra) ->
@@ -92,13 +96,5 @@ code_change(_OldVsn, State, _Extra) ->
 %% ------------------------------------------------------------------
 
 -ifdef(TEST).
-
-datastore_srv_integration_test() ->
-  start(),
-  Value = #entry{timeout = utilities:get_time() + 20},
-  ?assertEqual([], datastore_srv:get(<<"unknown key">>)),
-  ?assertEqual(ok, datastore_srv:set(<<"key">>, Value)),
-  ?assertEqual([Value], datastore_srv:get(<<"key">>)),
-  stop().
 
 -endif.

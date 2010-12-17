@@ -1,9 +1,9 @@
-%% @author author <author@example.com>
-%% @copyright YYYY author.
+%% @author Sebastian Probst Eide <sebastian.probst.eide@gmail.com>
+%% @copyright 2010 Sebastian Probst Eide
 
-%% @doc Supervisor for the fs_web application.
+%% @doc Supervisor for the chord application.
 
--module(fs_sup).
+-module(friendsearch_sup).
 -author('Sebastian Probst Eide sebastian.probst.eide@gmail.com').
 
 -behaviour(supervisor).
@@ -41,16 +41,10 @@ upgrade() ->
 %% @spec init([]) -> SupervisorTree
 %% @doc supervisor callback.
 init([]) ->
-    CreateSup = fun(Name) -> {Name,
-        {Name, start_link, []},
-        permanent, infinity, supervisor,
-        []}
-      end,
+  CreateSrv = fun(Name) -> {Name, {Name, start_link, [chord]},
+      permanent, 2000, worker, [Name]}
+  end,
 
-    Processes = [
-      CreateSup(datastore_sup),
-      CreateSup(chord_sup),
-      CreateSup(friendsearch_sup),
-      CreateSup(fs_web_sup)
-    ],
-    {ok, { {one_for_one, 10, 10}, Processes} }.
+  Processes = [CreateSrv(friendsearch_srv)],
+
+  {ok, { {one_for_one, 10, 10}, Processes} }.
