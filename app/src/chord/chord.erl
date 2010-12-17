@@ -20,6 +20,7 @@
 
 -export([start_link/0, start/0, stop/0]).
 -export([get/1, set/2, preceding_finger/1, find_successor/1, get_predecessor/0]).
+-export([local_set/2, local_get/1]).
 -export([notified/1]).
 
 %% ------------------------------------------------------------------
@@ -41,13 +42,28 @@ start_link() ->
 stop() ->
   gen_server:call(chord, stop).
 
+%% @doc: gets a value from the chord network
 -spec(get/1::(Key::key()) -> [#entry{}]).
 get(Key) ->
-  gen_server:call(chord, {get, Key}).
+  {ok, StorageNode} = find_successor(Key),
+  {ok, Values} = chord_tcp:rpc_get_key(Key, StorageNode),
+  Values.
 
+%% @doc: stores a value in the chord network
 -spec(set/2::(Key::key(), Entry::#entry{}) -> ok | {error, server}).
 set(Key, Entry) ->
-  gen_server:call(chord, {set, Key, Entry}).
+  {ok, StorageNode} = find_successor(Key),
+  ok = chord_tcp:rpc_set_key(Key, Entry, StorageNode).
+
+%% @doc: get's a value from the local chord node
+-spec(local_get/1::(Key::key()) -> [#entry{}]).
+local_get(Key) ->
+  {ok, gen_server:call(chord, {local_get, Key})}.
+
+%% @doc: stores a value in the current local chord node
+-spec(local_set/2::(Key::key(), Entry::#entry{}) -> ok | {error, server}).
+local_set(Key, Entry) ->
+  {ok, gen_server:call(chord, {local_set, Key, Entry})}.
 
 -spec(preceding_finger/1::(Key::key()) -> {ok, {#node{}, #node{}}}).
 preceding_finger(Key) ->
@@ -120,10 +136,10 @@ handle_call({set_state, NewState}, _From, _State) ->
 handle_call(stop, _From, State) ->
   {stop, normal, ok, State};
 
-handle_call({get, Key}, _From, State) ->
+handle_call({local_get, Key}, _From, State) ->
   {reply, datastore_srv:get(Key), State};
 
-handle_call({set, Key, Entry}, _From, State) ->
+handle_call({local_set, Key, Entry}, _From, State) ->
   datastore_srv:set(Key, Entry),
   {reply, ok, State};
 

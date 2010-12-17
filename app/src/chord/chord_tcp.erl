@@ -21,6 +21,7 @@
 
 -export([start_link/0, start/0, stop/0]).
 -export([rpc_get_closest_preceding_finger_and_succ/2, rpc_find_successor/3]).
+-export([rpc_get_key/2, rpc_set_key/3]).
 -export([notify_successor/2, get_predecessor/1]).
 
 %% ------------------------------------------------------------------
@@ -33,6 +34,16 @@
 %% ------------------------------------------------------------------
 %% API Function Definitions
 %% ------------------------------------------------------------------
+
+-spec(rpc_get_key/2::(Key::key(), Node::#node{}) ->
+    {ok, [#entry{}]} | {error, _}).
+rpc_get_key(Key, #node{ip=Ip, port=Port}) ->
+  perform_rpc({get_key, Key}, Ip, Port).
+
+-spec(rpc_set_key/3::(Key::key(), Value::#entry{}, Node::#node{}) ->
+    ok | {error, _}).
+rpc_set_key(Key, Value, #node{ip=Ip, port=Port}) ->
+  perform_rpc({set_key, Key, Value}, Ip, Port).
 
 -spec(rpc_get_closest_preceding_finger_and_succ/2::(Key::key(), Node::#node{}) 
     -> {ok, {_::#node{}, _::#node{}}} | {error, _}).
@@ -145,4 +156,10 @@ handle_msg(get_predecessor) ->
   chord:get_predecessor();
 
 handle_msg({notify_about_predecessor, CurrentNode}) ->
-  chord:notified(CurrentNode).
+  chord:notified(CurrentNode);
+
+handle_msg({set_key, Key, Value}) ->
+  chord:local_set(Key, Value);
+
+handle_msg({get_key, Key}) ->
+  chord:local_get(Key).
