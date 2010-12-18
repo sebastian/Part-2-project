@@ -20,6 +20,6 @@
     fingers = array:new(160) :: array(),
 
     % Administrative information
-    timerRefStabilizer :: pid(),
-    timerRefFixFingers :: pid()
+    timerRefStabilizer :: timer:tref(),
+    timerRefFixFingers :: timer:tref()
   }).

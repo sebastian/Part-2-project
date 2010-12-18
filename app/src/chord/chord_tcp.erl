@@ -41,7 +41,7 @@ rpc_get_key(Key, #node{ip=Ip, port=Port}) ->
   perform_rpc({get_key, Key}, Ip, Port).
 
 -spec(rpc_set_key/3::(Key::key(), Value::#entry{}, Node::#node{}) ->
-    ok | {error, _}).
+    {ok, _} | {error, _}).
 rpc_set_key(Key, Value, #node{ip=Ip, port=Port}) ->
   perform_rpc({set_key, Key, Value}, Ip, Port).
 
@@ -56,7 +56,7 @@ rpc_find_successor(Key, Ip, Port) ->
   perform_rpc({find_successor, Key}, Ip, Port).
 
 -spec(get_predecessor/1::(#node{}) ->
-    {ok, #node{}} | {error, _}).
+    {ok, #node{}} | {ok, undefined} | {error, _}).
 get_predecessor(#node{ip=Ip, port=Port}) ->
   perform_rpc(get_predecessor, Ip, Port).
 

@@ -71,7 +71,7 @@ get_chord_port() ->
   end.
 
 %% @doc: returns the port number at which the webserver should be listening.
--spec(get_webmachine_port/0::() -> number()).
+-spec(get_webmachine_port/0::() -> number() | none).
 get_webmachine_port() ->
   case init:get_argument(fs_web_port) of
     {ok, [[PortNumber]]} ->

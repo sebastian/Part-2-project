@@ -52,18 +52,19 @@ get(Key) ->
   Values.
 
 %% @doc: stores a value in the chord network
--spec(set/2::(Key::key(), Entry::#entry{}) -> ok | {error, server}).
+-spec(set/2::(Key::key(), Entry::#entry{}) -> ok).
 set(Key, Entry) ->
   {ok, StorageNode} = find_successor(Key),
-  ok = chord_tcp:rpc_set_key(Key, Entry, StorageNode).
+  {ok, _} = chord_tcp:rpc_set_key(Key, Entry, StorageNode),
+  ok.
 
 %% @doc: get's a value from the local chord node
--spec(local_get/1::(Key::key()) -> [#entry{}]).
+-spec(local_get/1::(Key::key()) -> {ok, [#entry{}]}).
 local_get(Key) ->
   {ok, gen_server:call(chord, {local_get, Key})}.
 
 %% @doc: stores a value in the current local chord node
--spec(local_set/2::(Key::key(), Entry::#entry{}) -> ok | {error, server}).
+-spec(local_set/2::(Key::key(), Entry::#entry{}) -> {ok, ok}).
 local_set(Key, Entry) ->
   {ok, gen_server:call(chord, {local_set, Key, Entry})}.
 
@@ -85,10 +86,10 @@ get_predecessor() ->
 %% Additionally, and this is a hack to bootstrap the system,
 %% if the current node doesn't have any successor, then add the predecessor
 %% as the successor.
--spec(notified/1::(Node::#node{}) -> ok).
+-spec(notified/1::(Node::#node{}) -> {ok, ignore}).
 notified(Node) ->
   gen_server:cast(chord, {notified, Node}), 
-  {ok, noreply}.
+  {ok, ignore}.
 
 %% ------------------------------------------------------------------
 %% To be called by timer
@@ -129,16 +130,17 @@ init(_Args) ->
   },
 
   % Get node that can be used to join the chord network:
-  case utilities:get_join_node(Ip, Port) of
+  State2 = case utilities:get_join_node(Ip, Port) of
     {JoinIp, JoinPort} ->
       % Connect to the new node.
       SeedNode = #node{ip = JoinIp, port = JoinPort},
       {ok, NewState} = join(State, SeedNode),
-      {ok, NewState};
+      NewState;
     first ->
       % We are the first in the network. Return the current state.
-      {ok, State}
-  end.
+      State
+  end,
+  {ok, State2}.
 
 %% Call:
 handle_call(get_state, _From, State) ->
@@ -218,8 +220,7 @@ handle_info(_Info, State) ->
 terminate(_Reason, State) ->
   % Tell the admin workers to stop what they are doing
   timer:cancel(State#chord_state.timerRefStabilizer),
-  timer:cancel(State#chord_state.timerRefFixFingers),
-  ok.
+  timer:cancel(State#chord_state.timerRefFixFingers).
 
 code_change(_OldVsn, State, _Extra) ->
   {ok, State}.
@@ -237,7 +238,7 @@ fix_finger(FingerNum, #chord_state{fingers = Fingers} = State) ->
 
 
 -spec(perform_stabilize/1::(#chord_state{}) -> 
-    {ok, #node{}} | {updated_succ, #node{}}).
+    {ok, #node{}} | {ok, undefined} | {updated_succ, #node{}}).
 perform_stabilize(#chord_state{self = ThisNode} = State) ->
   case get_successor(State) of
     undefined -> {ok, undefined};
@@ -262,13 +263,13 @@ perform_stabilize(#chord_state{self = ThisNode} = State) ->
   end.
 
 
--spec(create_finger_table/1::(NodeKey::key()) -> [#finger_entry{}]).
+-spec(create_finger_table/1::(NodeKey::key()) -> array()).
 create_finger_table(NodeKey) ->
   create_start_entries(NodeKey, 0, array:new(160)).
 
 
 -spec(create_start_entries/3::(NodeKey::key(), N::integer(), Array::array()) -> 
-    [#finger_entry{}]).
+    array()).
 create_start_entries(_NodeKey, 160, Array) -> Array;
 create_start_entries(NodeKey, N, Array) ->
   create_start_entries(NodeKey, N+1, array:set(N, finger_entry_node(NodeKey, N), Array)).
@@ -300,7 +301,7 @@ get_start(NodeKey, N) ->
 
 %% @doc: Returns the node succeeding a key.
 -spec(find_successor/2::(Key::key(), #chord_state{} | #node{})
-    -> {ok, #node{}} | {error, instance}).
+    -> {ok, #node{}}).
 find_successor(Key, 
     #chord_state{self = #node{key = NodeId}} = State) ->
   case get_successor(State) of
@@ -355,7 +356,7 @@ closest_preceding_finger(Key, Fingers, CurrentFinger, CurrentNode) ->
 
 %% @doc: joins another chord node and returns the updated chord state
 -spec(join/2::(State::#chord_state{}, NodeToAsk::#node{}) -> 
-    {ok, #chord_state{}} | {error, atom(), #chord_state{}}).
+    {ok, #chord_state{}}).
 join(State, NodeToAsk) ->
   PredState = State#chord_state{predecessor = undefined},
 
@@ -370,7 +371,7 @@ join(State, NodeToAsk) ->
 
 
 %% @doc: returns the successor in the local finger table
--spec(get_successor/1::(State::#chord_state{}) -> #node{}).
+-spec(get_successor/1::(State::#chord_state{}) -> #node{} | undefined).
 get_successor(State) ->
   Fingers = State#chord_state.fingers,
   (array:get(0, Fingers))#finger_entry.node.

@@ -20,7 +20,7 @@ init() ->
 
 %% @doc Adds a value for a key. A key can contain several entries
 -spec(set/3::(Key::key(), Value::#entry{}, State::#datastore_state{}) 
-    -> dict()).
+    -> {ok, #datastore_state{}}).
 set(Key, Value, State) ->
   Data = State#datastore_state.data,
   Timeout = Value#entry.timeout,
@@ -53,7 +53,7 @@ get(Key, State) ->
 
 %% @doc Filters out all items that have expired.
 -spec(spring_cleaning/1::(State::#datastore_state{}) 
-    -> #datastore_state{}).
+    -> {ok, #datastore_state{}}).
 spring_cleaning(State) ->
   CurrentTime = utilities:get_time(),
   WithoutOldEntries = 
