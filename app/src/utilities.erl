@@ -13,17 +13,6 @@
 -include_lib("eunit/include/eunit.hrl").
 -endif.
 
-%% @doc: starts a task that calls a gen_server
-%% every Interval seconds.
-start_periodic_task(Server, Task, Interval) ->
-  spawn_link(fun() -> perform_task(Server, Task, Interval) end).
-perform_task(Server, Task, Interval) ->
-  receive stop -> ok
-  after (Interval*1000) ->
-    gen_server:cast(Server, Task),
-    perform_task(Server, Task, Interval)
-  end.
-
 %% @doc: returns the current time in gregorian seconds
 -spec(get_time/0::() -> integer()).
 get_time() ->

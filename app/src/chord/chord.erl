@@ -3,9 +3,9 @@
 -define(SERVER, ?MODULE).
 -define(NUMBER_OF_FINGERS, 160).
 
-%% @doc: the interval in seconds at which the routine tasks are performed
--define(STABILIZER_INTERVAL, 3).
--define(FIX_FINGER_INTERVAL, 2).
+%% @doc: the interval in miliseconds at which the routine tasks are performed
+-define(STABILIZER_INTERVAL, 3000).
+-define(FIX_FINGER_INTERVAL, 2000).
 
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
@@ -22,6 +22,8 @@
 -export([get/1, set/2, preceding_finger/1, find_successor/1, get_predecessor/0]).
 -export([local_set/2, local_get/1]).
 -export([notified/1]).
+% Methods executed by timer
+-export([stabilize/0, fix_fingers/0]).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Exports
@@ -89,6 +91,13 @@ notified(Node) ->
   {ok, noreply}.
 
 %% ------------------------------------------------------------------
+%% To be called by timer
+%% ------------------------------------------------------------------
+
+stabilize() -> gen_server:cast(chord, stabilize).
+fix_fingers() -> gen_server:cast(chord, fix_fingers).
+
+%% ------------------------------------------------------------------
 %% gen_server Function Definitions
 %% ------------------------------------------------------------------
 
@@ -101,6 +110,11 @@ init(_Args) ->
   % we have 160-bit keys.
   FingerTable = create_finger_table(NodeId),
   
+  {ok, TimerRefStabilizer} = 
+      timer:apply_interval(?STABILIZER_INTERVAL, ?MODULE, stabilize, []),
+  {ok, TimerRefFixFingers} = 
+      timer:apply_interval(?FIX_FINGER_INTERVAL, ?MODULE, fix_fingers, []),
+
   State = #chord_state{self =
     #node{
       ip = Ip,
@@ -110,8 +124,8 @@ init(_Args) ->
     fingers = FingerTable,
 
     % Admin stuff
-    pidStabilizer = utilities:start_periodic_task(chord, stabilize, ?STABILIZER_INTERVAL),    
-    pidFixFingers = utilities:start_periodic_task(chord, fix_fingers, ?FIX_FINGER_INTERVAL)
+    timerRefStabilizer = TimerRefStabilizer,
+    timerRefFixFingers = TimerRefFixFingers
   },
 
   % Get node that can be used to join the chord network:
@@ -190,7 +204,7 @@ handle_cast(stabilize, #chord_state{self = Us} = State) ->
   {noreply, State};
 
 handle_cast(fix_fingers, State) ->
-  FingerNumToFix = random:uniform(?NUMBER_OF_FINGERS),
+  FingerNumToFix = random:uniform(?NUMBER_OF_FINGERS) - 1,
   spawn(fun() -> fix_finger(FingerNumToFix, State) end),
   {noreply, State};
 
@@ -203,8 +217,8 @@ handle_info(_Info, State) ->
 
 terminate(_Reason, State) ->
   % Tell the admin workers to stop what they are doing
-  State#chord_state.pidStabilizer ! stop,
-  State#chord_state.pidFixFingers ! stop,
+  timer:cancel(State#chord_state.timerRefStabilizer),
+  timer:cancel(State#chord_state.timerRefFixFingers),
   ok.
 
 code_change(_OldVsn, State, _Extra) ->

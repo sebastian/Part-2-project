@@ -15,7 +15,7 @@
 %% ------------------------------------------------------------------
 
 -export([list/0, add/1, delete/1, find/1]).
--export([start_link/0, start/0, stop/0]).
+-export([start_link/1, start/1, stop/0]).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Exports
@@ -27,11 +27,11 @@
 %% API Function Definitions
 %% ------------------------------------------------------------------
 
-start() ->
-  gen_server:start({local, ?SERVER}, ?MODULE, [], []).
+start(Dht) ->
+  gen_server:start({local, ?SERVER}, ?MODULE, [Dht], []).
 
-start_link() ->
-  gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
+start_link(Dht) ->
+  gen_server:start_link({local, ?SERVER}, ?MODULE, [Dht], []).
 
 stop() ->
   gen_server:call(?SERVER, stop).
@@ -65,8 +65,8 @@ find(Query) ->
 %% gen_server Function Definitions
 %% ------------------------------------------------------------------
 
-init(_Args) -> 
-  State = friendsearch:init(),
+init(Dht) -> 
+  State = friendsearch:init(Dht),
   {ok, State}.
 
 %% Call:
