@@ -12,7 +12,7 @@
 %% API Function Exports
 %% ------------------------------------------------------------------
 
--export([list/1, add/2, delete/2, find/2]).
+-export([list/1, add/2, delete/2, find/2, keep_alive/1]).
 -export([init/1]).
 
 %% ------------------------------------------------------------------
@@ -61,6 +61,23 @@ delete(Key, State = #friendsearch_state{entries = Entries}) ->
 
 -spec(find/2::(Query::bitstring(), State::#friendsearch_state{}) -> [#entry{}]).
 find(Query, State) -> [].
+
+-spec(keep_alive/1::(State::#friendsearch_state{}) -> #friendsearch_state{}).
+keep_alive(State) ->
+  TimeNow = utilities:get_time(),
+  Entries = lists:map(fun(Entry) -> 
+      case (Entry#entry.timeout < TimeNow + 60)of
+        true -> 
+          % Times out within a minute. Update it
+          UpdatedEntry = Entry#entry{timeout = TimeNow + ?ENTRY_TIMEOUT},
+          Dht = State#friendsearch_state.dht,
+          Dht:set(UpdatedEntry#entry.key, UpdatedEntry),
+          UpdatedEntry;
+        false ->
+          Entry
+      end
+    end, State#friendsearch_state.entries),
+  State#friendsearch_state{entries = Entries}.
 
 %% ------------------------------------------------------------------
 %% Tests
@@ -125,5 +142,29 @@ delete_test() ->
   DeletedState = delete(EntryA#entry.key, NewState),
   ?assert(lists:member(EntryB, list(DeletedState))),
   ?assertNot(lists:member(EntryA, list(DeletedState))).
+
+keep_alive_test() ->
+  % Records that are about to expire should be refreshed
+  PersonA = test_utils:test_person_sebastianA(),
+  PersonB = test_utils:test_person_sebastianB(),
+
+  TimeNow = utilities:get_time(),
+
+  % EntryA expires in 5 seconds, EntryB does not
+  EntryA = (utilities:entry_for_record(PersonA))#entry{timeout = TimeNow + 5},
+  EntryB = (utilities:entry_for_record(PersonB))#entry{timeout = TimeNow + ?ENTRY_TIMEOUT},
+  State = (init(chord))#friendsearch_state{entries = [EntryA, EntryB]},
+
+  UpdatedEntryA = EntryA#entry{timeout = TimeNow + ?ENTRY_TIMEOUT},
+
+  erlymock:start(),
+  erlymock:strict(utilities, get_time, [], [{return, TimeNow}]),
+  erlymock:strict(chord, set, [UpdatedEntryA#entry.key, UpdatedEntryA], [{return, ok}]),
+  erlymock:replay(), 
+  State1 = keep_alive(State),
+  erlymock:verify(),
+
+  % No timeouts should be less than 5 minutes after a keep_alive run
+  lists:foreach(fun(E) -> ?assert(E#entry.timeout > TimeNow + 60) end, list(State1)).
 
 -endif.

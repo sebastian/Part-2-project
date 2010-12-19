@@ -185,13 +185,13 @@ entry_for_record(#person{} = Person) ->
   DowncasePerson = downcase_person(Person),
   #entry{
     key = key_for_data(DowncasePerson),
-    timeout = ?ENTRY_TIMEOUT,
+    timeout = get_time() + ?ENTRY_TIMEOUT,
     data = Person
   };
 entry_for_record(#link{name_fragment = NameFrag} = Link) ->
   #entry{
     key = key_for_data(downcase_str(NameFrag)),
-    timeout = ?ENTRY_TIMEOUT,
+    timeout = get_time() + ?ENTRY_TIMEOUT,
     data = Link
   }.
 
@@ -292,19 +292,24 @@ term_to_sha_test() ->
   Person = test_utils:test_person_sebastianA(),
   ?assertEqual(crypto:sha(term_to_binary(Person)), term_to_sha(Person)).
 
+should_roughly_equal(A, B, Delta) ->
+    A < (B + Delta) andalso A > (B - Delta).
+
 entry_for_person_test() ->
   Person = test_utils:test_person_sebastianA(),
   EntryHash = bitstring_to_number(term_to_sha(downcase_person(Person))),
+  TimeNow = get_time(),
   #entry{key = Key, timeout = Timeout, data = Person } = entry_for_record(Person),
   ?assertEqual(EntryHash, Key),
-  ?assertEqual(Timeout, ?ENTRY_TIMEOUT).
+  ?assert(should_roughly_equal(Timeout, TimeNow + ?ENTRY_TIMEOUT, 5)).
 
 entry_for_link_test() ->
   Link = test_utils:test_link1(),
+  TimeNow = get_time(),
   EntryHash = bitstring_to_number(term_to_sha(Link#link.name_fragment)),
   #entry{key = Key, timeout = Timeout, data = Link } = entry_for_record(Link),
   ?assertEqual(EntryHash, Key),
-  ?assertEqual(Timeout, ?ENTRY_TIMEOUT).
+  ?assert(should_roughly_equal(Timeout, TimeNow + ?ENTRY_TIMEOUT, 5)).
 
 get_ip_test() ->
   % Should return a set of IP values

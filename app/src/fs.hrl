@@ -2,6 +2,8 @@
 -type(binary_string() :: bitstring()).
 -type(port_number() :: integer()).
 -type(ip() :: {byte(),byte(),byte(),byte()}).
+
+% Records timeout after 5 hours.
 -define(ENTRY_TIMEOUT, 60*60*5).
 
 -record(link,
@@ -58,5 +60,6 @@
 -record(friendsearch_state, {
     dht, 
     entries,
-    link_entries
+    link_entries,
+    timerRefKeepAlive
   }).
