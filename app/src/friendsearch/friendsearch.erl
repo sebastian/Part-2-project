@@ -13,6 +13,7 @@
 %% ------------------------------------------------------------------
 
 -export([list/1, add/2, delete/2, find/2, keep_alive/1]).
+-export([lookup_link/2]).
 -export([init/1]).
 
 %% ------------------------------------------------------------------
@@ -60,7 +61,20 @@ delete(Key, State = #friendsearch_state{entries = Entries}) ->
   }.
 
 -spec(find/2::(Query::bitstring(), State::#friendsearch_state{}) -> [#entry{}]).
-find(Query, State) -> [].
+find(Query, State) ->
+  KeyForQuery = utilities:key_for_data(Query),
+  Dht = State#friendsearch_state.dht,
+  % Look up key in Dht
+  Entries = Dht:get(KeyForQuery),
+  Entries1 = lists:flatten(rpc:pmap({friendsearch, lookup_link}, [Dht], Entries)),
+  [E#entry.data || E <- Entries1, is_record(E#entry.data, person)].
+
+%% @doc: if the element is a link, then the corresponding record is
+%% looked up in the Dht network.
+-spec(lookup_link/2::(Entry::#entry{}, _) -> #entry{}).
+lookup_link(#entry{data = #person{}} = Entry, _Dht) -> Entry;
+lookup_link(#entry{data = #link{profile_key = Key}}, Dht) -> 
+  Dht:get(Key).
 
 -spec(keep_alive/1::(State::#friendsearch_state{}) -> #friendsearch_state{}).
 keep_alive(State) ->
@@ -166,5 +180,38 @@ keep_alive_test() ->
 
   % No timeouts should be less than 5 minutes after a keep_alive run
   lists:foreach(fun(E) -> ?assert(E#entry.timeout > TimeNow + 60) end, list(State1)).
+
+find_test() ->
+  State = init(chord),
+
+  Query = <<"Sebastian">>,
+  Key = utilities:key_for_data(Query),
+  ProfileKey = <<"ProfileKey">>,
+
+  Link = #entry{data = #link{profile_key = ProfileKey}, key = Key},
+  Person = #person{name = <<"Sebastian">>},
+  Profile = #entry{data = Person, key = ProfileKey},
+
+  erlymock:start(),
+  erlymock:strict(chord, get, [Key], [{return, [Link]}]),
+  erlymock:strict(chord, get, [ProfileKey], [{return, [Profile]}]),
+  erlymock:replay(), 
+  ?assertEqual([Person], find(Query, State)),
+  erlymock:verify().
+
+lookup_link_person_test() ->
+  Entry = test_utils:test_person_entry_1a(),
+  ?assertEqual(Entry, lookup_link(Entry, some_dht)).
+
+lookup_link_link_test() ->
+  ProfileKey = <<"SomeKey">>,
+  Entry = #entry{data = #link{profile_key = ProfileKey}},
+  ReturnEntry = test_utils:test_person_entry_1a(),
+
+  erlymock:start(),
+  erlymock:strict(chord, get, [ProfileKey], [{return, [ReturnEntry]}]),
+  erlymock:replay(), 
+  ?assertEqual([ReturnEntry], lookup_link(Entry, chord)),
+  erlymock:verify().
 
 -endif.
