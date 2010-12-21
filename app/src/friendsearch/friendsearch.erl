@@ -29,18 +29,24 @@ init(Dht) ->
 
 -spec(list/1::(State::#friendsearch_state{}) -> [#entry{}]).
 list(State) -> 
-  State#friendsearch_state.entries.
+  [E#entry.data || E <- State#friendsearch_state.entries].
 
 -spec(add/2::(Person::#person{}, State::#friendsearch_state{}) -> #friendsearch_state{}).
 add(Person, State) -> 
   AllPersonEntries = State#friendsearch_state.entries,
   AllLinkEntries = State#friendsearch_state.link_entries,
 
-  % @todo: Create link entries for person
-  LinkEntries = [],
-
   % Create entry for person record
   Entry = utilities:entry_for_record(Person),
+
+  % Create main link entry for person that she can be found under
+  MainLink = #link{
+    name_fragment = Person#person.name,
+    name = Person#person.name,
+    profile_key = Entry#entry.key
+  },
+  MainLinkEntry = utilities:entry_for_record(MainLink),
+  LinkEntries = [MainLinkEntry],
 
   % Add all entries to the Dht
   AllEntries = [Entry | LinkEntries],
@@ -103,19 +109,29 @@ init_test() ->
   Dht = the_dht,
   ?assertEqual(Dht, (init(Dht))#friendsearch_state.dht).
 
+assumptions_for_add(Person) ->
+  Entry = utilities:entry_for_record(Person),
+  Link = #link{
+    name_fragment = Person#person.name, 
+    name = Person#person.name, 
+    profile_key = Entry#entry.key
+  },
+  LinkEntry = utilities:entry_for_record(Link),
+  erlymock:o_o(chord, set, [Entry#entry.key, Entry], [{return, ok}]),
+  erlymock:o_o(chord, set, [LinkEntry#entry.key, LinkEntry], [{return, ok}]).
+
 add_test() ->
   State = init(chord),
 
   Person = test_utils:test_person_sebastianA(),
-  Entry = utilities:entry_for_record(Person),
 
   erlymock:start(),
-  erlymock:o_o(chord, set, [Entry#entry.key, Entry], [{return, ok}]),
+  assumptions_for_add(Person),
   erlymock:replay(), 
   NewState = add(Person, State),
   ?assert(NewState =/= State),
   Entries = list(NewState),
-  ?assert(lists:member(Entry, Entries)),
+  ?assert(lists:member(Person, Entries)),
   erlymock:verify().
   
 
@@ -124,18 +140,16 @@ list_test() ->
   State = init(chord),
   PersonA = test_utils:test_person_sebastianA(),
   PersonB = test_utils:test_person_sebastianB(),
-  EntryA = utilities:entry_for_record(PersonA),
-  EntryB = utilities:entry_for_record(PersonB),
 
   erlymock:start(),
-  erlymock:o_o(chord, set, [EntryA#entry.key, EntryA], [{return, ok}]),
-  erlymock:o_o(chord, set, [EntryB#entry.key, EntryB], [{return, ok}]),
+  assumptions_for_add(PersonA),
+  assumptions_for_add(PersonB),
   erlymock:replay(), 
   State1 = add(PersonA, State),
   State2 = add(PersonB, State1),
   Elements = list(State2),
-  ?assert(lists:member(EntryA, Elements)),
-  ?assert(lists:member(EntryB, Elements)),
+  ?assert(lists:member(PersonA, Elements)),
+  ?assert(lists:member(PersonB, Elements)),
   erlymock:verify().
 
 delete_test() ->
@@ -143,19 +157,18 @@ delete_test() ->
 
   PersonA = test_utils:test_person_sebastianA(),
   PersonB = test_utils:test_person_sebastianB(),
-  EntryA = utilities:entry_for_record(PersonA),
-  EntryB = utilities:entry_for_record(PersonB),
+  PersonAKey = (utilities:entry_for_record(PersonA))#entry.key,
 
   erlymock:start(),
-  erlymock:o_o(chord, set, [EntryA#entry.key, EntryA], [{return, ok}]),
-  erlymock:o_o(chord, set, [EntryB#entry.key, EntryB], [{return, ok}]),
+  assumptions_for_add(PersonA),
+  assumptions_for_add(PersonB),
   erlymock:replay(), 
   NewState = add(PersonB, add(PersonA, State)),
   erlymock:verify(),
 
-  DeletedState = delete(EntryA#entry.key, NewState),
-  ?assert(lists:member(EntryB, list(DeletedState))),
-  ?assertNot(lists:member(EntryA, list(DeletedState))).
+  DeletedState = delete(PersonAKey, NewState),
+  ?assert(lists:member(PersonB, list(DeletedState))),
+  ?assertNot(lists:member(PersonA, list(DeletedState))).
 
 keep_alive_test() ->
   % Records that are about to expire should be refreshed
@@ -179,7 +192,8 @@ keep_alive_test() ->
   erlymock:verify(),
 
   % No timeouts should be less than 5 minutes after a keep_alive run
-  lists:foreach(fun(E) -> ?assert(E#entry.timeout > TimeNow + 60) end, list(State1)).
+  lists:foreach(fun(E) -> ?assert(E#entry.timeout > TimeNow + 60) end,
+      State1#friendsearch_state.entries).
 
 find_test() ->
   State = init(chord),
