@@ -62,6 +62,7 @@ delete(Key) ->
 %% @doc: queries the storage network for entries matching some find.
 -spec(find/1::(Query::bitstring()) -> [#person{}]).
 find(Query) ->
+  io:format("Performing: find for ~p~n", [Query]),
   gen_server:call(?MODULE, {find, Query}).
 
 %% @doc: called by the timer module to ensure that the local entries are
@@ -74,7 +75,8 @@ keep_alive() ->
 %% gen_server Function Definitions
 %% ------------------------------------------------------------------
 
-init(Dht) -> 
+init([Dht]) -> 
+  io:format("****** Got DHT: ~p~n *************", [Dht]),
   State = friendsearch:init(Dht),
   {ok, TimerRef} = 
       timer:apply_interval(?KEEP_ALIVE_INTERVAL, ?MODULE, keep_alive, []),

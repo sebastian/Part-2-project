@@ -17,6 +17,13 @@
   <body>
     <div id="search_box">
       <input id="searchField" type="text" name="q" placeholder="My friends name" />
+      <a href="#" id="add_person_link">Add person</a>
+    </div>
+    <div id="add_person">
+      <input name="name" placeholder="Name" />
+      <input name="profile_url" placeholder="Profile Url" />
+      <input name="avatar_url" placeholder="Avatar Url" />
+      <input type="submit" value="Add person" />
     </div>
     <div id="search_results" ng:controller="SearchController">
       <div class="search_result" ng:repeat="person in searchResults">

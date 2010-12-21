@@ -6,6 +6,7 @@
 -export([init/1, to_json/2, content_types_provided/2]).
 
 -include_lib("webmachine/include/webmachine.hrl").
+-include("../fs.hrl").
 
 init([]) -> {ok, undefined}.
 
@@ -15,13 +16,20 @@ content_types_provided(ReqData, State) ->
 to_json(ReqData, State) ->
   % Get search query
   Query = wrq:get_qs_value("q", ReqData),
-  PropList = proplists:property(<<"name">>, list_to_bitstring(Query)),
-  Value = mochijson2:encode({struct, 
+  io:format("******** Query: ~p ********~n", [Query]),
+  Results = friendsearch_srv:find(Query),
+  People = [{struct, [
+              {name, P#person.name},
+              {profile_url, P#person.human_profile_url},
+              {avatar_url, P#person.avatar_url}
+             ]} || P <- Results],
+  io:format("******** People: ~p **********~n", [People]),
+  Value = iolist_to_binary(mochijson2:encode({struct, 
       [
         {<<"hops">>, 1},
-        {<<"data">>, [{struct, [PropList]}]}
+        {<<"results">>, People}
       ]
-    }),
+    })),
   {Value, ReqData, State}.
 
 
