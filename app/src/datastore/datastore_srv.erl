@@ -68,16 +68,21 @@ init(_Args) ->
   {ok, #datastore_state{timer = TimerRef, data = datastore:init()}}.
 
 handle_call({get, Key}, _From, State) ->
+  io:format("datastore_srv:get(~p,....)~n", [Key]),
   {reply, datastore:get(Key, State), State};
 
 handle_call({set, Key, Value}, _From, State) ->
+  io:format("datastore_srv:set(~p,....)~n", [Key]),
   {reply, ok, datastore:set(Key, Value, State)};
+
+handle_call(get_state, _From, State) ->
+  {reply, State, State};
 
 handle_call(stop, _From, State) ->
   {stop, normal, ok, State}.
 
 handle_cast(spring_cleaning, State) ->
-  io:format("### Datastore is performing spring_cleaning! ###"),
+  io:format("### Datastore is performing spring_cleaning! ###~n"),
   {noreply, datastore:spring_cleaning(State)}.
 
 terminate(_Reason, State) ->
@@ -99,6 +104,7 @@ datastore_srv_integration_test() ->
   ?assertEqual([], datastore_srv:get(<<"unknown key">>)),
   ?assertEqual(ok, datastore_srv:set(<<"key">>, Value)),
   ?assertEqual([Value], datastore_srv:get(<<"key">>)),
+  ?assertEqual([], datastore_srv:get(<<"unknown key">>)),
   stop().
 
 -endif.

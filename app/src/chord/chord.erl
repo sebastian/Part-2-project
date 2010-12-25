@@ -4,8 +4,10 @@
 -define(NUMBER_OF_FINGERS, 160).
 
 %% @doc: the interval in miliseconds at which the routine tasks are performed
--define(STABILIZER_INTERVAL, 3000).
--define(FIX_FINGER_INTERVAL, 2000).
+-define(STABILIZER_INTERVAL, 1000).
+-define(FIX_FINGER_INTERVAL, 20).
+%-define(STABILIZER_INTERVAL, 3000).
+%-define(FIX_FINGER_INTERVAL, 2000).
 
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
@@ -49,7 +51,9 @@ stop() ->
 get(Key) ->
   io:format("chord:get(~p)~n", [Key]),
   {ok, StorageNode} = find_successor(Key),
-  {ok, Values} = chord_tcp:rpc_get_key(Key, StorageNode),
+  Return = chord_tcp:rpc_get_key(Key, StorageNode),
+  io:format("Got ~p from rpc_get_key~n", [Return]),
+  {ok, Values} = Return,
   Values.
 
 %% @doc: stores a value in the chord network

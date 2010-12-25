@@ -25,7 +25,7 @@ set(Key, Value, State) ->
   Data = State#datastore_state.data,
   Timeout = Value#entry.timeout,
   CurrTime = utilities:get_time(),
-  case (Timeout > CurrTime andalso Timeout < (CurrTime + ?ENTRY_TIMEOUT)) of
+  case (Timeout > CurrTime andalso Timeout =< (CurrTime + ?ENTRY_TIMEOUT)) of
     true ->
       NewData = case dict:find(Key, Data) of
         {ok, Record} ->
@@ -35,6 +35,7 @@ set(Key, Value, State) ->
       end,
       State#datastore_state{data = NewData};
     _ ->
+      io:format("Datastore is discarding record.~n"),
       State
   end.
 
@@ -112,6 +113,20 @@ set_should_drop_records_with_too_high_timeout_test() ->
   NewState = set(<<"Key">>, IllegalRecord, State),
   ?assertEqual(dict:size(State#datastore_state.data), 
       dict:size(NewState#datastore_state.data)).
+
+set_should_accept_records_with_timeout_starting_at_the_current_time_test() ->
+  CurrentTime = utilities:get_time(),
+  State = test_state(),
+  Record = (test_utils:test_person_entry_1a())#entry{timeout = CurrentTime + ?ENTRY_TIMEOUT},
+  
+  erlymock:start(),
+  erlymock:strict(utilities, get_time, [], [{return, CurrentTime}]),
+  erlymock:replay(), 
+  NewState = set(<<"Key">>, Record, State),
+  erlymock:verify(),
+
+  % It should have accepted the record
+  ?assert(lists:member(Record, get(<<"Key">>, NewState))).
 
 spring_cleaning_test() ->
   OldTime = utilities:get_time() - 10,

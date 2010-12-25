@@ -51,7 +51,7 @@ SearchController.prototype.changeOfLocation = function() {
  * @void
  */
 SearchController.prototype.find = function(query) {
-  this.searchResults = this.Search.find({q: query}).results;
+  this.searchResults = this.Search.find({q: query});
 };
 
 
