@@ -71,13 +71,13 @@ handle_call({get, Key}, _From, State) ->
   {reply, datastore:get(Key, State), State};
 
 handle_call({set, Key, Value}, _From, State) ->
-  {ok, NewState} = datastore:set(Key, Value, State),
-  {reply, ok, NewState};
+  {reply, ok, datastore:set(Key, Value, State)};
 
 handle_call(stop, _From, State) ->
   {stop, normal, ok, State}.
 
 handle_cast(spring_cleaning, State) ->
+  io:format("### Datastore is performing spring_cleaning! ###"),
   {noreply, datastore:spring_cleaning(State)}.
 
 terminate(_Reason, State) ->

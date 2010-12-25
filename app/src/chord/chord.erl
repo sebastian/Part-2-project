@@ -47,6 +47,7 @@ stop() ->
 %% @doc: gets a value from the chord network
 -spec(get/1::(Key::key()) -> [#entry{}]).
 get(Key) ->
+  io:format("chord:get(~p)~n", [Key]),
   {ok, StorageNode} = find_successor(Key),
   {ok, Values} = chord_tcp:rpc_get_key(Key, StorageNode),
   Values.
@@ -54,6 +55,7 @@ get(Key) ->
 %% @doc: stores a value in the chord network
 -spec(set/2::(Key::key(), Entry::#entry{}) -> ok).
 set(Key, Entry) ->
+  io:format("chord:set(~p, ...)~n", [Key]),
   {ok, StorageNode} = find_successor(Key),
   {ok, _} = chord_tcp:rpc_set_key(Key, Entry, StorageNode),
   ok.
@@ -61,11 +63,13 @@ set(Key, Entry) ->
 %% @doc: get's a value from the local chord node
 -spec(local_get/1::(Key::key()) -> {ok, [#entry{}]}).
 local_get(Key) ->
+  io:format("chord:local_get(~p)~n", [Key]),
   {ok, gen_server:call(chord, {local_get, Key})}.
 
 %% @doc: stores a value in the current local chord node
 -spec(local_set/2::(Key::key(), Entry::#entry{}) -> {ok, ok}).
 local_set(Key, Entry) ->
+  io:format("chord:local_set(~p, ...)~n", [Key]),
   {ok, gen_server:call(chord, {local_set, Key, Entry})}.
 
 -spec(preceding_finger/1::(Key::key()) -> {ok, {#node{}, #node{}}}).

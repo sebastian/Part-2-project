@@ -1,9 +1,10 @@
-<!DOCTYPE HTML>
+<!DOCTYPE HTML PUBLIC “-//W3C//DTD HTML 4.01//EN” “http://www.w3.org/TR/html4/strict.dtd”>
 <html xmlns:ng="http://angularjs.org">
   <head>
     <meta http-equiv="content-type" content="text/html; charset=utf-8" />
 
     <title>Social Friend Finder : Demo</title>
+    <link rel="stylesheet" type="text/css" href="http://yui.yahooapis.com/2.8.2r1/build/reset-fonts-grids/reset-fonts-grids.css">
     <link rel="stylesheet" href="/css/master.css" type="text/css" media="screen" charset="utf-8" />    
     <!-- jQuery (because it is awesome) --> 
     <script type="text/javascript" charset="utf-8" src="http://code.jquery.com/jquery-1.4.3.js"></script>
@@ -15,20 +16,64 @@
   </head>
 
   <body>
-    <div id="search_box">
-      <input id="searchField" type="text" name="q" placeholder="My friends name" />
-      <a href="#" id="add_person_link">Add person</a>
-    </div>
-    <div id="add_person">
-      <input name="name" placeholder="Name" />
-      <input name="profile_url" placeholder="Profile Url" />
-      <input name="avatar_url" placeholder="Avatar Url" />
-      <input type="submit" value="Add person" />
-    </div>
-    <div id="search_results" ng:controller="SearchController">
-      <div class="search_result" ng:repeat="person in searchResults">
-        {{person.name}} 
-      </div>
+    <div id="doc3" class="yui-t3" ng:controller="SearchController"> 
+      <div id="hd" role="banner">
+        <ul>
+          <li><a href="#addPerson">Add person</a></li>
+          <li ng:click="addTestData()" id="addTestDataLi">Add temporary data</li>
+        </ul>
+      </div> 
+      <div id="bd" role="undefined"> 
+        <div id="yui-main"> 
+          <div class="yui-b">
+            <div class="yui-g" id="main"> 
+
+              <!-- To add new data -->
+              <div class="content" id="addPerson" ng:show="location.addPerson">
+                <input name="new_person.name" placeholder="Name" ng:required />
+                <input name="new_person.profile_url" placeholder="Profile Url" ng:required />
+                <input name="new_person.avatar_url" placeholder="Avatar Url" ng:required />
+                <img ng:src="{{new_person.avatar_url}}" 
+                    ng:show="new_person.avatar_url" id="avatar_preview" />
+                <input type="submit" value="Add person" ng:click="addPerson()" />
+              </div>
+
+              <!-- To add new data -->
+              <div class="content" ng:show="location.home">
+                Search for a friend using the search box on the left hand side.
+              </div>
+
+            </div> 
+          </div>
+        </div> 
+        <div id="search_component" class="yui-b">
+
+          <!-- Search box and results -->
+          <div id="search_box">
+            <input id="searchField" type="text" name="q" placeholder="My friends name" />
+          </div>
+
+          <div id="search_results">
+            <div class="search_result yui-gf" ng:repeat="person in searchResults">
+              <div class="avatar yui-g first">
+                <img src="{{person.avatar_url}}" />
+              </div>
+              <div class="info yui-g">
+                <div class="name">
+                  {{person.name}}
+                </div>
+                <div class="profile_url">
+                  <a href="{{person.profile_url}}">
+                    {{person.profile_url}}
+                  </a>
+                </div>
+            </div>
+          </div>
+        
+        </div>     
+    </div> 
+    <div id="ft" role="contentinfo">
+      FriendSearch <a href="https://github.com/sebastian/Part-2-project">source</a>
     </div>
   </body>
 </html>

@@ -31,5 +31,3 @@ to_json(ReqData, State) ->
       ]
     })),
   {Value, ReqData, State}.
-
-

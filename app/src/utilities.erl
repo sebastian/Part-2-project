@@ -13,6 +13,10 @@
 -include_lib("eunit/include/eunit.hrl").
 -endif.
 
+-spec(key_for_normalized_string/1::(String::bitstring()) -> bitstring()).
+key_for_normalized_string(String) ->
+  key_for_data(downcase_str(String)).
+
 %% @doc: returns the current time in gregorian seconds
 -spec(get_time/0::() -> integer()).
 get_time() ->
@@ -156,9 +160,13 @@ bitstring_to_number(BitString, CurrBitNum, Acc) ->
 -spec(downcase_str/1::(binary() | 'undefined') -> binary()).
 downcase_str('undefined') ->
   'undefined';
-downcase_str(BitStr) ->
-  list_to_bitstring(string:to_lower(bitstring_to_list(BitStr))).
+downcase_str(String) ->
+  ListString = string_to_list(String),
+  LowerCaseStr = string:to_lower(ListString),
+  list_to_bitstring(LowerCaseStr).
 
+string_to_list(String) when is_bitstring(String) -> bitstring_to_list(String);
+string_to_list(String) -> String.
 
 %% @doc Before a person record is being used to make a key
 %%     it is normalised to ensure that small changes in
@@ -190,7 +198,7 @@ entry_for_record(#person{} = Person) ->
   };
 entry_for_record(#link{name_fragment = NameFrag} = Link) ->
   #entry{
-    key = key_for_data(downcase_str(NameFrag)),
+    key = key_for_normalized_string(NameFrag),
     timeout = get_time() + ?ENTRY_TIMEOUT,
     data = Link
   }.
@@ -275,9 +283,14 @@ bitstring_to_num_test_() ->
      ?_assertEqual(1461501637330902918203684832716283019655932542975, bitstring_to_number(<<255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255>>))
    ]}.
 
-lowercase_string_test() ->
+downcase_str_test() ->
+  ?assertEqual(<<"seb">>, downcase_str("Seb")),
   ?assertEqual(<<"seb">>, downcase_str(<<"Seb">>)),
   ?assertEqual(<<"sebastian probst eide">>, downcase_str(<<"Sebastian Probst Eide">>)).
+
+string_to_list_test() ->
+  ?assertEqual("string", string_to_list("string")),
+  ?assertEqual("string", string_to_list(<<"string">>)).
 
 downcase_person_test() ->
   Person = test_utils:test_person_sebastianA(),

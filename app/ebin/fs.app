@@ -10,7 +10,8 @@
 	gen_listener_tcp,
 	datastore, datastore_srv, datastore_sup,
 	utilities, tcp_utils, test_utils,
-  friendsearch, friendsearch_srv, friendsearch_sup
+  friendsearch, friendsearch_srv, friendsearch_sup,
+  test_dht
   ]},
   {registered, []},
   {applications, [

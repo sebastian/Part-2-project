@@ -68,7 +68,7 @@ delete(Key, State = #friendsearch_state{entries = Entries}) ->
 
 -spec(find/2::(Query::bitstring(), State::#friendsearch_state{}) -> [#entry{}]).
 find(Query, State) ->
-  KeyForQuery = utilities:key_for_data(Query),
+  KeyForQuery = utilities:key_for_normalized_string(Query),
   Dht = State#friendsearch_state.dht,
   % Look up key in Dht
   Entries = Dht:get(KeyForQuery),
@@ -199,7 +199,7 @@ find_test() ->
   State = init(chord),
 
   Query = <<"Sebastian">>,
-  Key = utilities:key_for_data(Query),
+  Key = utilities:key_for_normalized_string(Query),
   ProfileKey = <<"ProfileKey">>,
 
   Link = #entry{data = #link{profile_key = ProfileKey}, key = Key},

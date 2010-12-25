@@ -99,21 +99,18 @@ start_link() ->
 
 %% @doc The echo client process.
 chord_tcp_client(Socket) ->
-  error_logger:info_msg("client()~n"),
   ok = inet:setopts(Socket, [{active, once}]),
   receive
     {tcp, Socket, <<"quit", _R/binary>>} ->
-      error_logger:info_msg("Quit Requested."),
       gen_tcp:send(Socket, "Bye now.\r\n"),
       gen_tcp:close(Socket);
     {tcp, Socket, Data} ->
       Message = binary_to_term(Data, [safe]),
-      error_logger:info_msg("Got Data: ~p", [Message]),
       {ok, Value} = handle_msg(Message),
       gen_tcp:send(Socket, term_to_binary(Value)),
       chord_tcp_client(Socket);
     {tcp_closed, Socket} ->
-      error_logger:info_msg("Client Disconnected.")
+      ok
   end.
 
 init([]) ->

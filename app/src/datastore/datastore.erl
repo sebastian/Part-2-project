@@ -20,7 +20,7 @@ init() ->
 
 %% @doc Adds a value for a key. A key can contain several entries
 -spec(set/3::(Key::key(), Value::#entry{}, State::#datastore_state{}) 
-    -> {ok, #datastore_state{}}).
+    -> #datastore_state{}).
 set(Key, Value, State) ->
   Data = State#datastore_state.data,
   Timeout = Value#entry.timeout,
@@ -33,9 +33,9 @@ set(Key, Value, State) ->
         error -> 
           dict:store(Key, [Value], Data) 
       end,
-      {ok, State#datastore_state{data = NewData}};
+      State#datastore_state{data = NewData};
     _ ->
-      {ok, State}
+      State
   end.
 
 %% @doc Returns a list of values for a given key. The list
@@ -62,7 +62,7 @@ spring_cleaning(State) ->
       end, State#datastore_state.data),
   WithoutEmtpyKeys = 
       dict:filter(fun(_Key, []) -> false; (_, _) -> true end, WithoutOldEntries), 
-  {ok, State#datastore_state{data = WithoutEmtpyKeys}}.
+  State#datastore_state{data = WithoutEmtpyKeys}.
 
 %% ------------------------------------------------------------------
 %% Tests
@@ -83,10 +83,10 @@ set_get_test() ->
   Value1 = test_utils:test_person_entry_1a(),
   Value2 = test_utils:test_person_entry_1b(),
 
-  {ok, NewState} = datastore:set(Key, Value1, State),
+  NewState = datastore:set(Key, Value1, State),
   ?assertEqual([Value1], datastore:get(Key, NewState)),
 
-  {ok, NewState2} = datastore:set(Key, Value2, NewState),
+  NewState2 = datastore:set(Key, Value2, NewState),
   ?assertEqual([Value2, Value1],
       datastore:get(Key, NewState2)).
 
@@ -94,14 +94,14 @@ get_missing_key_test() ->
   State = test_state(),
   ?assertEqual([], datastore:get(<<"Key">>, State)),
 
-  {ok, State2} = datastore:set(<<"Key2">>, #entry{}, State),
+  State2 = datastore:set(<<"Key2">>, #entry{}, State),
   ?assertEqual([], datastore:get(<<"Key">>, State2)).
 
 set_should_drop_outdated_records_test() ->
   State = test_state(),
   OldTime = utilities:get_time() - 10,
   TimedoutPerson = (test_utils:test_person_entry_1a())#entry{timeout = OldTime},
-  {ok, NewState} = set(<<"Key">>, TimedoutPerson, State),
+  NewState = set(<<"Key">>, TimedoutPerson, State),
   ?assertEqual(dict:size(State#datastore_state.data), 
       dict:size(NewState#datastore_state.data)).
 
@@ -109,7 +109,7 @@ set_should_drop_records_with_too_high_timeout_test() ->
   State = test_state(),
   TimeInFarFuture = utilities:get_time() + 10 * ?ENTRY_TIMEOUT, 
   IllegalRecord = (test_utils:test_person_entry_1a())#entry{timeout = TimeInFarFuture},
-  {ok, NewState} = set(<<"Key">>, IllegalRecord, State),
+  NewState = set(<<"Key">>, IllegalRecord, State),
   ?assertEqual(dict:size(State#datastore_state.data), 
       dict:size(NewState#datastore_state.data)).
 
@@ -126,13 +126,13 @@ spring_cleaning_test() ->
     data = dict:store(Key, [TimedoutPerson], State#datastore_state.data)
   },
   ?assertEqual(1, dict:size(UpdatedState1#datastore_state.data)),
-  {ok, UpdatedState2} = datastore:spring_cleaning(UpdatedState1),
+  UpdatedState2 = datastore:spring_cleaning(UpdatedState1),
   ?assertEqual(0, dict:size(UpdatedState2#datastore_state.data)),
 
   UpdatedState3 = State#datastore_state{
       data = dict:store(Key, [ValidPerson], State#datastore_state.data)},
   ?assertEqual(1, dict:size(UpdatedState3#datastore_state.data)),
-  {ok, UpdatedState4} = datastore:spring_cleaning(UpdatedState3),
+  UpdatedState4 = datastore:spring_cleaning(UpdatedState3),
   ?assertEqual(1, dict:size(UpdatedState4#datastore_state.data)).
 
 -endif.

@@ -76,7 +76,6 @@ keep_alive() ->
 %% ------------------------------------------------------------------
 
 init([Dht]) -> 
-  io:format("****** Got DHT: ~p~n *************", [Dht]),
   State = friendsearch:init(Dht),
   {ok, TimerRef} = 
       timer:apply_interval(?KEEP_ALIVE_INTERVAL, ?MODULE, keep_alive, []),
@@ -87,6 +86,7 @@ handle_call(list, _From, State) ->
   {reply, friendsearch:list(State), State};
 
 handle_call({add, Entry}, _From, State) ->
+  io:format("**** Adding: ~p ********~n", [Entry]),
   {reply, ok, friendsearch:add(Entry, State)};
 
 handle_call({delete, Key}, _From, State) ->
@@ -113,5 +113,27 @@ code_change(_OldVsn, State, _Extra) ->
 %% ------------------------------------------------------------------
 
 -ifdef(TEST).
+
+add_list_test() ->
+  test_dht:start(),
+  start(test_dht),
+  Person = test_utils:test_person_sebastianA(),
+  ?assertNot(lists:member(Person, list())),
+  add(Person),
+  ?assert(lists:member(Person, list())),
+  stop(),
+  test_dht:stop().
+
+find_test() ->
+  test_dht:start(),
+  start(test_dht),
+  Person = test_utils:test_person_sebastianA(),
+  PersonName = Person#person.name,
+  ?assertEqual([], find(PersonName)),
+  add(Person),
+  find(PersonName),
+  ?assertEqual([Person], find(PersonName)),
+  stop(),
+  test_dht:stop().
 
 -endif.
