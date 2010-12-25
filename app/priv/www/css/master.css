@@ -1,0 +1,133 @@
+/* @override 
+	file:///css/master.css
+	http://localhost:3000/css/master.css
+*/
+
+/* @group Search */
+
+#main {
+	padding-top: 1em;
+}
+
+/* @group Results */
+
+#search_results div.search_result.yui-gf div.avatar.yui-g.first img {
+	width: 48px;
+	height: 48px;
+	margin-right: auto;
+	margin-left: auto;
+	float: right;
+}
+
+div.name {
+	font-weight: bold;
+}
+
+div.profile_url {
+	font-size: 77%;
+}
+
+img#avatar_preview {
+	width: 48px;
+	height: 48px;
+	background-color: #efefef;
+	clear: right;
+	margin-top: 6em;
+}
+
+#search_results div.search_result.yui-gf div.info.yui-g {
+	margin-bottom: auto;
+	margin-top: 0.8em;
+}
+
+#search_component {
+	background-color: #aabbbb;
+
+}
+
+div.search_result:hover {
+	background-color: rgba(255,254,255,0.3);
+}
+
+div.search_result {
+	background-color: rgba(255,254,255,0.1);
+	border-bottom: 1px solid rgba(255,254,255,0.3);
+	padding-top: 5px;
+	padding-bottom: 5px;
+}
+
+
+
+/* @end */
+
+input#searchField {
+	width: 93%;
+	margin: 3%;
+	font-size: 123.1%;
+}
+
+
+
+/* @end */
+
+/* @group Footer and header */
+
+li {
+	float: left;
+	margin-right: 20px;
+}
+
+div#hd {
+	background-color: #334433;
+	padding: 5px;
+	font-size: 123.1%;
+	color: white;
+}
+
+#hd ul li a, #hd ul li {
+	color: white;
+	text-decoration: underline;
+}
+
+div#ft {
+	clear: both;
+	padding: 10px;
+	text-align: center;
+	font-size: 77%;
+	color: #6699aa;
+}
+
+
+
+/* @end */
+
+/* @group Main */
+
+/* @group Add person */
+
+div#add_person {
+	background-color: #334433;
+	display: none;
+	position: absolute;
+	width: 13em;
+	height: 10em;
+	padding: 1em;
+	z-index: 1;
+	border-bottom-right-radius: 5% 5%;
+	border-bottom-left-radius: 5% 5%;
+}
+
+#addPerson input {
+	float: left;
+	clear: left;
+	font-size: 123.1%;
+	margin: 0.4em;
+}
+
+
+
+/* @end */
+
+
+
+/* @end */
