@@ -35,7 +35,6 @@ set(Key, Value, State) ->
       end,
       State#datastore_state{data = NewData};
     _ ->
-      io:format("Datastore is discarding record.~n"),
       State
   end.
 

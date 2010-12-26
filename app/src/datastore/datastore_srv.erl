@@ -82,7 +82,6 @@ handle_call(stop, _From, State) ->
   {stop, normal, ok, State}.
 
 handle_cast(spring_cleaning, State) ->
-  io:format("### Datastore is performing spring_cleaning! ###~n"),
   {noreply, datastore:spring_cleaning(State)}.
 
 terminate(_Reason, State) ->

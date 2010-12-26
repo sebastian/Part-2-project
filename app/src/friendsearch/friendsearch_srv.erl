@@ -24,7 +24,7 @@
 %% gen_server Function Exports
 %% ------------------------------------------------------------------
 
--export([init/1, handle_call/3, terminate/2, code_change/3]).
+-export([init/1, handle_cast/2, handle_call/3, terminate/2, code_change/3]).
 
 %% ------------------------------------------------------------------
 %% API Function Definitions
@@ -49,9 +49,9 @@ list() ->
   gen_server:call(?MODULE, list).
 
 %% @doc: adds a new entry to the list of entries maintained by the local node.
--spec(add/1::(Entry::#person{}) -> ok).
+-spec(add/1::(Entry::#person{}) -> none()).
 add(Entry) ->
-  gen_server:call(?MODULE, {add, Entry}).
+  gen_server:cast(?MODULE, {add, Entry}).
 
 %% @doc: removes an entry from the list of entries maintained by the local node. 
 %% The entry isn't removed from the global index before it times out.`
@@ -85,10 +85,6 @@ init([Dht]) ->
 handle_call(list, _From, State) ->
   {reply, friendsearch:list(State), State};
 
-handle_call({add, Entry}, _From, State) ->
-  io:format("**** Adding: ~p ********~n", [Entry]),
-  {reply, ok, friendsearch:add(Entry, State)};
-
 handle_call({delete, Key}, _From, State) ->
   {reply, ok, friendsearch:delete(Key, State)};
 
@@ -100,6 +96,9 @@ handle_call(keep_alive, _From, State) ->
 
 handle_call(stop, _From, State) ->
   {stop, normal, ok, State}.
+
+handle_cast({add, Entry}, State) ->
+  {noreply, friendsearch:add(Entry, State)}.
 
 terminate(_Reason, State) ->
   timer:cancel(State#friendsearch_state.timerRefKeepAlive),

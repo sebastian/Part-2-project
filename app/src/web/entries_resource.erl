@@ -26,7 +26,6 @@ process_post(ReqData, State) ->
     human_profile_url = proplists:get_value(<<"profile_url">>, Data),
     avatar_url = proplists:get_value(<<"avatar_url">>, Data)
   },
-  io:format("******** Received new person: ~p ********* ~n", [NewPerson]),
   friendsearch_srv:add(NewPerson),
   {true, ReqData, State}.
 

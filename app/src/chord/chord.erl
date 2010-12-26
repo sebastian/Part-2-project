@@ -4,9 +4,8 @@
 -define(NUMBER_OF_FINGERS, 160).
 
 %% @doc: the interval in miliseconds at which the routine tasks are performed
--define(STABILIZER_INTERVAL, 1000).
--define(FIX_FINGER_INTERVAL, 20).
-%-define(STABILIZER_INTERVAL, 3000).
+-define(FIX_FINGER_INTERVAL, 500).
+-define(STABILIZER_INTERVAL, 5000).
 %-define(FIX_FINGER_INTERVAL, 2000).
 
 -ifdef(TEST).
@@ -52,7 +51,6 @@ get(Key) ->
   io:format("chord:get(~p)~n", [Key]),
   {ok, StorageNode} = find_successor(Key),
   Return = chord_tcp:rpc_get_key(Key, StorageNode),
-  io:format("Got ~p from rpc_get_key~n", [Return]),
   {ok, Values} = Return,
   Values.
 
@@ -241,15 +239,27 @@ code_change(_OldVsn, State, _Extra) ->
 fix_finger(FingerNum, #chord_state{fingers = Fingers} = State) ->
   Finger = array:get(FingerNum, Fingers),
   {ok, Succ} = find_successor(Finger#finger_entry.start, State),
-  UpdatedFinger = Finger#finger_entry{node = Succ},
-  gen_server:cast(chord, {set_finger, FingerNum, UpdatedFinger}).
+  % If the successor is in the interval for the finger,
+  % then update it, otherwise drop the successor.
+  {Start, End} = Finger#finger_entry.interval,
+  case (utilities:in_inclusive_range(Succ#node.key, Start, End)) of
+    true ->
+      % io:format("fix_finger #~p. New finger: ~p.~n", [FingerNum, Succ#node.port]),
+      UpdatedFinger = Finger#finger_entry{node = Succ},
+      gen_server:cast(chord, {set_finger, FingerNum, UpdatedFinger});
+    false ->
+      % io:format("Fix_finger #~p~n. Successor not in interval.~n", [FingerNum])
+      ok
+  end.
 
 
 -spec(perform_stabilize/1::(#chord_state{}) -> 
     {ok, #node{}} | {ok, undefined} | {updated_succ, #node{}}).
 perform_stabilize(#chord_state{self = ThisNode} = State) ->
   case get_successor(State) of
-    undefined -> {ok, undefined};
+    undefined -> 
+      % io:format("perform_stabilize: get_successor returned undefined~n"),
+      {ok, undefined};
     Succ ->
       case chord_tcp:get_predecessor(Succ) of
         {ok, undefined} ->
@@ -257,13 +267,16 @@ perform_stabilize(#chord_state{self = ThisNode} = State) ->
           % That is the case when it is a new chord ring.
           % By setting the node as a new successor we update
           % the state in ourselves and the successor.
+          io:format("Other node does not yet have a predecessor, set ourselves~n"),
           {updated_succ, Succ};
         {ok, SuccPred} ->
           % Check if predecessor is between ourselves and successor
           case utilities:in_range(SuccPred#node.key, ThisNode#node.key, Succ#node.key) of
             true  -> 
+              io:format("Updated successor: ~p~n", [SuccPred#node.port]),
               {updated_succ, SuccPred};
             false -> 
+              % io:format("Same successor: ~p~n", [Succ#node.port]),
               % We still have the same successor.
               {ok, Succ}
           end
@@ -412,11 +425,7 @@ perform_notify(#node{key = NewKey} = Node,
 -ifdef(TEST).
 
 nForKey(Key) -> #node{key = Key}.
-
-
-
-%% @todo: Missing test for fix_finger
-
+  
 %% @todo: Missing test that checks that notify actually works!
 %%        Missing test where the successors predecessor is not ourself.
 
