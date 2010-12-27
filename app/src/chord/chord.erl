@@ -331,14 +331,32 @@ find_successor(Key,
       case utilities:in_inclusive_range(Key, NodeId, Succ#node.key) of
         true  -> {ok, Succ};
         % Try looking successively through successors successors.
-        false -> find_successor(Key, Succ)
+        false -> 
+          case find_successor(Key, Succ) of
+            {error, Reason} ->
+              error_logger:error_msg("Failed find_successor locally! (~p)", [Reason]),
+              case chord_tcp:rpc_find_successor(Key, Succ#node.ip, Succ#node.port) of
+                {ok, Val} -> Val;
+                {error, Reason} ->
+                  error_logger:error_msg("Failed remote find_successor (~p)", [Reason]),
+                  {error, Reason}
+              end;
+            Val -> Val
+          end
       end
   end;
 find_successor(Key, #node{key = NKey} = CurrentNext) ->
-  {ok, {NextFinger, NSucc}} = chord_tcp:rpc_get_closest_preceding_finger_and_succ(Key, CurrentNext),
-  case utilities:in_inclusive_range(Key, NKey, NSucc#node.key) of
-    true  -> {ok, NSucc};
-    false -> find_successor(Key, NextFinger)
+  case chord_tcp:rpc_get_closest_preceding_finger_and_succ(Key, CurrentNext) of
+    {ok, {NextFinger, NSucc}} ->
+      case utilities:in_inclusive_range(Key, NKey, NSucc#node.key) of
+        true  -> {ok, NSucc};
+        false -> find_successor(Key, NextFinger)
+      end;
+    {error, Reason} ->
+      % What can be done instead? Something is wrong in one of the 
+      % subsequent chord nodes. Report the error downstream and have
+      % our successor do the lookup instead.
+      {error, Reason}
   end.
 
 

@@ -68,20 +68,28 @@ notify_successor(#node{ip = Ip, port = Port}, CurrentNode) ->
 -spec(perform_rpc/3::(Message::term(), Ip::ip(), Port::port_number()) ->
     {ok, _} | {error, _}).
 perform_rpc(Message, Ip, Port) ->
-  {ok, Socket} = gen_tcp:connect(Ip, Port, [binary, {packet, 0}]),
-  gen_tcp:send(Socket, term_to_binary(Message)),
-  Ret = receive 
-    {tcp, Socket, Data} ->
-      {ok, binary_to_term(Data, [safe])};
-    {tcp_closed, Socket} ->
-      {error, tcp_closed};
-    {tcp_error, Socket, Reason} ->
-      {error, Reason}
-  after 2000 ->
-    {error, timeout}
-  end, 
-  gen_tcp:close(Socket),
-  Ret.
+  perform_rpc(Message, Ip, Port, 3, none).
+
+-spec(perform_rpc/5::(Message::term(), Ip::ip(), Port::port_number(), 
+    Tries::integer(), PreviousResponse::term()) -> {ok, _} | {error, _}).
+perform_rpc(Message, _Ip, _Port, 0, PreviousResponse) ->
+  error_logger:error_msg("Failed perform_rpc for message: ~p~n", [Message]),
+  PreviousResponse;
+perform_rpc(Message, Ip, Port, Tries, _PreviousResponse) ->
+  case gen_tcp:connect(Ip, Port, [binary, {packet, 0}]) of
+    {ok, Socket} ->
+      gen_tcp:send(Socket, term_to_binary(Message)),
+      Ret = receive 
+        {tcp, Socket, Data} ->
+          {ok, binary_to_term(Data, [safe])}
+      after 2000 ->
+        perform_rpc(Message, Ip, Port, Tries - 1, {error, timeout})
+      end, 
+      gen_tcp:close(Socket),
+      Ret;
+    {error, econnrefused} ->
+      perform_rpc(Message, Ip, Port, Tries - 1, {error, econnrefused})
+  end.
 
 %% ------------------------------------------------------------------
 %% gen_listener_tcp Function Definitions
