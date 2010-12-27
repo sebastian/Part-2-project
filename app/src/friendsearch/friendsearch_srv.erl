@@ -130,8 +130,40 @@ find_test() ->
   PersonName = Person#person.name,
   ?assertEqual([], find(PersonName)),
   add(Person),
-  find(PersonName),
   ?assertEqual([Person], find(PersonName)),
+  stop(),
+  test_dht:stop().
+
+find_by_surname_test() ->
+  test_dht:start(),
+  start(test_dht),
+  Person = test_utils:test_person_sebastianA(),
+  Surname = <<"Eide">>,
+  ?assertEqual([], find(Surname)),
+  add(Person),
+  ?assertEqual([Person], find(Surname)),
+  stop(),
+  test_dht:stop().
+
+find_multiple_test() ->
+  test_dht:start(),
+  start(test_dht),
+  % Name: Sebastian Probst Eide
+  Sebastian = test_utils:test_person_sebastianA(),
+
+  % Name: Johan Wilhelm Eide
+  Johan = (test_utils:test_person_sebastianA())#person{name = "Johan Wilhelm Eide"},
+
+  % The query should return Sebastian and Johan, in that order
+  Query = <<"Sebastian Eide">>,
+
+  ?assertEqual([], find(Query)),
+
+  add(Sebastian),
+  add(Johan),
+
+  ?assertEqual([Sebastian, Johan], find(Query)),
+
   stop(),
   test_dht:stop().
 

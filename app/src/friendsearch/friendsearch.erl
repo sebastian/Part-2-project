@@ -2,6 +2,8 @@
 %% @doc DataStore module for storing and retrieving values.
 -module(friendsearch).
 
+-define(LINK_NAME_CHUNKS, 3).
+
 -include("../fs.hrl").
 
 -ifdef(TEST).
@@ -13,7 +15,7 @@
 %% ------------------------------------------------------------------
 
 -export([list/1, add/2, delete/2, find/2, keep_alive/1]).
--export([lookup_link/2]).
+-export([lookup_link/2, get_item/2]).
 -export([init/1]).
 
 %% ------------------------------------------------------------------
@@ -46,7 +48,7 @@ add(Person, State) ->
     profile_key = Entry#entry.key
   },
   MainLinkEntry = utilities:entry_for_record(MainLink),
-  LinkEntries = [MainLinkEntry],
+  LinkEntries = [MainLinkEntry | generate_link_items(Entry)],
 
   % Add all entries to the Dht
   AllEntries = [Entry | LinkEntries],
@@ -69,17 +71,36 @@ delete(Key, State = #friendsearch_state{entries = Entries}) ->
 -spec(find/2::(Query::bitstring(), State::#friendsearch_state{}) -> [#entry{}]).
 find(Query, State) ->
   KeyForQuery = utilities:key_for_normalized_string(Query),
+  SearchKeysWithScore = [{KeyForQuery, 10} | 
+      [{utilities:key_for_normalized_string(K), 1} || K <-name_subsets(Query)]],
   Dht = State#friendsearch_state.dht,
-  % Look up key in Dht
-  Entries = Dht:get(KeyForQuery),
-  Entries1 = lists:flatten(rpc:pmap({friendsearch, lookup_link}, [Dht], Entries)),
-  [E#entry.data || E <- Entries1, is_record(E#entry.data, person)].
+  % Look up keys in Dht
+  Entries = lists:flatten(rpc:pmap({friendsearch, get_item}, [Dht], SearchKeysWithScore)),
+  EntriesToLookUp = profile_list_by_priority(Entries),
+  [E#entry.data || E <- 
+    lists:flatten(rpc:pmap({friendsearch, lookup_link}, [Dht], EntriesToLookUp)),
+      is_record(E#entry.data, person)].
+
+get_item({Key, Score}, Dht) ->
+  [{(E#entry.data)#link.profile_key, Score} || E <- Dht:get(Key)].
+
+profile_list_by_priority(PropList) ->
+  ScoreDict = lists:foldl(
+    fun({Key, Score}, Dict) ->
+        case dict:find(Key, Dict) of
+          {ok, ExistingScore} ->
+            dict:store(Key, ExistingScore + Score, Dict);
+          error -> dict:store(Key, Score, Dict)
+        end
+    end, dict:new(), PropList),
+  [Key || {Key, _Score} <- 
+    lists:sort(fun({_, SA}, {_, SB}) -> SA >= SB end, dict:to_list(ScoreDict))].
+  
 
 %% @doc: if the element is a link, then the corresponding record is
 %% looked up in the Dht network.
--spec(lookup_link/2::(Entry::#entry{}, _) -> #entry{}).
-lookup_link(#entry{data = #person{}} = Entry, _Dht) -> Entry;
-lookup_link(#entry{data = #link{profile_key = Key}}, Dht) -> 
+-spec(lookup_link/2::(Key::key(), _) -> #entry{}).
+lookup_link(Key, Dht) -> 
   Dht:get(Key).
 
 -spec(keep_alive/1::(State::#friendsearch_state{}) -> #friendsearch_state{}).
@@ -100,10 +121,78 @@ keep_alive(State) ->
   State#friendsearch_state{entries = Entries}.
 
 %% ------------------------------------------------------------------
+%% Private methods
+%% ------------------------------------------------------------------
+
+-spec(generate_link_items/1::(Person::#person{}) -> [#entry{}]).
+generate_link_items(#entry{key = Key, data = Person}) ->
+  [utilities:entry_for_record(#link{
+      name_fragment = Frag,
+      name = Person#person.name,
+      profile_key = Key
+    }) || Frag <- name_subsets(Person)].
+
+name_subsets(#person{name = Name}) ->
+  name_subsets(Name);
+name_subsets(Name) ->
+  ListName = utilities:string_to_list(utilities:downcase_str(Name)),
+  Words = lists:foldl(fun(W, A) -> get_parts(W,A) end, [], string:tokens(ListName, " ")),
+  lists:map(fun(E) -> list_to_bitstring(E) end, Words).
+
+get_parts(Name, Acc) ->
+  get_parts(Name, ?LINK_NAME_CHUNKS, Acc).
+get_parts(Name, Place, Acc) ->
+  case (Place < string:len(Name)) of
+    true -> get_parts(Name, Place + ?LINK_NAME_CHUNKS, [string:left(Name, Place) | Acc]);
+    false -> 
+      [Name | Acc]
+  end.
+
+%% ------------------------------------------------------------------
 %% Tests
 %% ------------------------------------------------------------------
 
 -ifdef(TEST).
+
+get_parts_test() ->
+  Parts = get_parts("sebastian", []),
+  ?assert(lists:member("seb", Parts)),
+  ?assert(lists:member("sebast", Parts)),
+  ?assert(lists:member("sebastian", Parts)),
+  
+  Parts2 = get_parts("eide", []),
+  ?assert(lists:member("eid", Parts2)),
+  ?assert(lists:member("eide", Parts2)).
+
+name_permutations_test() ->
+  Person = #person{name = <<"Sebastian Probst Eide">>},
+  NameClippings = name_subsets(Person),
+  ?assert(lists:member(<<"seb">>, NameClippings)),
+  ?assert(lists:member(<<"sebast">>, NameClippings)),
+  ?assert(lists:member(<<"sebastian">>, NameClippings)),
+  ?assert(lists:member(<<"pro">>, NameClippings)),
+  ?assert(lists:member(<<"probst">>, NameClippings)),
+  ?assert(lists:member(<<"eid">>, NameClippings)),
+  ?assert(lists:member(<<"eide">>, NameClippings)).
+
+contains_link_for_namefrag(Frag, List) ->
+  proplists:get_value(Frag, [{(E#entry.data)#link.name_fragment, true} || E <- List], false).
+
+generate_link_items_test() ->
+  Person = test_utils:test_person_sebastianA(),
+  Entry = utilities:entry_for_record(Person),
+  Entries = generate_link_items(Entry),
+  ?assert(contains_link_for_namefrag(<<"seb">>, Entries)),
+  ?assert(contains_link_for_namefrag(<<"sebast">>, Entries)),
+  ?assert(contains_link_for_namefrag(<<"sebastian">>, Entries)),
+  ?assert(contains_link_for_namefrag(<<"pro">>, Entries)),
+  ?assert(contains_link_for_namefrag(<<"probst">>, Entries)),
+  ?assert(contains_link_for_namefrag(<<"eid">>, Entries)),
+  ?assert(contains_link_for_namefrag(<<"eide">>, Entries)),
+  % They should all link to the same entry:
+  lists:foreach(
+    fun(E) -> ?assert((E#entry.data)#link.profile_key =:= Entry#entry.key) end,
+    Entries).
 
 init_test() ->
   Dht = the_dht,
@@ -118,7 +207,10 @@ assumptions_for_add(Person) ->
   },
   LinkEntry = utilities:entry_for_record(Link),
   erlymock:o_o(chord, set, [Entry#entry.key, Entry], [{return, ok}]),
-  erlymock:o_o(chord, set, [LinkEntry#entry.key, LinkEntry], [{return, ok}]).
+  erlymock:o_o(chord, set, [LinkEntry#entry.key, LinkEntry], [{return, ok}]),
+  lists:foreach(fun(E) -> 
+      erlymock:o_o(chord, set, [E#entry.key, E], [{return, ok}])
+    end, generate_link_items(Entry)).
 
 add_test() ->
   State = init(chord),
@@ -195,37 +287,22 @@ keep_alive_test() ->
   lists:foreach(fun(E) -> ?assert(E#entry.timeout > TimeNow + 60) end,
       State1#friendsearch_state.entries).
 
+profile_list_by_priority_test() ->
+  List = [{a, 10}, {b, 1}, {a,1}, {b,1}],
+  ?assertEqual([a, b], profile_list_by_priority(List)),
+  List2 = [{a, 10}, {b, 1}, {a,1}, {b,1}, {b,1}, {b,1}, 
+    {b,1}, {b,1}, {b,1}, {b,1}, {b,1}, {b,1}, {b,1}, {b,1}],
+  ?assertEqual([b, a], profile_list_by_priority(List2)).
+
 find_test() ->
-  State = init(chord),
+  test_dht:start(),
+  State = init(test_dht),
+
+  Person = test_utils:test_person_sebastianA(),
+  UpdatedState = add(Person, State),
 
   Query = <<"Sebastian">>,
-  Key = utilities:key_for_normalized_string(Query),
-  ProfileKey = <<"ProfileKey">>,
-
-  Link = #entry{data = #link{profile_key = ProfileKey}, key = Key},
-  Person = #person{name = <<"Sebastian">>},
-  Profile = #entry{data = Person, key = ProfileKey},
-
-  erlymock:start(),
-  erlymock:strict(chord, get, [Key], [{return, [Link]}]),
-  erlymock:strict(chord, get, [ProfileKey], [{return, [Profile]}]),
-  erlymock:replay(), 
-  ?assertEqual([Person], find(Query, State)),
-  erlymock:verify().
-
-lookup_link_person_test() ->
-  Entry = test_utils:test_person_entry_1a(),
-  ?assertEqual(Entry, lookup_link(Entry, some_dht)).
-
-lookup_link_link_test() ->
-  ProfileKey = <<"SomeKey">>,
-  Entry = #entry{data = #link{profile_key = ProfileKey}},
-  ReturnEntry = test_utils:test_person_entry_1a(),
-
-  erlymock:start(),
-  erlymock:strict(chord, get, [ProfileKey], [{return, [ReturnEntry]}]),
-  erlymock:replay(), 
-  ?assertEqual([ReturnEntry], lookup_link(Entry, chord)),
-  erlymock:verify().
+  ?assertEqual([Person], find(Query, UpdatedState)),
+  test_dht:stop().
 
 -endif.

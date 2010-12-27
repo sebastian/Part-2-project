@@ -244,11 +244,9 @@ fix_finger(FingerNum, #chord_state{fingers = Fingers} = State) ->
   {Start, End} = Finger#finger_entry.interval,
   case (utilities:in_inclusive_range(Succ#node.key, Start, End)) of
     true ->
-      % io:format("fix_finger #~p. New finger: ~p.~n", [FingerNum, Succ#node.port]),
       UpdatedFinger = Finger#finger_entry{node = Succ},
       gen_server:cast(chord, {set_finger, FingerNum, UpdatedFinger});
     false ->
-      % io:format("Fix_finger #~p~n. Successor not in interval.~n", [FingerNum])
       ok
   end.
 
@@ -258,7 +256,6 @@ fix_finger(FingerNum, #chord_state{fingers = Fingers} = State) ->
 perform_stabilize(#chord_state{self = ThisNode} = State) ->
   case get_successor(State) of
     undefined -> 
-      % io:format("perform_stabilize: get_successor returned undefined~n"),
       {ok, undefined};
     Succ ->
       case chord_tcp:get_predecessor(Succ) of
@@ -267,16 +264,13 @@ perform_stabilize(#chord_state{self = ThisNode} = State) ->
           % That is the case when it is a new chord ring.
           % By setting the node as a new successor we update
           % the state in ourselves and the successor.
-          io:format("Other node does not yet have a predecessor, set ourselves~n"),
           {updated_succ, Succ};
         {ok, SuccPred} ->
           % Check if predecessor is between ourselves and successor
           case utilities:in_range(SuccPred#node.key, ThisNode#node.key, Succ#node.key) of
             true  -> 
-              io:format("Updated successor: ~p~n", [SuccPred#node.port]),
               {updated_succ, SuccPred};
             false -> 
-              % io:format("Same successor: ~p~n", [Succ#node.port]),
               % We still have the same successor.
               {ok, Succ}
           end
