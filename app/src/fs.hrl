@@ -63,3 +63,5 @@
     link_entries,
     timerRefKeepAlive
   }).
+
+-define(NYI, exit({not_yet_implemented, ?MODULE, ?LINE})).

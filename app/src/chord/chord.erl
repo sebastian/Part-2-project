@@ -95,7 +95,7 @@ get_predecessor() ->
 -spec(notified/1::(Node::#node{}) -> {ok, ignore}).
 notified(Node) ->
   gen_server:cast(chord, {notified, Node}), 
-  {ok, ignore}.
+  ignore.
 
 %% ------------------------------------------------------------------
 %% To be called by timer
@@ -168,14 +168,14 @@ handle_call({local_set, Key, Entry}, _From, State) ->
 handle_call({get_preceding_finger, Key}, _From, State) ->
   Finger = closest_preceding_finger(Key, State),
   Succ = get_successor(State),
-  Msg = {ok, {Finger, Succ}},
+  Msg = {Finger, Succ},
   {reply, Msg, State};
 
 handle_call({find_successor, Key}, _From, State) ->
   {reply, find_successor(Key,State), State};
 
 handle_call(get_predecessor, _From, #chord_state{predecessor = Predecessor} = State) ->
-  {reply, {ok, Predecessor}, State}.
+  {reply, Predecessor, State}.
 
 %% Casts:
 handle_cast({notified, Node}, State) ->
@@ -316,7 +316,7 @@ get_start(NodeKey, N) ->
 
 %% @doc: Returns the node succeeding a key.
 -spec(find_successor/2::(Key::key(), #chord_state{} | #node{})
-    -> {ok, #node{}}).
+    -> #node{}).
 find_successor(Key, 
     #chord_state{self = #node{key = NodeId}} = State) ->
   case get_successor(State) of
@@ -324,12 +324,12 @@ find_successor(Key,
       % This case only happens when the chord circle is new
       % and the second node joins. Then the first node does
       % not yet have any successors.
-      {ok, State#chord_state.self};
+      State#chord_state.self;
     Succ ->
       % First check locally to see if it is in the range
       % of this node and this nodes successor.
       case utilities:in_inclusive_range(Key, NodeId, Succ#node.key) of
-        true  -> {ok, Succ};
+        true  -> Succ;
         % Try looking successively through successors successors.
         false -> 
           case find_successor(Key, Succ) of
@@ -339,7 +339,10 @@ find_successor(Key,
                 {ok, Val} -> Val;
                 {error, Reason} ->
                   error_logger:error_msg("Failed remote find_successor (~p)", [Reason]),
-                  {error, Reason}
+                  {error, Reason};
+                Msg -> 
+                  error_logger:error_msg("Unexpected message received in chord (~p): ~p~n", 
+                    [?LINE, Msg])
               end;
             Val -> Val
           end
@@ -349,7 +352,7 @@ find_successor(Key, #node{key = NKey} = CurrentNext) ->
   case chord_tcp:rpc_get_closest_preceding_finger_and_succ(Key, CurrentNext) of
     {ok, {NextFinger, NSucc}} ->
       case utilities:in_inclusive_range(Key, NKey, NSucc#node.key) of
-        true  -> {ok, NSucc};
+        true  -> NSucc;
         false -> find_successor(Key, NextFinger)
       end;
     {error, Reason} ->

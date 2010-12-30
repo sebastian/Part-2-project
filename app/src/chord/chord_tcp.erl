@@ -81,7 +81,12 @@ perform_rpc(Message, Ip, Port, Tries, _PreviousResponse) ->
       gen_tcp:send(Socket, term_to_binary(Message)),
       Ret = receive 
         {tcp, Socket, Data} ->
-          {ok, binary_to_term(Data, [safe])}
+          {ok, binary_to_term(Data, [safe])};
+        {tcp_closed, Socket} ->
+          error_logger:info_msg("TCP connection closed"),
+          {ok, closed};
+        Msg -> 
+          error_logger:error_msg("Unknown message: ~p~n", [Msg])
       after 2000 ->
         perform_rpc(Message, Ip, Port, Tries - 1, {error, timeout})
       end, 
@@ -114,8 +119,8 @@ chord_tcp_client(Socket) ->
       gen_tcp:close(Socket);
     {tcp, Socket, Data} ->
       Message = binary_to_term(Data, [safe]),
-      {ok, Value} = handle_msg(Message),
-      gen_tcp:send(Socket, term_to_binary(Value)),
+      RetValue = handle_msg(Message),
+      gen_tcp:send(Socket, term_to_binary(RetValue)),
       chord_tcp_client(Socket);
     {tcp_closed, Socket} ->
       ok
@@ -167,4 +172,7 @@ handle_msg({set_key, Key, Value}) ->
   chord:local_set(Key, Value);
 
 handle_msg({get_key, Key}) ->
-  chord:local_get(Key).
+  chord:local_get(Key);
+
+handle_msg(Msg) ->
+  ?NYI.
