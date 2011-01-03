@@ -1,3 +1,5 @@
+-compile([debug_info]).
+
 -type(key() :: number()).
 -type(binary_string() :: bitstring()).
 -type(port_number() :: integer()).

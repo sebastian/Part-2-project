@@ -22,8 +22,8 @@ key_for_normalized_string(String) ->
 get_time() ->
   calendar:datetime_to_gregorian_seconds(erlang:universaltime()).
 
--spec(get_join_node/2::(Ip::ip(), Port::port_number()) -> {ip(), port_number()} | first).
-get_join_node(Ip, Port) ->
+-spec(get_join_nodes/2::(Ip::ip(), Port::port_number()) -> {ip(), port_number()} | first).
+get_join_nodes(Ip, Port) ->
   Url = get_join_node_url(Ip, Port),
   {ok, Result} = tcp_utils:get_url(Url),
   Body = case Result of 
@@ -31,18 +31,19 @@ get_join_node(Ip, Port) ->
     {_, B} -> B
   end,
   {struct, Data} = mochijson2:decode(Body),
-  case proplists:get_value(<<"ip">>, Data) of
+  case proplists:get_value(<<"peers">>, Data) of
     undefined ->
       % Check if we are the first to join, if not, fail.
       case proplists:get_value(<<"first">>, Data) of
         true ->
           first
       end;
-    IpVal ->
-      % We have an Ip value. Extract the port and return the pair.
-      JoinIp = get_ip_from_data(IpVal),
-      JoinPort = proplists:get_value(<<"port">>, Data),
-      {JoinIp, JoinPort}
+    Peers ->
+      io:format("Got peer list in get_join_nodes ~p~n", [Peers]),
+      [{
+          get_ip_from_data(proplists:get_value(<<"ip">>, E)), 
+          proplists:get_value(<<"port">>, E)
+        } || {struct, E} <- Peers]
   end.
 
 -spec(get_ip_from_data/1::(Ip::bitstring()) -> ip()).
@@ -343,7 +344,7 @@ get_join_node_url_test() ->
   ?assertEqual("http://127.0.0.1:8000/?port=2&ip=1.2.3.4",
     get_join_node_url(Ip, Port)).
 
-get_join_node_not_first_test() ->
+get_join_nodes_not_first_test() ->
   Ip = {127,0,0,1}, Port = 5678,
 
   ServerReturn = {{"HTTP/1.1",200,"OK"},
@@ -352,17 +353,17 @@ get_join_node_not_first_test() ->
      "MochiWeb/1.1 WebMachine/1.7.3 (participate in the frantic)"},
     {"content-length","34"},
     {"content-type","text/html"}],
-   "{\"ip\":\"127.0.0.2\",\"port\":1234}"},
+    "{\"peers\":[{\"ip\":\"127.0.0.2\",\"port\":1234}]}"},
 
   Url = get_join_node_url(Ip, Port),
 
   erlymock:start(),
   erlymock:strict(tcp_utils, get_url, [Url], [{return, {ok, ServerReturn}}]),
   erlymock:replay(), 
-  ?assertEqual({{127,0,0,2}, 1234}, get_join_node(Ip, Port)),
+  ?assertEqual([{{127,0,0,2}, 1234}], get_join_nodes(Ip, Port)),
   erlymock:verify().
 
-get_join_node_first_test() ->
+get_join_nodes_first_test() ->
   Ip = {127,0,0,1}, Port = 5678,
 
   ServerReturn = {{"HTTP/1.1",200,"OK"},
@@ -378,7 +379,7 @@ get_join_node_first_test() ->
   erlymock:start(),
   erlymock:strict(tcp_utils, get_url, [Url], [{return, {ok, ServerReturn}}]),
   erlymock:replay(), 
-  ?assertEqual(first, get_join_node(Ip, Port)),
+  ?assertEqual(first, get_join_nodes(Ip, Port)),
   erlymock:verify().
 
 get_ip_from_data_test_() ->

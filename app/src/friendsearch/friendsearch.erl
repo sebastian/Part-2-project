@@ -53,7 +53,7 @@ add(Person, State) ->
   % Add all entries to the Dht
   AllEntries = [Entry | LinkEntries],
   Dht = State#friendsearch_state.dht,
-  lists:foreach(fun(E) -> Dht:set(E#entry.key, E) end, AllEntries),
+  [spawn(fun() -> Dht:set(E#entry.key, E) end) || E <- AllEntries],
 
   % Update state
   State#friendsearch_state{
@@ -69,6 +69,7 @@ delete(Key, State = #friendsearch_state{entries = Entries}) ->
   }.
 
 -spec(find/2::(Query::bitstring(), State::#friendsearch_state{}) -> [#entry{}]).
+find([], _State) -> [];
 find(Query, State) ->
   KeyForQuery = utilities:key_for_normalized_string(Query),
   SearchKeysWithScore = [{KeyForQuery, 10} | 
@@ -80,28 +81,6 @@ find(Query, State) ->
   [E#entry.data || E <- 
     lists:flatten(rpc:pmap({friendsearch, lookup_link}, [Dht], EntriesToLookUp)),
       is_record(E#entry.data, person)].
-
-get_item({Key, Score}, Dht) ->
-  [{(E#entry.data)#link.profile_key, Score} || E <- Dht:get(Key)].
-
-profile_list_by_priority(PropList) ->
-  ScoreDict = lists:foldl(
-    fun({Key, Score}, Dict) ->
-        case dict:find(Key, Dict) of
-          {ok, ExistingScore} ->
-            dict:store(Key, ExistingScore + Score, Dict);
-          error -> dict:store(Key, Score, Dict)
-        end
-    end, dict:new(), PropList),
-  [Key || {Key, _Score} <- 
-    lists:sort(fun({_, SA}, {_, SB}) -> SA >= SB end, dict:to_list(ScoreDict))].
-  
-
-%% @doc: if the element is a link, then the corresponding record is
-%% looked up in the Dht network.
--spec(lookup_link/2::(Key::key(), _) -> #entry{}).
-lookup_link(Key, Dht) -> 
-  Dht:get(Key).
 
 -spec(keep_alive/1::(State::#friendsearch_state{}) -> #friendsearch_state{}).
 keep_alive(State) ->
@@ -123,6 +102,29 @@ keep_alive(State) ->
 %% ------------------------------------------------------------------
 %% Private methods
 %% ------------------------------------------------------------------
+
+get_item({Key, Score}, Dht) ->
+  [{(E#entry.data)#link.profile_key, Score} || E <- Dht:lookup(Key)].
+
+profile_list_by_priority(PropList) ->
+  ScoreDict = lists:foldl(
+    fun({Key, Score}, Dict) ->
+        case dict:find(Key, Dict) of
+          {ok, ExistingScore} ->
+            dict:store(Key, ExistingScore + Score, Dict);
+          error -> dict:store(Key, Score, Dict)
+        end
+    end, dict:new(), PropList),
+  [Key || {Key, _Score} <- 
+    lists:sort(fun({_, SA}, {_, SB}) -> SA >= SB end, dict:to_list(ScoreDict))].
+  
+
+%% @doc: if the element is a link, then the corresponding record is
+%% looked up in the Dht network.
+-spec(lookup_link/2::(Key::key(), _) -> #entry{}).
+lookup_link(Key, Dht) -> 
+  Dht:lookup(Key).
+
 
 -spec(generate_link_items/1::(Person::#person{}) -> [#entry{}]).
 generate_link_items(#entry{key = Key, data = Person}) ->

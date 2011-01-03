@@ -19,11 +19,10 @@ to_json(ReqData, State) ->
   io:format("******** Query: ~p ********~n", [Query]),
   Results = friendsearch_srv:find(Query),
   People = [{struct, [
-              {name, P#person.name},
-              {profile_url, P#person.human_profile_url},
-              {avatar_url, P#person.avatar_url}
-             ]} || P <- Results],
-  io:format("******** People: ~p **********~n", [People]),
+                        {name, P#person.name},
+                        {profile_url, P#person.human_profile_url},
+                        {avatar_url, P#person.avatar_url}
+                     ]} || P <- Results],
   Value = iolist_to_binary(mochijson2:encode({struct, 
       [
         {<<"hops">>, 1},

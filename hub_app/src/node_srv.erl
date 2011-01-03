@@ -1,6 +1,10 @@
 -module(node_srv).
 -behaviour(gen_server).
 
+-ifdef(TEST).
+-include_lib("eunit/include/eunit.hrl").
+-endif.
+
 -define(SERVER, ?MODULE).
 
 %% ------------------------------------------------------------------
@@ -46,14 +50,14 @@ init(_Args) ->
 handle_call(stop, _From, State) ->
   {stop, normal, ok, State};
 
-handle_call({register, Details}, _From, State) ->
-  Peer = get_not_me(Details, State),
-  io:format("In node_srv with details: ~p. Returning peer: ~p~n", [Details, Peer]),
-  NewState = case lists:member(Details, State) of
+handle_call({register, {Ip, Port} = Details}, _From, State) ->
+  Peers = get_not_me(Details, State),
+  io:format("In node_srv with details: ~p. Returning peers: ~p~n", [Details, Peers]),
+  NewState = case (Ip =:= undefined orelse Port =:= undefined orelse lists:member(Details, State)) of
     true -> State;
     false -> [Details|State]
   end,
-  {reply, Peer, NewState};
+  {reply, Peers, NewState};
 
 handle_call(clear, _From, _State) ->
   {reply, ok, []}.
@@ -76,6 +80,20 @@ code_change(_OldVsn, State, _Extra) ->
 %% Internal Function Definitions
 %% ------------------------------------------------------------------
 
-get_not_me(_Details, []) -> first;
-get_not_me(Details, [Details|Hs]) -> get_not_me(Details, Hs);
-get_not_me(_Details, [Peer|_Hs]) -> Peer. 
+get_not_me(Details, State) ->
+  NumToGet = 5,
+  Peers = lists:sublist(State -- [Details], NumToGet),
+  case Peers of
+    [] -> first;
+    _ -> Peers
+  end.
+
+-ifdef(TEST).
+get_not_me_first_test() ->
+  ?assertEqual(first, get_not_me({ip, port}, [])).
+
+get_not_me_test() ->
+  State = [{ip, port}, {otherIp, port}, {otherOtherIp, otherPort}],
+  ?assertEqual([{otherIp, port}, {otherOtherIp, otherPort}], get_not_me({ip, port}, State)).
+
+-endif.

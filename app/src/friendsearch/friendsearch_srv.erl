@@ -24,7 +24,7 @@
 %% gen_server Function Exports
 %% ------------------------------------------------------------------
 
--export([init/1, handle_cast/2, handle_call/3, terminate/2, code_change/3]).
+-export([init/1, handle_cast/2, handle_call/3, terminate/2, code_change/3, handle_info/2]).
 
 %% ------------------------------------------------------------------
 %% API Function Definitions
@@ -99,6 +99,9 @@ handle_call(stop, _From, State) ->
 
 handle_cast({add, Entry}, State) ->
   {noreply, friendsearch:add(Entry, State)}.
+
+handle_info(_Msg, State) ->
+  {noreply, State}.
 
 terminate(_Reason, State) ->
   timer:cancel(State#friendsearch_state.timerRefKeepAlive),

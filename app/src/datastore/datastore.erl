@@ -8,7 +8,7 @@
 %% API Function Exports
 %% ------------------------------------------------------------------
 
--export([set/3, get/2, spring_cleaning/1]).
+-export([set/3, lookup/2, spring_cleaning/1]).
 -export([init/0]).
 
 %% ------------------------------------------------------------------
@@ -40,9 +40,10 @@ set(Key, Value, State) ->
 
 %% @doc Returns a list of values for a given key. The list
 %%     might potentially be empty.
--spec(get/2::(Key::key(), State::#datastore_state{}) 
+-spec(lookup/2::(Key::key(), State::#datastore_state{}) 
     -> [#entry{}]).
-get(Key, State) ->
+lookup(Key, State) ->
+  io:format("Looking up ~p in datastore~n", [Key]),
   Data = State#datastore_state.data,
   case dict:find(Key, Data) of
     {ok, ValueList} ->
@@ -77,25 +78,25 @@ test_state() ->
 init_test() ->
   ?assertEqual(dict:new(), init()).
 
-set_get_test() ->
+set_lookup_test() ->
   State = test_state(),
   Key = <<"Key">>,
   Value1 = test_utils:test_person_entry_1a(),
   Value2 = test_utils:test_person_entry_1b(),
 
   NewState = datastore:set(Key, Value1, State),
-  ?assertEqual([Value1], datastore:get(Key, NewState)),
+  ?assertEqual([Value1], datastore:lookup(Key, NewState)),
 
   NewState2 = datastore:set(Key, Value2, NewState),
   ?assertEqual([Value2, Value1],
-      datastore:get(Key, NewState2)).
+      datastore:lookup(Key, NewState2)).
 
-get_missing_key_test() ->
+lookup() ->
   State = test_state(),
-  ?assertEqual([], datastore:get(<<"Key">>, State)),
+  ?assertEqual([], datastore:lookup(<<"Key">>, State)),
 
   State2 = datastore:set(<<"Key2">>, #entry{}, State),
-  ?assertEqual([], datastore:get(<<"Key">>, State2)).
+  ?assertEqual([], datastore:lookup(<<"Key">>, State2)).
 
 set_should_drop_outdated_records_test() ->
   State = test_state(),
@@ -125,7 +126,7 @@ set_should_accept_records_with_timeout_starting_at_the_current_time_test() ->
   erlymock:verify(),
 
   % It should have accepted the record
-  ?assert(lists:member(Record, get(<<"Key">>, NewState))).
+  ?assert(lists:member(Record, lookup(<<"Key">>, NewState))).
 
 spring_cleaning_test() ->
   OldTime = utilities:get_time() - 10,

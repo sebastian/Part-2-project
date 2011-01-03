@@ -1,6 +1,6 @@
 -module(test_dht).
 -compile([export_all]).
--export([set/2, get/1, start/0, stop/0, init/1]).
+-export([set/2, lookup/1, start/0, stop/0, init/1]).
 -behaviour(gen_server).
 
 -ifdef(TEST).
@@ -31,8 +31,8 @@ set(Key, Entry) ->
   gen_server:call(?MODULE, {set, Key, Entry}),
   ok.
 
-get(Key) ->
-  gen_server:call(?MODULE, {get, Key}).
+lookup(Key) ->
+  gen_server:call(?MODULE, {lookup, Key}).
 
 init(_Args) -> 
   {ok, []}.
@@ -40,7 +40,7 @@ init(_Args) ->
 handle_call({set, Key, Entry}, _From, State) ->
   {reply, ok, [{Key, Entry} | State]};
 
-handle_call({get, Key}, _From, State) ->
+handle_call({lookup, Key}, _From, State) ->
   ReturnValue = case proplists:get_value(Key, State) of
     undefined -> [];
     Val -> [Val]

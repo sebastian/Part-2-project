@@ -1,11 +1,13 @@
 -module(chord).
 -behaviour(gen_server).
+-compile([debug_info]).
+
 -define(SERVER, ?MODULE).
 -define(NUMBER_OF_FINGERS, 160).
 
 %% @doc: the interval in miliseconds at which the routine tasks are performed
--define(FIX_FINGER_INTERVAL, 500).
--define(STABILIZER_INTERVAL, 5000).
+-define(FIX_FINGER_INTERVAL, 200).
+-define(STABILIZER_INTERVAL, 500).
 %-define(FIX_FINGER_INTERVAL, 2000).
 
 -ifdef(TEST).
@@ -20,8 +22,8 @@
 %% ------------------------------------------------------------------
 
 -export([start_link/0, start/0, stop/0]).
--export([get/1, set/2, preceding_finger/1, find_successor/1, get_predecessor/0]).
--export([local_set/2, local_get/1]).
+-export([lookup/1, set/2, preceding_finger/1, find_successor/1, get_predecessor/0]).
+-export([local_set/2, local_lookup/1]).
 -export([notified/1]).
 % Methods executed by timer
 -export([stabilize/0, fix_fingers/0]).
@@ -46,33 +48,27 @@ stop() ->
   gen_server:call(chord, stop).
 
 %% @doc: gets a value from the chord network
--spec(get/1::(Key::key()) -> [#entry{}]).
-get(Key) ->
-  io:format("chord:get(~p)~n", [Key]),
-  {ok, StorageNode} = find_successor(Key),
-  Return = chord_tcp:rpc_get_key(Key, StorageNode),
+-spec(lookup/1::(Key::key()) -> [#entry{}]).
+lookup(Key) ->
+  Return = chord_tcp:rpc_lookup_key(Key, find_successor(Key)),
   {ok, Values} = Return,
   Values.
 
 %% @doc: stores a value in the chord network
 -spec(set/2::(Key::key(), Entry::#entry{}) -> ok).
 set(Key, Entry) ->
-  io:format("chord:set(~p, ...)~n", [Key]),
-  {ok, StorageNode} = find_successor(Key),
-  {ok, _} = chord_tcp:rpc_set_key(Key, Entry, StorageNode),
+  chord_tcp:rpc_set_key(Key, Entry, find_successor(Key)),
   ok.
 
 %% @doc: get's a value from the local chord node
--spec(local_get/1::(Key::key()) -> {ok, [#entry{}]}).
-local_get(Key) ->
-  io:format("chord:local_get(~p)~n", [Key]),
-  {ok, gen_server:call(chord, {local_get, Key})}.
+-spec(local_lookup/1::(Key::key()) -> {ok, [#entry{}]}).
+local_lookup(Key) ->
+  gen_server:call(chord, {local_lookup, Key}).
 
 %% @doc: stores a value in the current local chord node
 -spec(local_set/2::(Key::key(), Entry::#entry{}) -> {ok, ok}).
 local_set(Key, Entry) ->
-  io:format("chord:local_set(~p, ...)~n", [Key]),
-  {ok, gen_server:call(chord, {local_set, Key, Entry})}.
+  gen_server:call(chord, {local_set, Key, Entry}).
 
 -spec(preceding_finger/1::(Key::key()) -> {ok, {#node{}, #node{}}}).
 preceding_finger(Key) ->
@@ -117,38 +113,39 @@ init(_Args) ->
   % we have 160-bit keys.
   FingerTable = create_finger_table(NodeId),
   
-  {ok, TimerRefStabilizer} = 
-      timer:apply_interval(?STABILIZER_INTERVAL, ?MODULE, stabilize, []),
-  {ok, TimerRefFixFingers} = 
-      timer:apply_interval(?FIX_FINGER_INTERVAL, ?MODULE, fix_fingers, []),
-
   State = #chord_state{self =
     #node{
       ip = Ip,
       port = Port, 
       key = NodeId 
     },
-    fingers = FingerTable,
-
-    % Admin stuff
-    timerRefStabilizer = TimerRefStabilizer,
-    timerRefFixFingers = TimerRefFixFingers
+    fingers = FingerTable
   },
 
-  % Get node that can be used to join the chord network:
-  State2 = case utilities:get_join_node(Ip, Port) of
-    {JoinIp, JoinPort} ->
-      % Connect to the new node.
-      SeedNode = #node{ip = JoinIp, port = JoinPort},
-      {ok, NewState} = join(State, SeedNode),
-      NewState;
-    first ->
-      % We are the first in the network. Return the current state.
-      State
-  end,
-  {ok, State2}.
+  case join(State) of
+    {ok, JoinedState} ->
+      % Create the tasks that run routinely
+      {ok, TimerRefStabilizer} = 
+          timer:apply_interval(?STABILIZER_INTERVAL, ?MODULE, stabilize, []),
+      {ok, TimerRefFixFingers} = 
+          timer:apply_interval(?FIX_FINGER_INTERVAL, ?MODULE, fix_fingers, []),
+
+      State3 = JoinedState#chord_state{
+        % Admin stuff
+        timerRefStabilizer = TimerRefStabilizer,
+        timerRefFixFingers = TimerRefFixFingers
+      },
+      
+      {ok, State3};
+
+    error ->
+      {stop, couldnt_join_chord_network}
+  end.
 
 %% Call:
+handle_call({remove_node, BadNode}, _From, State) ->
+  {reply, ok, remove_node(BadNode, State)};
+
 handle_call(get_state, _From, State) ->
   {reply, State, State};
 
@@ -158,8 +155,8 @@ handle_call({set_state, NewState}, _From, _State) ->
 handle_call(stop, _From, State) ->
   {stop, normal, ok, State};
 
-handle_call({local_get, Key}, _From, State) ->
-  {reply, datastore_srv:get(Key), State};
+handle_call({local_lookup, Key}, _From, State) ->
+  {reply, datastore_srv:lookup(Key), State};
 
 handle_call({local_set, Key, Entry}, _From, State) ->
   datastore_srv:set(Key, Entry),
@@ -171,8 +168,11 @@ handle_call({get_preceding_finger, Key}, _From, State) ->
   Msg = {Finger, Succ},
   {reply, Msg, State};
 
-handle_call({find_successor, Key}, _From, State) ->
-  {reply, find_successor(Key,State), State};
+handle_call({find_successor, Key}, From, State) ->
+  spawn(fun() ->
+    gen_server:reply(From, find_successor(Key, State))
+  end),
+  {noreply, State};
 
 handle_call(get_predecessor, _From, #chord_state{predecessor = Predecessor} = State) ->
   {reply, Predecessor, State}.
@@ -235,10 +235,10 @@ code_change(_OldVsn, State, _Extra) ->
 %% Internal Function Definitions
 %% ------------------------------------------------------------------
 
--spec(fix_finger/2::(FingerNum::integer(), #chord_state{}) -> ok).
+-spec(fix_finger/2::(FingerNum::integer(), #chord_state{}) -> none()).
 fix_finger(FingerNum, #chord_state{fingers = Fingers} = State) ->
   Finger = array:get(FingerNum, Fingers),
-  {ok, Succ} = find_successor(Finger#finger_entry.start, State),
+  Succ = find_successor(Finger#finger_entry.start, State),
   % If the successor is in the interval for the finger,
   % then update it, otherwise drop the successor.
   {Start, End} = Finger#finger_entry.interval,
@@ -246,8 +246,7 @@ fix_finger(FingerNum, #chord_state{fingers = Fingers} = State) ->
     true ->
       UpdatedFinger = Finger#finger_entry{node = Succ},
       gen_server:cast(chord, {set_finger, FingerNum, UpdatedFinger});
-    false ->
-      ok
+    _ -> void
   end.
 
 
@@ -273,7 +272,12 @@ perform_stabilize(#chord_state{self = ThisNode} = State) ->
             false -> 
               % We still have the same successor.
               {ok, Succ}
-          end
+          end;
+        {error, _Reason} ->
+          % Something is wrong with this node, remove it
+          remove_node(Succ),
+          % There is not really anything to do... 
+          {ok, undefined}
       end
   end.
 
@@ -333,17 +337,15 @@ find_successor(Key,
         % Try looking successively through successors successors.
         false -> 
           case find_successor(Key, Succ) of
-            {error, Reason} ->
-              error_logger:error_msg("Failed find_successor locally! (~p)", [Reason]),
-              case chord_tcp:rpc_find_successor(Key, Succ#node.ip, Succ#node.port) of
-                {ok, Val} -> Val;
-                {error, Reason} ->
-                  error_logger:error_msg("Failed remote find_successor (~p)", [Reason]),
-                  {error, Reason};
-                Msg -> 
-                  error_logger:error_msg("Unexpected message received in chord (~p): ~p~n", 
-                    [?LINE, Msg])
-              end;
+            % finding successor failed in the first instance.
+            % Remove the offending node and try again.
+            {error, bad_node, BadNode} ->
+              io:format("Couldn't connect to bad node: ~p. Remove it.~n", [BadNode]),
+              remove_node(BadNode),
+              % Now that that is done, try again
+              find_successor(Key, State);
+
+            % We successfully found a good value. Now return it.
             Val -> Val
           end
       end
@@ -356,11 +358,35 @@ find_successor(Key, #node{key = NKey} = CurrentNext) ->
         false -> find_successor(Key, NextFinger)
       end;
     {error, Reason} ->
-      % What can be done instead? Something is wrong in one of the 
-      % subsequent chord nodes. Report the error downstream and have
-      % our successor do the lookup instead.
-      {error, Reason}
+      % We couldn't connect to a node.
+      % We remove it from our tables.
+      io:format("Couldn't connect to node for reason: ~p. Backtrack.~n", [Reason]),
+      {error, bad_node, CurrentNext}
   end.
+
+
+% @doc: calls the server and has it remove a bad node.
+-spec(remove_node/1::(BadNode::#node{}) -> ok).
+remove_node(BadNode) ->
+  gen_server:call(?MODULE, {remove_node, BadNode}).
+-spec(remove_node/2::(BadNode::#node{}, State::#chord_state{}) -> #chord_state{}).
+remove_node(BadNode, State) ->
+  io:format("Removing bad node: ~p~n", [BadNode]),
+  NoPred = remove_node_from_predecessor(BadNode, State),
+  remove_node_from_fingers(BadNode, NoPred).
+
+remove_node_from_predecessor(BadNode, #chord_state{predecessor = Node} = State) when BadNode =:= Node ->
+  State#chord_state{predecessor = undefined};
+remove_node_from_predecessor(_, State) -> State.
+
+remove_node_from_fingers(BadNode, #chord_state{fingers = Fingers} = State) ->
+  State#chord_state{fingers = 
+    array:map(
+      fun(_, #finger_entry{node = Node} = Finger) when BadNode =:= Node -> Finger#finger_entry{node = undefined};
+         (_, F) -> F
+      end,
+      Fingers)
+  }.
 
 
 -spec(closest_preceding_finger/2::(Key::key(), 
@@ -391,19 +417,35 @@ closest_preceding_finger(Key, Fingers, CurrentFinger, CurrentNode) ->
 
 
 %% @doc: joins another chord node and returns the updated chord state
--spec(join/2::(State::#chord_state{}, NodeToAsk::#node{}) -> 
-    {ok, #chord_state{}}).
-join(State, NodeToAsk) ->
+-spec(join/1::(State::#chord_state{}) -> 
+    {ok, #chord_state{}} | error).
+join(State) -> 
+  OwnIp = (State#chord_state.self)#node.ip,
+  OwnPort = (State#chord_state.self)#node.port,
+
+  % We are joining the network, so we don't yet have a predecessor
   PredState = State#chord_state{predecessor = undefined},
 
-  % Find state needed for request
-  NIp = NodeToAsk#node.ip,
-  NPort = NodeToAsk#node.port,
-  OwnKey = (State#chord_state.self)#node.key,
+  % Get node that can be used to join the chord network:
+  case utilities:get_join_nodes(OwnIp, OwnPort) of
+    first ->
+      % We are the first in the network. Return the current state.
+      {ok, PredState};
+    JoinNodes ->
+      perform_join(JoinNodes, PredState)
+  end.
 
-  % Find the successor node
-  {ok, Succ} = chord_tcp:rpc_find_successor(OwnKey, NIp, NPort),
-  {ok, set_successor(Succ, PredState)}.
+perform_join([], _State) -> error;
+perform_join([{JoinIp, JoinPort}|Ps], State) ->
+  io:format("Trying to join ~p:~p~n", [JoinIp, JoinPort]),
+  OwnKey = (State#chord_state.self)#node.key,
+  % Find the successor node using the given node
+  case chord_tcp:rpc_find_successor(OwnKey, JoinIp, JoinPort) of
+    {ok, Succ} ->
+      {ok, set_successor(Succ, State)};
+    {error, _} ->
+      perform_join(Ps, State)
+  end.
 
 
 %% @doc: returns the successor in the local finger table
@@ -481,7 +523,7 @@ closest_preceding_finger_for_empty_fingers_test() ->
 % Test when the successor is directly in our finger table
 find_successor_on_same_node_test() ->
   State = test_get_state(),
-  ?assertEqual({ok, get_successor(State)}, find_successor(1, State)).
+  ?assertEqual(get_successor(State), find_successor(1, State)).
 
 % Test when the successor is one hop away
 find_successor_next_hop_test() ->
@@ -497,7 +539,7 @@ find_successor_next_hop_test() ->
   erlymock:start(),
   erlymock:strict(chord_tcp, rpc_get_closest_preceding_finger_and_succ, [Key, get_successor(State)], [{return, RpcReturn}]),
   erlymock:replay(), 
-  ?assertEqual({ok, NextSuccessor}, find_successor(Key, State)),
+  ?assertEqual(NextSuccessor, find_successor(Key, State)),
   erlymock:verify().
 
 % Test when the successor is multiple hops away
@@ -519,7 +561,7 @@ find_successor_subsequent_hop_test() ->
   erlymock:strict(chord_tcp, rpc_get_closest_preceding_finger_and_succ, [Key, get_successor(State)], [{return, FirstRpcReturn}]),
   erlymock:strict(chord_tcp, rpc_get_closest_preceding_finger_and_succ, [Key, FirstNextFinger], [{return, SecondRpcReturn}]),
   erlymock:replay(), 
-  ?assertEqual({ok, SecondNextSuccessor}, find_successor(Key, State)),
+  ?assertEqual(SecondNextSuccessor, find_successor(Key, State)),
   erlymock:verify().
 
 % When a node has no known successor, then we are
@@ -528,7 +570,7 @@ find_successor_for_missing_successor_test() ->
   Self = #node{key = 1234},
   Id = 100,
   State = #chord_state{self = Self, fingers = create_finger_table(Id)},
-  ?assertEqual({ok, Self}, find_successor(0, State)).
+  ?assertEqual(Self, find_successor(0, State)).
 
 
 %% *** perform_stabilize tests ***
@@ -637,23 +679,37 @@ create_finger_table_test() ->
 %% *** join tests ***
 join_test() ->
   % Initial state
+  OwnIp = {1,2,3,4},
+  OwnPort = 88,
   Key = 1234,
   Predecessor = #node{key = 1234567890},
-  State = #chord_state{predecessor = Predecessor, self = #node{key = Key}, fingers = create_finger_table(Key)},
+  State = #chord_state{
+    predecessor = Predecessor, 
+    self = #node{
+      key = Key,
+      ip = OwnIp,
+      port = OwnPort
+    }, 
+    fingers = create_finger_table(Key)
+  },
 
-  % The node to join
+  % The nodes to join
+  FailingJoinIp = {1,2,3,4},
+  FailingJoinPort = 4321,
   JoinIp = {1,2,3,4},
   JoinPort = 4321,
-  JoinNode = #node{ip = JoinIp, port=JoinPort},
+  HubNodes = [{FailingJoinIp, FailingJoinPort}, {JoinIp, JoinPort}],
 
   % Our successor node as given by the system
   SuccessorNode = #node{key = 20},
 
   erlymock:start(),
+  erlymock:strict(utilities, get_join_nodes, [OwnIp, OwnPort], [{return, HubNodes}]),
+  erlymock:strict(chord_tcp, rpc_find_successor, [Key, FailingJoinIp, FailingJoinPort], [{return, {error, timeout}}]),
   erlymock:strict(chord_tcp, rpc_find_successor, [Key, JoinIp, JoinPort], [{return, {ok, SuccessorNode}}]),
   erlymock:replay(),
 
-  {ok, NewState} = join(State, JoinNode),
+  {ok, NewState} = join(State),
   % Ensure the precesseccor has been removed
   ?assert(NewState#chord_state.predecessor =/= Predecessor),
   % Make sure that it has set the right successor
@@ -684,5 +740,21 @@ perform_notify_should_update_newer_predecessors_test() ->
   State = #chord_state{predecessor = OldPred, self=nForKey(3)},
   NewState = perform_notify(NewPred, State),
   ?assertEqual(NewPred, NewState#chord_state.predecessor).
+
+remove_node_test() ->
+  BadNode = nForKey(1),
+  State = (test_get_state())#chord_state{predecessor = BadNode},
+  ?assert(doesnt_contain_node(BadNode, remove_node(BadNode, State))).
+
+doesnt_contain_node(Node, State) ->
+  State#chord_state.predecessor =/= Node andalso
+    no_bad_fingers(Node, State#chord_state.fingers).
+
+no_bad_fingers(Node, Fingers) ->
+  array:foldl(
+    fun(_, _, false) -> false;
+       (_, F, _) ->
+          F#finger_entry.node =/= Node
+    end, true, Fingers).
 
 -endif.

@@ -9,10 +9,10 @@
 -endif.
 
 -define(TCP_OPTS, [binary, inet,
-                   {active,    false},
-                   {backlog,   10},
+                   {active,    true},
+                   {backlog,   50},
                    {nodelay,   true},
-                   {packet,    raw},
+                   {packet,    0},
                    {reuseaddr, true}]).
 
 %% ------------------------------------------------------------------
@@ -21,7 +21,7 @@
 
 -export([start_link/0, start/0, stop/0]).
 -export([rpc_get_closest_preceding_finger_and_succ/2, rpc_find_successor/3]).
--export([rpc_get_key/2, rpc_set_key/3]).
+-export([rpc_lookup_key/2, rpc_set_key/3]).
 -export([notify_successor/2, get_predecessor/1]).
 
 %% ------------------------------------------------------------------
@@ -35,10 +35,10 @@
 %% API Function Definitions
 %% ------------------------------------------------------------------
 
--spec(rpc_get_key/2::(Key::key(), Node::#node{}) ->
+-spec(rpc_lookup_key/2::(Key::key(), Node::#node{}) ->
     {ok, [#entry{}]} | {error, _}).
-rpc_get_key(Key, #node{ip=Ip, port=Port}) ->
-  perform_rpc({get_key, Key}, Ip, Port).
+rpc_lookup_key(Key, #node{ip=Ip, port=Port}) ->
+  perform_rpc({lookup_key, Key}, Ip, Port).
 
 -spec(rpc_set_key/3::(Key::key(), Value::#entry{}, Node::#node{}) ->
     {ok, _} | {error, _}).
@@ -68,33 +68,27 @@ notify_successor(#node{ip = Ip, port = Port}, CurrentNode) ->
 -spec(perform_rpc/3::(Message::term(), Ip::ip(), Port::port_number()) ->
     {ok, _} | {error, _}).
 perform_rpc(Message, Ip, Port) ->
-  perform_rpc(Message, Ip, Port, 3, none).
-
--spec(perform_rpc/5::(Message::term(), Ip::ip(), Port::port_number(), 
-    Tries::integer(), PreviousResponse::term()) -> {ok, _} | {error, _}).
-perform_rpc(Message, _Ip, _Port, 0, PreviousResponse) ->
-  error_logger:error_msg("Failed perform_rpc for message: ~p~n", [Message]),
-  PreviousResponse;
-perform_rpc(Message, Ip, Port, Tries, _PreviousResponse) ->
-  case gen_tcp:connect(Ip, Port, [binary, {packet, 0}]) of
+  case gen_tcp:connect(Ip, Port, [binary, {packet, 0}, {active, true}]) of
     {ok, Socket} ->
-      gen_tcp:send(Socket, term_to_binary(Message)),
-      Ret = receive 
-        {tcp, Socket, Data} ->
-          {ok, binary_to_term(Data, [safe])};
-        {tcp_closed, Socket} ->
-          error_logger:info_msg("TCP connection closed"),
-          {ok, closed};
-        Msg -> 
-          error_logger:error_msg("Unknown message: ~p~n", [Msg])
-      after 2000 ->
-        perform_rpc(Message, Ip, Port, Tries - 1, {error, timeout})
-      end, 
-      gen_tcp:close(Socket),
-      Ret;
-    {error, econnrefused} ->
-      perform_rpc(Message, Ip, Port, Tries - 1, {error, econnrefused})
+      ok = gen_tcp:send(Socket, term_to_binary(Message)),
+      receive_data(Socket, []);
+    {error, Reason} ->
+      % Handle error somehow
+      io:format("Got an ~p trying to send message ~p.~n", [Reason, Message]),
+      {error, Reason}
   end.
+
+receive_data(Socket, SoFar) ->
+  receive
+    {tcp, Socket, Bin} ->
+      receive_data(Socket, [Bin | SoFar]);
+    {tcp_closed, Socket} ->
+      {ok, binary_to_term(list_to_binary(SoFar), [safe])}
+  after 5000 ->
+    error_logger:info_msg("PerformRPC times out~n"),
+    {error, timeout}
+  end.
+
 
 %% ------------------------------------------------------------------
 %% gen_listener_tcp Function Definitions
@@ -112,18 +106,32 @@ start_link() ->
 
 %% @doc The echo client process.
 chord_tcp_client(Socket) ->
-  ok = inet:setopts(Socket, [{active, once}]),
+  receive_incoming(Socket, []).
+
+receive_incoming(Socket, SoFar) ->
   receive
-    {tcp, Socket, <<"quit", _R/binary>>} ->
-      gen_tcp:send(Socket, "Bye now.\r\n"),
-      gen_tcp:close(Socket);
-    {tcp, Socket, Data} ->
-      Message = binary_to_term(Data, [safe]),
-      RetValue = handle_msg(Message),
-      gen_tcp:send(Socket, term_to_binary(RetValue)),
-      chord_tcp_client(Socket);
-    {tcp_closed, Socket} ->
+    {tcp, Socket, Bin} ->
+      try
+        FinalBin = lists:reverse([Bin | SoFar]),
+        Message = binary_to_term(list_to_binary(FinalBin), [safe]),
+        RetValue = handle_msg(Message),
+        ok = gen_tcp:send(Socket, term_to_binary(RetValue)),
+        gen_tcp:close(Socket)
+      catch
+        error:badarg ->
+          % The packet got fragmented somehow...
+          io:format("Caught error:badarg.~n- Trying to continue~n"),
+          receive_incoming(Socket, [Bin|SoFar])
+      end;
+    {tcp_closed, _Socket} ->
+      ok;
+    {tcp_error, Socket, _Reason} ->
+      % Something is wrong. We aggresively close the socket.
+      gen_tcp:close(Socket),
       ok
+  after 2000 ->
+    % Client hasn't sent us data for a while, close connection.
+    gen_tcp:close(Socket)
   end.
 
 init([]) ->
@@ -171,8 +179,8 @@ handle_msg({notify_about_predecessor, CurrentNode}) ->
 handle_msg({set_key, Key, Value}) ->
   chord:local_set(Key, Value);
 
-handle_msg({get_key, Key}) ->
-  chord:local_get(Key);
+handle_msg({lookup_key, Key}) ->
+  chord:local_lookup(Key);
 
-handle_msg(Msg) ->
+handle_msg(_) ->
   ?NYI.

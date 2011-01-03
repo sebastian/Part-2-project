@@ -13,15 +13,15 @@ to_html(ReqData, State) ->
   ClientIp = wrq:get_qs_value("ip", ReqData),
   ClientPort = wrq:get_qs_value("port", ReqData),
 
-  Value = mochijson2:encode({struct,
+  Value = iolist_to_binary(mochijson2:encode({struct,
     case node_srv:reg_and_get_peer({ClientIp, ClientPort}) of
-      {Ip, Port} -> 
-        [
-          {<<"ip">>, list_to_bitstring(Ip)},
-          {<<"port">>, list_to_integer(Port)}
-        ];
-      first -> [{<<"first">>, true}]
+      first -> [{<<"first">>, true}];
+      Peers -> 
+        [{<<"peers">>, [{struct, [
+              {<<"ip">>, list_to_bitstring(Ip)}, 
+              {<<"port">>, list_to_integer(Port)}
+            ]} || {Ip, Port} <- Peers]}]
     end
-  }),
+  })),
   
   {Value, ReqData, State}.
