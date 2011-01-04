@@ -4,6 +4,7 @@
 
 -define(SERVER, ?MODULE).
 -define(NUMBER_OF_FINGERS, 160).
+-define(MAX_NUM_OF_SUCCESSORS, 5).
 
 %% @doc: the interval in miliseconds at which the routine tasks are performed
 -define(FIX_FINGER_INTERVAL, 200).
@@ -235,8 +236,11 @@ code_change(_OldVsn, State, _Extra) ->
 %% Internal Function Definitions
 %% ------------------------------------------------------------------
 
+% @doc: Fixes a given finger entry. If it's the 0th finger entry
+% (ie: the successor list) then it is not fixed as that is done
+% through the notify function.
 -spec(fix_finger/2::(FingerNum::integer(), #chord_state{}) -> none()).
-fix_finger(FingerNum, #chord_state{fingers = Fingers} = State) ->
+fix_finger(FingerNum, #chord_state{fingers = Fingers} = State) when FingerNum =/= 0 ->
   Finger = array:get(FingerNum, Fingers),
   Succ = find_successor(Finger#finger_entry.start, State),
   % If the successor is in the interval for the finger,
@@ -290,6 +294,9 @@ create_finger_table(NodeKey) ->
 -spec(create_start_entries/3::(NodeKey::key(), N::integer(), Array::array()) -> 
     array()).
 create_start_entries(_NodeKey, 160, Array) -> Array;
+create_start_entries(NodeKey, 0, Array) ->
+  N = 0, % This is the successor list
+  create_start_entries(NodeKey, N+1, array:set(N, [], Array));
 create_start_entries(NodeKey, N, Array) ->
   create_start_entries(NodeKey, N+1, array:set(N, finger_entry_node(NodeKey, N), Array)).
 
@@ -383,6 +390,8 @@ remove_node_from_fingers(BadNode, #chord_state{fingers = Fingers} = State) ->
   State#chord_state{fingers = 
     array:map(
       fun(_, #finger_entry{node = Node} = Finger) when BadNode =:= Node -> Finger#finger_entry{node = undefined};
+         (_, Successors) when is_list(Successors) -> 
+           lists:filter(fun(#finger_entry{node=N}) when N =:= BadNode -> false; (_) -> true end, Successors);
          (_, F) -> F
       end,
       Fingers)
@@ -401,18 +410,20 @@ closest_preceding_finger(Key, State) ->
     array(), CurrentFinger::integer(),
     CurrentNode::#node{}) -> #node{}).
 closest_preceding_finger(_Key, _Fingers, -1, CurrentNode) -> CurrentNode;
+closest_preceding_finger(Key, Fingers, 0, CurrentNode) ->
+  FingerNode = get_first_successor(array:get(0, Fingers)),
+  check_closest_preceding_finger(Key, FingerNode, Fingers, 0, CurrentNode);
 closest_preceding_finger(Key, Fingers, CurrentFinger, CurrentNode) ->
-  Finger = array:get(CurrentFinger, Fingers),
-  case Finger#finger_entry.node of
-    undefined ->
-      % The finger entry is empty. We skip it
-      closest_preceding_finger(Key, Fingers, CurrentFinger-1, CurrentNode);
-    Node ->
-      NodeId = Node#node.key,
-      case ((CurrentNode#node.key < NodeId) andalso (NodeId < Key)) of
-        true -> Node;
-        false -> closest_preceding_finger(Key, Fingers, CurrentFinger-1, CurrentNode)
-      end
+  FingerNode = (array:get(CurrentFinger, Fingers))#finger_entry.node,
+  check_closest_preceding_finger(Key, FingerNode, Fingers, CurrentFinger, CurrentNode).
+
+check_closest_preceding_finger(Key, undefined, Fingers, CurrentFinger, CurrentNode) ->
+  % The finger entry is empty. We skip it
+  closest_preceding_finger(Key, Fingers, CurrentFinger-1, CurrentNode);
+check_closest_preceding_finger(Key, #node{key = NodeId} = Node, Fingers, CurrentFinger, CurrentNode) ->
+  case ((CurrentNode#node.key < NodeId) andalso (NodeId < Key)) of
+    true -> Node;
+    false -> closest_preceding_finger(Key, Fingers, CurrentFinger-1, CurrentNode)
   end.
 
 
@@ -452,21 +463,47 @@ perform_join([{JoinIp, JoinPort}|Ps], State) ->
 -spec(get_successor/1::(State::#chord_state{}) -> #node{} | undefined).
 get_successor(State) ->
   Fingers = State#chord_state.fingers,
-  (array:get(0, Fingers))#finger_entry.node.
+  SuccessorFingers = array:get(0, Fingers),
+  get_first_successor(SuccessorFingers).
+get_first_successor(SuccessorFingers) ->
+  case lists:sublist(SuccessorFingers, 1) of
+    [] -> undefined;
+    [Finger] -> Finger#finger_entry.node
+  end.
 
 
-%% @doc: sets the successor and returns the updated state.
+% @doc: sets the successor and returns the updated state.
 -spec(set_successor/2::(Successor::#node{}, State::#chord_state{}) ->
     #chord_state{}).
 set_successor(Successor, State) ->
   Fingers = State#chord_state.fingers,
-  SuccessorFinger = (array:get(0, Fingers))#finger_entry{node=Successor},
-  State#chord_state{fingers = array:set(0, SuccessorFinger, Fingers)}.
+  FingerList = array:get(0, Fingers),
+  Self = State#chord_state.self,
+  UpdatedFingers = array:set(0, 
+    case lists:member(Successor, [F#finger_entry.node || F <- FingerList]) of
+      true -> Fingers;
+      false -> sort_successors([#finger_entry{node=Successor} | FingerList], Self)
+    end, Fingers),
+  State#chord_state{fingers = UpdatedFingers}.
+
+
+% @doc: sorts the successor list such that the successors are in order
+% of increasing distance along the chord key space.
+-spec(sort_successors/2::(FingerList::[#finger_entry{}], Self::#node{}) -> [#finger_entry{}]).
+sort_successors(FingerList, Self) -> 
+  SortedList = lists:sort(
+    fun(#finger_entry{node=A},#finger_entry{node=B}) -> A#node.key =< B#node.key end,
+    FingerList),
+  Smaller = lists:takewhile(
+    fun(#finger_entry{node=Node}) -> Node#node.key < Self#node.key end,
+    SortedList),
+  lists:sublist((SortedList -- Smaller) ++ Smaller, ?MAX_NUM_OF_SUCCESSORS).
 
 
 -spec(perform_notify/2::(Node::#node{}, State::#chord_state{}) ->
     #chord_state{}).
 perform_notify(Node, #chord_state{predecessor = undefined} = State) ->
+  ?debugMsg("Didn't have a predecessor..."),
   set_successor(Node, State#chord_state{predecessor = Node});
 perform_notify(#node{key = NewKey} = Node, 
     #chord_state{predecessor = Pred, self = Self} = State) ->
@@ -487,10 +524,10 @@ nForKey(Key) -> #node{key = Key}.
 %%        Missing test where the successors predecessor is not ourself.
 
 test_get_empty_state() ->
-  #chord_state{fingers = create_finger_table(0)}.
+  #chord_state{fingers = create_finger_table(0), self = nForKey(0)}.
 
 test_get_state() ->
-  Fingers = array:set(0, #finger_entry{start = 1, interval = {1,2}, node = nForKey(1)},
+  Fingers = array:set(0, [#finger_entry{start = 1, interval = {1,2}, node = nForKey(1)}],
             array:set(1, #finger_entry{start = 2, interval = {2,4}, node = nForKey(3)},
             array:set(2, #finger_entry{start = 4, interval = {4,0}, node = nForKey(0)},
                 array:new(3)))),
@@ -616,18 +653,24 @@ perform_stabilize_updated_successor_test() ->
 get_successor_test() ->
   Id = 0,
   Self = nForKey(Id),
-  Successor = nForKey(successorKey),
-  Fingers = array:set(0, #finger_entry{node=Successor}, create_finger_table(Id)),
+  Successor = nForKey(1),
+  Fingers = array:set(0, [#finger_entry{node=Successor}], create_finger_table(Id)),
   State = #chord_state{self = Self, fingers = Fingers},
   ?assertEqual(Successor, get_successor(State)).
 set_successor_test() ->
   Id = 0,
   Self = nForKey(Id),
-  SuccessorOrig = nForKey(oldSuccessorKey),
-  Fingers = array:set(0, #finger_entry{node=SuccessorOrig}, create_finger_table(Id)),
+  SuccessorOrig = nForKey(5),
+  Fingers = array:set(0, [#finger_entry{node=SuccessorOrig}], create_finger_table(Id)),
   State = #chord_state{self = Self, fingers = Fingers},
-  NewSuccessor = nForKey(newSuccessor),
-  ?assertEqual(NewSuccessor, get_successor(set_successor(NewSuccessor,State))).
+  NewSuccessor = nForKey(2),
+  UpdatedState = set_successor(NewSuccessor, State),
+  ?assertEqual(NewSuccessor, get_successor(UpdatedState)),
+  % Update with a successor that is not closer...
+  NotClosest = nForKey(4),
+  UpdatedState2 = set_successor(NotClosest, UpdatedState),
+  % Should not set the successor that is further away as the successor
+  ?assertEqual(NewSuccessor, get_successor(UpdatedState2)).
 
 
 %% *** Setting up finger table tests ***
@@ -650,7 +693,7 @@ get_start_test_() ->
 create_start_entries_test() ->
   NodeId = 0,
   Entries = create_start_entries(NodeId, 0, array:new(160)),
-  ?assertEqual(get_start(NodeId, 0), (array:get(0,Entries))#finger_entry.start),
+  ?assertEqual([], array:get(0,Entries)),
   ?assertEqual(get_start(NodeId, 1), (array:get(1,Entries))#finger_entry.start).
 finger_entry_node_test_() ->
   {inparallel,
@@ -716,19 +759,20 @@ join_test() ->
   ?assertEqual(SuccessorNode, get_successor(NewState)),
 
   erlymock:verify().
+
     
 %% *** cast notified tests ***
 perform_notify_no_previous_predecessor_test() ->
   % Being notified when you have no previous predecessor
   % should set the predecessor.
   State = test_get_empty_state(),
-  NewNode = #node{key=1234},
+  NewNode = nForKey(1234),
   NewState = perform_notify(NewNode, State),
   ?assertEqual(NewNode, NewState#chord_state.predecessor).
 perform_notify_no_successor_test() ->
   % If there is no successor in the state, then the predecessor
   % should also become the successor.
-  State = set_successor(undefined, test_get_empty_state()),
+  State = test_get_empty_state(),
   NewNode = #node{key=1234},
   NewState = perform_notify(NewNode, State),
   ?assertEqual(NewNode, get_successor(NewState)).
@@ -742,9 +786,13 @@ perform_notify_should_update_newer_predecessors_test() ->
   ?assertEqual(NewPred, NewState#chord_state.predecessor).
 
 remove_node_test() ->
+  % The bad node is both a successor, predecessor AND a normal finger... get that if you can :)
   BadNode = nForKey(1),
   State = (test_get_state())#chord_state{predecessor = BadNode},
-  ?assert(doesnt_contain_node(BadNode, remove_node(BadNode, State))).
+  Fingers = State#chord_state.fingers,
+  BadFinger = (array:get(1,Fingers))#finger_entry{node=BadNode},
+  BadState = State#chord_state{fingers = array:set(1, BadFinger, Fingers)},
+  ?assert(doesnt_contain_node(BadNode, remove_node(BadNode, BadState))).
 
 doesnt_contain_node(Node, State) ->
   State#chord_state.predecessor =/= Node andalso
@@ -753,8 +801,27 @@ doesnt_contain_node(Node, State) ->
 no_bad_fingers(Node, Fingers) ->
   array:foldl(
     fun(_, _, false) -> false;
-       (_, F, _) ->
+       (_, F, _) when is_list(F) -> 
+         F =:= lists:filter(fun(#finger_entry{node=A}) -> A =/= Node end, F);
+       (_, F, _) when is_record(F, finger_entry) ->
           F#finger_entry.node =/= Node
     end, true, Fingers).
+
+sort_successors_test() ->
+  Self = nForKey(10),
+  Successors = [
+    #finger_entry{node = nForKey(20)},
+    #finger_entry{node = nForKey(80)},
+    #finger_entry{node = nForKey(15)},
+    #finger_entry{node = nForKey(9)},
+    #finger_entry{node = nForKey(0)}
+  ],
+  ?assertEqual([
+    #finger_entry{node = nForKey(15)},
+    #finger_entry{node = nForKey(20)},
+    #finger_entry{node = nForKey(80)},
+    #finger_entry{node = nForKey(0)},
+    #finger_entry{node = nForKey(9)}
+  ], sort_successors(Successors, Self)).
 
 -endif.
