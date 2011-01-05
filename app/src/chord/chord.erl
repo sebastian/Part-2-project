@@ -9,7 +9,6 @@
 %% @doc: the interval in miliseconds at which the routine tasks are performed
 -define(FIX_FINGER_INTERVAL, 200).
 -define(STABILIZER_INTERVAL, 500).
-%-define(FIX_FINGER_INTERVAL, 2000).
 
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
@@ -256,34 +255,35 @@ fix_finger(FingerNum, #chord_state{fingers = Fingers} = State) when FingerNum =/
 
 -spec(perform_stabilize/1::(#chord_state{}) -> 
     {ok, #node{}} | {ok, undefined} | {updated_succ, #node{}}).
-perform_stabilize(#chord_state{self = ThisNode} = State) ->
-  case get_successor(State) of
-    undefined -> 
-      {ok, undefined};
-    Succ ->
-      case chord_tcp:get_predecessor(Succ) of
-        {ok, undefined} ->
-          % The other node doesn't have a predecessor yet.
-          % That is the case when it is a new chord ring.
-          % By setting the node as a new successor we update
-          % the state in ourselves and the successor.
-          {updated_succ, Succ};
-        {ok, SuccPred} ->
-          % Check if predecessor is between ourselves and successor
-          case utilities:in_range(SuccPred#node.key, ThisNode#node.key, Succ#node.key) of
-            true  -> 
-              {updated_succ, SuccPred};
-            false -> 
-              % We still have the same successor.
-              {ok, Succ}
-          end;
-        {error, _Reason} ->
-          % Something is wrong with this node, remove it
-          remove_node(Succ),
-          % There is not really anything to do... 
-          {ok, undefined}
-      end
-  end.
+perform_stabilize(#chord_state{self = ThisNode, fingers=Fingers} = State) ->
+  % Get all our successors
+  Successors = [F#finger_entry.node || F <- array:get(0, Fingers)],
+  lists:filter(fun(undefined) -> false; (_) -> true end,
+    rpc:pmap({?MODULE, check_node_for_predecessor}, [ThisNode, Successors], Successors)).
+
+check_node_for_predecessor(Succ, ThisNode, KnownSuccessors) ->
+  case chord_tcp:get_predecessor(Succ) of
+    {ok, undefined} ->
+      % The other node doesn't have a predecessor yet.
+      % That is the case when it is a new chord ring.
+      % By setting the node as a new successor we update
+      % the state in ourselves and the successor.
+      Succ;
+    {ok, SuccPred} ->
+      % Check if predecessor is between ourselves and successor and is also one we don't know
+      case (utilities:in_range(SuccPred#node.key, ThisNode#node.key, Succ#node.key) andalso
+          (not lists:member(SuccPred, KnownSuccessors))) of
+        true  -> SuccPred;
+        false -> 
+          % We still have the same successors, so no action needs to be taken
+          undefined
+      end;
+    {error, _Reason} ->
+      % Something is wrong with this node, remove it
+      remove_node(Succ),
+      % There is not really anything to do... 
+      undefined
+  end
 
 
 -spec(create_finger_table/1::(NodeKey::key()) -> array()).
