@@ -1,10 +1,9 @@
 -module(chord).
 -behaviour(gen_server).
--compile([debug_info]).
 
 -define(SERVER, ?MODULE).
 -define(NUMBER_OF_FINGERS, 160).
--define(MAX_NUM_OF_SUCCESSORS, 5).
+-define(MAX_NUM_OF_SUCCESSORS, 2).
 
 %% @doc: the interval in miliseconds at which the routine tasks are performed
 -define(FIX_FINGER_INTERVAL, 200).
@@ -22,11 +21,11 @@
 %% ------------------------------------------------------------------
 
 -export([start_link/0, start/0, stop/0]).
--export([lookup/1, set/2, preceding_finger/1, find_successor/1, get_predecessor/0]).
+-export([lookup/1, set/2, preceding_finger/1, find_successor/1, get_predecessor/0, get_successor/0]).
 -export([local_set/2, local_lookup/1]).
 -export([notified/1]).
-% Methods executed by timer
--export([stabilize/0, fix_fingers/0]).
+% Methods that need to be exported to me used by timers and local rpc's. Not for external use.
+-export([stabilize/0, fix_fingers/0, check_node_for_predecessor/3]).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Exports
@@ -77,6 +76,10 @@ preceding_finger(Key) ->
 -spec(find_successor/1::(Key::key()) -> {ok, #node{}}).
 find_successor(Key) ->
   gen_server:call(chord, {find_successor, Key}).
+
+-spec(get_successor/0::() -> #node{}).
+get_successor() ->
+  gen_server:call(chord, get_successor).
 
 -spec(get_predecessor/0::() -> #node{}).
 get_predecessor() ->
@@ -174,6 +177,9 @@ handle_call({find_successor, Key}, From, State) ->
   end),
   {noreply, State};
 
+handle_call(get_successor, _From, State) ->
+  {reply, get_successor(State), State};
+
 handle_call(get_predecessor, _From, #chord_state{predecessor = Predecessor} = State) ->
   {reply, Predecessor, State}.
 
@@ -191,21 +197,13 @@ handle_cast({set_successor, Succ}, State) ->
 
 handle_cast(stabilize, #chord_state{self = Us} = State) ->
   Stabilize = fun() ->
-    Succ = case perform_stabilize(State) of
-      {updated_succ, NewSucc} ->
-        gen_server:cast(chord, {set_successor, NewSucc}),
-        NewSucc;
-      {ok, S} -> 
-        S
-    end,
-    case Succ of
-      % If we don't have a successor yet (when only one chord node exists)
-      % then don't attempt to update it.
-      undefined -> 
-        ok;
-      _ ->
-        chord_tcp:notify_successor(Succ, Us)
-    end
+    SuccessorsToUpdate = lists:flatten(perform_stabilize(State)),
+    % Update our own state with the new successors
+    [gen_server:cast(chord, {set_successor, Succ}) || {add_succ, Succ} <- SuccessorsToUpdate],
+    % For good measure, we also notify the new nodes about our presence.
+    [chord_tcp:notify_successor(Succ, Us) || {notify, Succ} <- SuccessorsToUpdate],
+    % Extend the successor list so it is as long as we wish it to be
+    extend_successor_list(State)
   end,
   % Perform stabilization    
   spawn(Stabilize),
@@ -239,13 +237,14 @@ code_change(_OldVsn, State, _Extra) ->
 % (ie: the successor list) then it is not fixed as that is done
 % through the notify function.
 -spec(fix_finger/2::(FingerNum::integer(), #chord_state{}) -> none()).
-fix_finger(FingerNum, #chord_state{fingers = Fingers} = State) when FingerNum =/= 0 ->
+fix_finger(0, _) -> ok;
+fix_finger(FingerNum, #chord_state{fingers = Fingers} = State) ->
   Finger = array:get(FingerNum, Fingers),
   Succ = find_successor(Finger#finger_entry.start, State),
   % If the successor is in the interval for the finger,
   % then update it, otherwise drop the successor.
   {Start, End} = Finger#finger_entry.interval,
-  case (utilities:in_inclusive_range(Succ#node.key, Start, End)) of
+  case (utilities:in_right_inclusive_range(Succ#node.key, Start, End)) of
     true ->
       UpdatedFinger = Finger#finger_entry{node = Succ},
       gen_server:cast(chord, {set_finger, FingerNum, UpdatedFinger});
@@ -255,7 +254,7 @@ fix_finger(FingerNum, #chord_state{fingers = Fingers} = State) when FingerNum =/
 
 -spec(perform_stabilize/1::(#chord_state{}) -> 
     {ok, #node{}} | {ok, undefined} | {updated_succ, #node{}}).
-perform_stabilize(#chord_state{self = ThisNode, fingers=Fingers} = State) ->
+perform_stabilize(#chord_state{self = ThisNode, fingers=Fingers}) ->
   % Get all our successors
   Successors = [F#finger_entry.node || F <- array:get(0, Fingers)],
   lists:filter(fun(undefined) -> false; (_) -> true end,
@@ -268,22 +267,38 @@ check_node_for_predecessor(Succ, ThisNode, KnownSuccessors) ->
       % That is the case when it is a new chord ring.
       % By setting the node as a new successor we update
       % the state in ourselves and the successor.
-      Succ;
+      {notify, Succ};
     {ok, SuccPred} ->
-      % Check if predecessor is between ourselves and successor and is also one we don't know
-      case (utilities:in_range(SuccPred#node.key, ThisNode#node.key, Succ#node.key) andalso
-          (not lists:member(SuccPred, KnownSuccessors))) of
-        true  -> SuccPred;
+      % Check if predecessor is between ourselves and successor
+      case utilities:in_range(SuccPred#node.key, ThisNode#node.key, Succ#node.key) of 
+        true  -> 
+          % Do we already have this successor in our list?
+          case lists:member(SuccPred, KnownSuccessors) of
+            true ->
+              % It is in range, but it is already known to us. Nothing that needs to be done.
+              undefined;
+            false ->
+              % it is a successor in range that we didn't know about! Make ourselves known.
+              [{notify, SuccPred}, {add_succ, SuccPred}]
+          end;
         false -> 
-          % We still have the same successors, so no action needs to be taken
-          undefined
+          % This node is a predecessor of our successor, but is not between us and
+          % our successor. Hence it must be anti clockwise of us in the chord key space.
+          case SuccPred =:= ThisNode of
+            true ->
+              % Nothing to do. Aal izz wel.
+              undefined;
+            false ->
+              % Our successor doesn't know about us.
+              {notify, Succ}
+          end
       end;
     {error, _Reason} ->
       % Something is wrong with this node, remove it
       remove_node(Succ),
       % There is not really anything to do... 
       undefined
-  end
+  end.
 
 
 -spec(create_finger_table/1::(NodeKey::key()) -> array()).
@@ -339,7 +354,7 @@ find_successor(Key,
     Succ ->
       % First check locally to see if it is in the range
       % of this node and this nodes successor.
-      case utilities:in_inclusive_range(Key, NodeId, Succ#node.key) of
+      case utilities:in_right_inclusive_range(Key, NodeId, Succ#node.key) of
         true  -> Succ;
         % Try looking successively through successors successors.
         false -> 
@@ -360,14 +375,13 @@ find_successor(Key,
 find_successor(Key, #node{key = NKey} = CurrentNext) ->
   case chord_tcp:rpc_get_closest_preceding_finger_and_succ(Key, CurrentNext) of
     {ok, {NextFinger, NSucc}} ->
-      case utilities:in_inclusive_range(Key, NKey, NSucc#node.key) of
+      case utilities:in_right_inclusive_range(Key, NKey, NSucc#node.key) of
         true  -> NSucc;
         false -> find_successor(Key, NextFinger)
       end;
-    {error, Reason} ->
+    {error, _Reason} ->
       % We couldn't connect to a node.
       % We remove it from our tables.
-      io:format("Couldn't connect to node for reason: ~p. Backtrack.~n", [Reason]),
       {error, bad_node, CurrentNext}
   end.
 
@@ -475,13 +489,14 @@ get_first_successor(SuccessorFingers) ->
 % @doc: sets the successor and returns the updated state.
 -spec(set_successor/2::(Successor::#node{}, State::#chord_state{}) ->
     #chord_state{}).
+set_successor(Successor, #chord_state{self = Self} = State) when Successor =:= Self -> State;
 set_successor(Successor, State) ->
   Fingers = State#chord_state.fingers,
   FingerList = array:get(0, Fingers),
   Self = State#chord_state.self,
   UpdatedFingers = array:set(0, 
     case lists:member(Successor, [F#finger_entry.node || F <- FingerList]) of
-      true -> Fingers;
+      true -> FingerList;
       false -> sort_successors([#finger_entry{node=Successor} | FingerList], Self)
     end, Fingers),
   State#chord_state{fingers = UpdatedFingers}.
@@ -510,6 +525,24 @@ perform_notify(#node{key = NewKey} = Node,
     true  -> State#chord_state{predecessor = Node};
     false -> State
   end.
+
+
+% @doc: Extends the successor list if it isn't as long as desired
+-spec(extend_successor_list/1::(State::#chord_state{}) -> ok).
+extend_successor_list(#chord_state{fingers = Fingers}) ->
+  Successors = array:get(0, Fingers),
+  case length(Successors) < ?MAX_NUM_OF_SUCCESSORS andalso Successors =/= [] of 
+    true ->
+      LastSuccessorNode = (hd(lists:reverse(Successors)))#finger_entry.node,
+      case chord_tcp:rpc_get_successor(LastSuccessorNode) of
+        {ok, NextSucc} -> gen_server:cast(?MODULE, {set_successor, NextSucc});
+        {error, _} -> remove_node(LastSuccessorNode)
+      end;
+    false ->
+      % Successor list is up to date!
+      ok
+  end.
+
 
 %% ------------------------------------------------------------------
 %% Tests
@@ -616,19 +649,40 @@ get_state_for_node_with_successor(NodeId, Succ) ->
 perform_stabilize_with_empty_state_test() ->
   State = test_get_empty_state(),
   ?assertEqual(undefined, get_successor(State)),
-  ?assertEqual({ok, undefined}, perform_stabilize(State)).
+  ?assertEqual([], perform_stabilize(State)).
+
+perform_stabilize_successor_has_earlier_predecessor_test() ->
+  % Successor is 5, own id is 0
+  OurId = 1,
+  EarlierNode = nForKey(0),
+
+  Succ = nForKey(5),
+  State = get_state_for_node_with_successor(OurId, Succ),
+
+  erlymock:start(),
+  erlymock:strict(chord_tcp, get_predecessor, [Succ], [{return, {ok, EarlierNode}}]),
+  erlymock:replay(),
+
+  % As the successor hasn't changed, we don't need to do any work
+  ?assertEqual([{notify, Succ}], perform_stabilize(State)),
+
+  erlymock:verify().
 
 % The successor hasn't changed
 perform_stabilize_same_successor_test() ->
   % Successor is 5, own id is 0
+  OurId = 0,
+  Us = nForKey(OurId),
+
   Succ = nForKey(5),
-  State = get_state_for_node_with_successor(0, Succ),
+  State = get_state_for_node_with_successor(OurId, Succ),
 
   erlymock:start(),
-  erlymock:strict(chord_tcp, get_predecessor, [Succ], [{return, {ok, Succ}}]),
+  erlymock:strict(chord_tcp, get_predecessor, [Succ], [{return, {ok, Us}}]),
   erlymock:replay(),
 
-  ?assertEqual({ok, Succ}, perform_stabilize(State)),
+  % As the successor hasn't changed, we don't need to do any work
+  ?assertEqual([], perform_stabilize(State)),
 
   erlymock:verify().
 
@@ -643,7 +697,7 @@ perform_stabilize_updated_successor_test() ->
   erlymock:strict(chord_tcp, get_predecessor, [Succ], [{return, {ok, NewSuccessor}}]),
   erlymock:replay(),
 
-  ?assertEqual({updated_succ, NewSuccessor}, perform_stabilize(State)),
+  ?assertEqual([[{notify, NewSuccessor},{add_succ, NewSuccessor}]], perform_stabilize(State)),
 
   erlymock:verify().
 
@@ -669,7 +723,22 @@ set_successor_test() ->
   NotClosest = nForKey(4),
   UpdatedState2 = set_successor(NotClosest, UpdatedState),
   % Should not set the successor that is further away as the successor
-  ?assertEqual(NewSuccessor, get_successor(UpdatedState2)).
+  ?assertEqual(NewSuccessor, get_successor(UpdatedState2)),
+  % Try updating again with one that isn't closer, but additionally that
+  % we already have in the successor list
+  UpdatedState3 = set_successor(NotClosest, UpdatedState2),
+  % Should not set the successor that is further away as the successor
+  ?assertEqual(NewSuccessor, get_successor(UpdatedState3)).
+set_successor_shouldnt_allow_self_test() ->
+  Id = 0,
+  Self = nForKey(Id),
+  Fingers = create_finger_table(Id),
+  State = #chord_state{self = Self, fingers = Fingers},
+  ?assertEqual(undefined, get_successor(State)),
+
+  UpdatedState = set_successor(Self, State),
+
+  ?assertEqual(undefined, get_successor(UpdatedState)).
 
 
 %% *** Setting up finger table tests ***
@@ -822,5 +891,35 @@ sort_successors_test() ->
     #finger_entry{node = nForKey(0)},
     #finger_entry{node = nForKey(9)}
   ], sort_successors(Successors, Self)).
+
+extend_successor_list_test() ->
+  OurId = 1,
+  Succ = nForKey(5),
+  State = get_state_for_node_with_successor(OurId, Succ),
+  SuccSucc = nForKey(10),
+
+  erlymock:start(),
+  erlymock:strict(chord_tcp, rpc_get_successor, [Succ], [{return, {ok, SuccSucc}}]),
+  erlymock:replay(),
+
+  extend_successor_list(State),
+
+  erlymock:verify().
+
+extend_successor_list_enough_successor_test() ->
+  OurId = 1,
+  Succ = nForKey(2),
+  Successors = [nForKey(Id) || Id <- lists:seq(3, ?MAX_NUM_OF_SUCCESSORS + 2)],
+
+  State = lists:foldl(fun(NS, CS) -> set_successor(NS, CS) end, 
+    get_state_for_node_with_successor(OurId, Succ), Successors),
+
+  erlymock:start(),
+  % Shouldn't call anything... enough successors already!
+  erlymock:replay(),
+
+  extend_successor_list(State),
+
+  erlymock:verify().
 
 -endif.

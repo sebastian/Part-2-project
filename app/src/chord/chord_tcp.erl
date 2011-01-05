@@ -22,7 +22,7 @@
 -export([start_link/0, start/0, stop/0]).
 -export([rpc_get_closest_preceding_finger_and_succ/2, rpc_find_successor/3]).
 -export([rpc_lookup_key/2, rpc_set_key/3]).
--export([notify_successor/2, get_predecessor/1]).
+-export([notify_successor/2, get_predecessor/1, rpc_get_successor/1]).
 
 %% ------------------------------------------------------------------
 %% gen_listener_tcp Function Exports
@@ -59,6 +59,11 @@ rpc_find_successor(Key, Ip, Port) ->
     {ok, #node{}} | {ok, undefined} | {error, _}).
 get_predecessor(#node{ip=Ip, port=Port}) ->
   perform_rpc(get_predecessor, Ip, Port).
+
+-spec(rpc_get_successor/1::(#node{}) ->
+    {ok, #node{}} | {ok, undefined} | {error, _}).
+rpc_get_successor(#node{ip=Ip, port=Port}) ->
+  perform_rpc(get_successor, Ip, Port).
 
 -spec(notify_successor/2::(#node{}, CurrentNode::#node{}) -> ok).
 notify_successor(#node{ip = Ip, port = Port}, CurrentNode) ->
@@ -120,7 +125,6 @@ receive_incoming(Socket, SoFar) ->
       catch
         error:badarg ->
           % The packet got fragmented somehow...
-          io:format("Caught error:badarg.~n- Trying to continue~n"),
           receive_incoming(Socket, [Bin|SoFar])
       end;
     {tcp_closed, _Socket} ->
@@ -181,6 +185,9 @@ handle_msg({set_key, Key, Value}) ->
 
 handle_msg({lookup_key, Key}) ->
   chord:local_lookup(Key);
+
+handle_msg(get_successor) ->
+  chord:get_successor();
 
 handle_msg(_) ->
   ?NYI.
