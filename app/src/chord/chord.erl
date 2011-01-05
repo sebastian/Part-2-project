@@ -503,7 +503,6 @@ sort_successors(FingerList, Self) ->
 -spec(perform_notify/2::(Node::#node{}, State::#chord_state{}) ->
     #chord_state{}).
 perform_notify(Node, #chord_state{predecessor = undefined} = State) ->
-  ?debugMsg("Didn't have a predecessor..."),
   set_successor(Node, State#chord_state{predecessor = Node});
 perform_notify(#node{key = NewKey} = Node, 
     #chord_state{predecessor = Pred, self = Self} = State) ->
