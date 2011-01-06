@@ -29,7 +29,7 @@
             <div class="yui-g" id="main"> 
 
               <!-- To add new data -->
-              <div class="content" id="addPerson" ng:show="location.addPerson">
+              <div id="addPerson" ng:show="location.addPerson">
                 <input name="new_person.name" placeholder="Name" ng:required />
                 <input name="new_person.profile_url" placeholder="Profile Url" ng:required />
                 <input name="new_person.avatar_url" placeholder="Avatar Url" ng:required />
@@ -38,9 +38,26 @@
                 <input type="submit" value="Add person" ng:click="addPerson()" />
               </div>
 
-              <!-- To add new data -->
-              <div class="content" ng:show="location.home">
+              <!-- To guide users to what they should do -->
+              <div ng:show="location.home">
                 Search for a friend using the search box on the left hand side.
+              </div>
+
+              <!-- To show a users profile -->
+              <div ng:show="location.profile">
+                <div class="yui-u first">
+                  <img src="{{currentProfile.avatar_url}}" />
+                </div>
+                <div class="info yui-u">
+                  <div class="name">
+                    {{currentProfile.name}}
+                  </div>
+                  <div class="profile_url">
+                    <a href="{{currentProfile.profile_url}}" target="_blank">
+                      {{currentProfile.profile_url}}
+                    </a>
+                  </div>
+                </div>
               </div>
 
             </div> 
@@ -54,16 +71,16 @@
           </div>
 
           <div id="search_results">
-            <div class="search_result yui-gf" ng:repeat="person in searchResults.results">
-              <div class="avatar yui-g first">
+            <div class="search_result yui-gf" ng:repeat="person in searchResults.results" ng:click="setProfile(person)">
+              <div class="avatar yui-g first" ng:click="setProfile(person)">
                 <img src="{{person.avatar_url}}" />
               </div>
-              <div class="info yui-g">
+              <div class="info yui-g" ng:click="setProfile(person)">
                 <div class="name">
                   {{person.name}}
                 </div>
-                <div class="profile_url">
-                  <a href="{{person.profile_url}}">
+                <div class="profile_url" ng:click="this.setProfile(person)">
+                  <a href="{{person.profile_url}}" target="_blank">
                     {{person.profile_url}}
                   </a>
                 </div>

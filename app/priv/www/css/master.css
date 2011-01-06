@@ -128,6 +128,20 @@ div#add_person {
 
 /* @end */
 
+/* @group Profile */
+
+#main div div.info.yui-u div.name span {
+	font-size: 153.9%;
+}
+
+#main div div.info.yui-u div.profile_url a span {
+	font-size: 100%;
+}
+
+
+
+/* @end */
+
 
 
 /* @end */
