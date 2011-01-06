@@ -74,15 +74,12 @@ init(_Args) ->
   {ok, #datastore_state{timer = TimerRef, data = datastore:init()}}.
 
 handle_call({get_entries_in_range, Start, End}, _From, State) ->
-  io:format("datastore_srv:get_range(~p, ~p)~n", [Start, End]),
   {reply, datastore:get_entries_in_range(Start, End, State), State};
 
 handle_call({lookup, Key}, _From, State) ->
-  io:format("datastore_srv:lookup(~p,....)~n", [Key]),
   {reply, datastore:lookup(Key, State), State};
 
 handle_call({set, Key, Value}, _From, State) ->
-  io:format("datastore_srv:set(~p,....)~n", [Key]),
   {reply, ok, datastore:set(Key, Value, State)};
 
 handle_call(get_state, _From, State) ->

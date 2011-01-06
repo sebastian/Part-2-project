@@ -44,7 +44,6 @@
 -spec(rpc_send_entries/2::(Entries::[#entry{}], Node::#node{}) ->
     {ok, done} | {error, _}).
 rpc_send_entries(Entries, #node{ip=Ip, port=Port}) ->
-  io:format("Sending ~p entries~n", [length(Entries)]),
   perform_rpc({send_entries, Entries}, Ip, Port).
 
 -spec(rpc_lookup_key/2::(Key::key(), Node::#node{}) ->
@@ -91,7 +90,6 @@ perform_rpc(Message, Ip, Port) ->
       receive_data(Socket, []);
     {error, Reason} ->
       % Handle error somehow
-      io:format("Got an ~p trying to send message ~p.~n", [Reason, Message]),
       {error, Reason}
   end.
 

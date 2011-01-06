@@ -175,6 +175,8 @@ handle_call({local_lookup, Key}, _From, State) ->
 
 handle_call({local_set, Key, Entry}, _From, State) ->
   datastore_srv:set(Key, Entry),
+  % Now we need to replicate the entry to our successors:
+  replicate_entry(Entry, State),
   {reply, ok, State};
 
 handle_call({get_preceding_finger, Key}, _From, State) ->
@@ -227,10 +229,7 @@ handle_cast(fix_fingers, State) ->
   {noreply, State};
 
 handle_cast({receive_entries, Entries}, State) ->
-  spawn(fun() -> 
-    io:format("Received ~p new entries.~n", [length(Entries)]),
-    [datastore_srv:set(E#entry.key, E) || E <- Entries] 
-  end),
+  spawn(fun() -> [datastore_srv:set(E#entry.key, E) || E <- Entries] end),
   {noreply, State};
 
 handle_cast(Msg, State) ->
@@ -382,7 +381,6 @@ find_successor(Key,
             % finding successor failed in the first instance.
             % Remove the offending node and try again.
             {error, bad_node, BadNode} ->
-              io:format("Couldn't connect to bad node: ~p. Remove it.~n", [BadNode]),
               remove_node(BadNode),
               % Now that that is done, try again
               find_successor(Key, State);
@@ -412,7 +410,6 @@ remove_node(BadNode) ->
   gen_server:call(?MODULE, {remove_node, BadNode}).
 -spec(remove_node/2::(BadNode::#node{}, State::#chord_state{}) -> #chord_state{}).
 remove_node(BadNode, State) ->
-  io:format("Removing bad node: ~p~n", [BadNode]),
   NoPred = remove_node_from_predecessor(BadNode, State),
   remove_node_from_fingers(BadNode, NoPred).
 
@@ -482,7 +479,6 @@ join(State) ->
 
 perform_join([], _State) -> error;
 perform_join([{JoinIp, JoinPort}|Ps], State) ->
-  io:format("Trying to join ~p:~p~n", [JoinIp, JoinPort]),
   OwnKey = (State#chord_state.self)#node.key,
   % Find the successor node using the given node
   case chord_tcp:rpc_find_successor(OwnKey, JoinIp, JoinPort) of
@@ -510,14 +506,20 @@ get_first_successor(SuccessorFingers) ->
 -spec(set_successor/2::(Successor::#node{}, State::#chord_state{}) ->
     #chord_state{}).
 set_successor(Successor, #chord_state{self = Self} = State) when Successor =:= Self -> State;
-set_successor(Successor, State) ->
+set_successor(Successor, #chord_state{predecessor = Predecessor, self = Self} = State) ->
   Fingers = State#chord_state.fingers,
   FingerList = array:get(0, Fingers),
   Self = State#chord_state.self,
   UpdatedFingers = array:set(0, 
     case lists:member(Successor, [F#finger_entry.node || F <- FingerList]) of
       true -> FingerList;
-      false -> sort_successors([#finger_entry{node=Successor} | FingerList], Self)
+      false -> 
+        % We have to transfer our data to this successor for replication
+        if Predecessor =/= undefined ->
+            transfer_data_in_range(Predecessor#node.key, Self#node.key, Successor);
+          true -> ok
+        end,
+        sort_successors([#finger_entry{node=Successor} | FingerList], Self)
     end, Fingers),
   State#chord_state{fingers = UpdatedFingers}.
 
@@ -538,11 +540,9 @@ sort_successors(FingerList, Self) ->
 -spec(perform_notify/2::(Node::#node{}, State::#chord_state{}) ->
     #chord_state{}).
 perform_notify(Node, #chord_state{predecessor = undefined} = State) ->
-  io:format("Got notified!~n"),
-  set_successor(Node, set_predecessor(Node, State));
+  set_predecessor(Node, set_successor(Node, State));
 perform_notify(#node{key = NewKey} = Node, 
     #chord_state{predecessor = Pred, self = Self} = State) ->
-  io:format("Got notified!~n"),
   case utilities:in_range(NewKey, Pred#node.key, Self#node.key) of
     true  -> set_predecessor(Node, State);
     false -> State
@@ -551,12 +551,18 @@ perform_notify(#node{key = NewKey} = Node,
 
 -spec(set_predecessor/2::(Predecessor::#node{}, State::#chord_state{}) -> #chord_state{}).
 set_predecessor(Predecessor, #chord_state{self = Self} = State) -> 
-  % Get all data we have that doesn't belong to us
-  case datastore_srv:get_entries_in_range(Self#node.key, Predecessor#node.key) of
-    [] -> State#chord_state{predecessor = Predecessor}; % no data to transfer
-    Data -> case chord_tcp:rpc_send_entries(Data, Predecessor) of
-        {ok, _} -> State#chord_state{predecessor = Predecessor};
-        {error, _} -> remove_node(Predecessor, State)
+  case transfer_data_in_range(Self#node.key, Predecessor#node.key, Predecessor) of
+    ok -> State#chord_state{predecessor = Predecessor};
+    error -> remove_node(Predecessor, State)
+  end.
+
+
+transfer_data_in_range(Start, End, Node) ->
+  case datastore_srv:get_entries_in_range(Start, End) of
+    [] -> ok; % no data to transfer
+    Data -> case chord_tcp:rpc_send_entries(Data, Node) of
+        {ok, _} -> ok; 
+        {error, _} -> error 
       end
   end.
 
@@ -579,9 +585,11 @@ extend_successor_list(#chord_state{fingers = Fingers}) ->
 
 
 % @doc: Sends copy of a new item to successors for replication
--spec(replicate_entry/2::(Entry#entry{}, State::#chord_state{}) -> ok).
+-spec(replicate_entry/2::(Entry::#entry{}, State::#chord_state{}) -> ok).
 replicate_entry(Entry, State) ->
-
+  SuccessorNodes = [F#finger_entry.node || F <- array:get(0, State#chord_state.fingers)],
+  [spawn(fun() -> chord_tcp:rpc_send_entries([Entry], Succ) end) || Succ <- SuccessorNodes],
+  ok.
 
 
 %% ------------------------------------------------------------------
@@ -1055,16 +1063,16 @@ set_predecessor_there_is_data_to_transfer_but_cant_connect_with_predecessor_test
 
 
 replicate_entry_test() ->
-  Successor1 = nForKey(100),
-  Successor2 = nForKey(120),
+  GoodNode = nForKey(100),
+  BadNode = nForKey(120),
   Self = nForKey(0),
-  Fingers = [#finger_entry{node = Successor1}, #finger_entry{node = Successor2}],
-  State = #chord_state{self = Self, fingers = Fingers},
+  Fingers = [#finger_entry{node = GoodNode}, #finger_entry{node = BadNode}],
+  State = #chord_state{self = Self, fingers = array:set(0, Fingers, create_finger_table(0))},
   Entry = #entry{},
 
   erlymock:start(),
-  erlymock:o_o(chord_tcp, rpc_send_entries, [Entry, Successor1], [{return, {ok, ok}}]),
-  erlymock:o_o(chord_tcp, rpc_send_entries, [Entry, Successor2], [{return, {ok, ok}}]),
+  erlymock:o_o(chord_tcp, rpc_send_entries, [[Entry], GoodNode], [{return, {ok, ok}}]),
+  erlymock:o_o(chord_tcp, rpc_send_entries, [[Entry], BadNode], [{return, {error, some_error}}]),
   erlymock:replay(),
   ok = replicate_entry(Entry, State),
   erlymock:verify().
