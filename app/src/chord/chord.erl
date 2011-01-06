@@ -578,6 +578,12 @@ extend_successor_list(#chord_state{fingers = Fingers}) ->
   end.
 
 
+% @doc: Sends copy of a new item to successors for replication
+-spec(replicate_entry/2::(Entry#entry{}, State::#chord_state{}) -> ok).
+replicate_entry(Entry, State) ->
+
+
+
 %% ------------------------------------------------------------------
 %% Tests
 %% ------------------------------------------------------------------
@@ -1046,5 +1052,22 @@ set_predecessor_there_is_data_to_transfer_but_cant_connect_with_predecessor_test
   ?assertEqual(OldPred, NewState#chord_state.predecessor),
   % Should not reference the node.
   doesnt_contain_node(Pred, NewState).
+
+
+replicate_entry_test() ->
+  Successor1 = nForKey(100),
+  Successor2 = nForKey(120),
+  Self = nForKey(0),
+  Fingers = [#finger_entry{node = Successor1}, #finger_entry{node = Successor2}],
+  State = #chord_state{self = Self, fingers = Fingers},
+  Entry = #entry{},
+
+  erlymock:start(),
+  erlymock:o_o(chord_tcp, rpc_send_entries, [Entry, Successor1], [{return, {ok, ok}}]),
+  erlymock:o_o(chord_tcp, rpc_send_entries, [Entry, Successor2], [{return, {ok, ok}}]),
+  erlymock:replay(),
+  ok = replicate_entry(Entry, State),
+  erlymock:verify().
+
 
 -endif.
