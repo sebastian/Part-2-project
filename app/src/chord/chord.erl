@@ -3,7 +3,7 @@
 
 -define(SERVER, ?MODULE).
 -define(NUMBER_OF_FINGERS, 160).
--define(MAX_NUM_OF_SUCCESSORS, 2).
+-define(MAX_NUM_OF_SUCCESSORS, 5).
 
 %% @doc: the interval in miliseconds at which the routine tasks are performed
 -define(FIX_FINGER_INTERVAL, 200).
@@ -17,15 +17,22 @@
 -include("chord.hrl").
 
 %% ------------------------------------------------------------------
-%% API Function Exports
+%% Public API
 %% ------------------------------------------------------------------
 
 -export([start_link/0, start/0, stop/0]).
--export([lookup/1, set/2, preceding_finger/1, find_successor/1, get_predecessor/0, get_successor/0]).
+-export([lookup/1, set/2]).
+
+%% ------------------------------------------------------------------
+%% PRIVATE API Function Exports
+%% ------------------------------------------------------------------
+
+-export([preceding_finger/1, find_successor/1, get_predecessor/0, get_successor/0]).
 -export([local_set/2, local_lookup/1]).
 -export([notified/1]).
 % Methods that need to be exported to me used by timers and local rpc's. Not for external use.
 -export([stabilize/0, fix_fingers/0, check_node_for_predecessor/3]).
+-export([receive_entries/1]).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Exports
@@ -84,6 +91,11 @@ get_successor() ->
 -spec(get_predecessor/0::() -> #node{}).
 get_predecessor() ->
   gen_server:call(chord, get_predecessor).
+
+-spec(receive_entries/1::(Entries::[#entry{}]) -> ok).
+receive_entries(Entries) ->
+  gen_server:cast(chord, {receive_entries, Entries}),
+  ok.
 
 %% @doc Notified receives messages from predecessors identifying themselves.
 %% If the node is a closer predecessor than the current one, then
@@ -214,7 +226,15 @@ handle_cast(fix_fingers, State) ->
   spawn(fun() -> fix_finger(FingerNumToFix, State) end),
   {noreply, State};
 
-handle_cast(_Msg, State) ->
+handle_cast({receive_entries, Entries}, State) ->
+  spawn(fun() -> 
+    io:format("Received ~p new entries.~n", [length(Entries)]),
+    [datastore_srv:set(E#entry.key, E) || E <- Entries] 
+  end),
+  {noreply, State};
+
+handle_cast(Msg, State) ->
+  error_logger:error_msg("received unknown cast: ~p", [Msg]),
   {noreply, State}.
 
 %% Info:
@@ -518,12 +538,26 @@ sort_successors(FingerList, Self) ->
 -spec(perform_notify/2::(Node::#node{}, State::#chord_state{}) ->
     #chord_state{}).
 perform_notify(Node, #chord_state{predecessor = undefined} = State) ->
-  set_successor(Node, State#chord_state{predecessor = Node});
+  io:format("Got notified!~n"),
+  set_successor(Node, set_predecessor(Node, State));
 perform_notify(#node{key = NewKey} = Node, 
     #chord_state{predecessor = Pred, self = Self} = State) ->
+  io:format("Got notified!~n"),
   case utilities:in_range(NewKey, Pred#node.key, Self#node.key) of
-    true  -> State#chord_state{predecessor = Node};
+    true  -> set_predecessor(Node, State);
     false -> State
+  end.
+
+
+-spec(set_predecessor/2::(Predecessor::#node{}, State::#chord_state{}) -> #chord_state{}).
+set_predecessor(Predecessor, #chord_state{self = Self} = State) -> 
+  % Get all data we have that doesn't belong to us
+  case datastore_srv:get_entries_in_range(Self#node.key, Predecessor#node.key) of
+    [] -> State#chord_state{predecessor = Predecessor}; % no data to transfer
+    Data -> case chord_tcp:rpc_send_entries(Data, Predecessor) of
+        {ok, _} -> State#chord_state{predecessor = Predecessor};
+        {error, _} -> remove_node(Predecessor, State)
+      end
   end.
 
 
@@ -555,8 +589,10 @@ nForKey(Key) -> #node{key = Key}.
 %% @todo: Missing test that checks that notify actually works!
 %%        Missing test where the successors predecessor is not ourself.
 
+
 test_get_empty_state() ->
   #chord_state{fingers = create_finger_table(0), self = nForKey(0)}.
+
 
 test_get_state() ->
   Fingers = array:set(0, [#finger_entry{start = 1, interval = {1,2}, node = nForKey(1)}],
@@ -567,6 +603,7 @@ test_get_state() ->
     fingers = Fingers,
     self = nForKey(0)
   }.
+
 
 find_closest_preceding_finger_test_() ->
   {inparallel, [
@@ -580,6 +617,7 @@ find_closest_preceding_finger_test_() ->
     ?_assertEqual(nForKey(3), closest_preceding_finger(7, test_get_state()))
   ]}.
 
+
 % When finger table entries are empty, they should be skipped rather than cause an exception
 closest_preceding_finger_for_empty_fingers_test() ->
   Self = #node{key=1234},
@@ -588,11 +626,11 @@ closest_preceding_finger_for_empty_fingers_test() ->
 
 
 %% *** find_successor tests ***
-
 % Test when the successor is directly in our finger table
 find_successor_on_same_node_test() ->
   State = test_get_state(),
   ?assertEqual(get_successor(State), find_successor(1, State)).
+
 
 % Test when the successor is one hop away
 find_successor_next_hop_test() ->
@@ -610,6 +648,7 @@ find_successor_next_hop_test() ->
   erlymock:replay(), 
   ?assertEqual(NextSuccessor, find_successor(Key, State)),
   erlymock:verify().
+
 
 % Test when the successor is multiple hops away
 find_successor_subsequent_hop_test() ->
@@ -633,6 +672,7 @@ find_successor_subsequent_hop_test() ->
   ?assertEqual(SecondNextSuccessor, find_successor(Key, State)),
   erlymock:verify().
 
+
 % When a node has no known successor, then we are
 % working with a fresh chord ring, and return ourselves.
 find_successor_for_missing_successor_test() ->
@@ -646,10 +686,12 @@ find_successor_for_missing_successor_test() ->
 get_state_for_node_with_successor(NodeId, Succ) ->
   set_successor(Succ, #chord_state{self=nForKey(NodeId), fingers = create_finger_table(0)}).
 
+
 perform_stabilize_with_empty_state_test() ->
   State = test_get_empty_state(),
   ?assertEqual(undefined, get_successor(State)),
   ?assertEqual([], perform_stabilize(State)).
+
 
 perform_stabilize_successor_has_earlier_predecessor_test() ->
   % Successor is 5, own id is 0
@@ -668,6 +710,7 @@ perform_stabilize_successor_has_earlier_predecessor_test() ->
 
   erlymock:verify().
 
+
 % The successor hasn't changed
 perform_stabilize_same_successor_test() ->
   % Successor is 5, own id is 0
@@ -685,6 +728,7 @@ perform_stabilize_same_successor_test() ->
   ?assertEqual([], perform_stabilize(State)),
 
   erlymock:verify().
+
 
 % The successor has changed
 perform_stabilize_updated_successor_test() ->
@@ -710,6 +754,8 @@ get_successor_test() ->
   Fingers = array:set(0, [#finger_entry{node=Successor}], create_finger_table(Id)),
   State = #chord_state{self = Self, fingers = Fingers},
   ?assertEqual(Successor, get_successor(State)).
+
+
 set_successor_test() ->
   Id = 0,
   Self = nForKey(Id),
@@ -729,6 +775,8 @@ set_successor_test() ->
   UpdatedState3 = set_successor(NotClosest, UpdatedState2),
   % Should not set the successor that is further away as the successor
   ?assertEqual(NewSuccessor, get_successor(UpdatedState3)).
+
+
 set_successor_shouldnt_allow_self_test() ->
   Id = 0,
   Self = nForKey(Id),
@@ -758,11 +806,15 @@ get_start_test_() ->
     ?_assertEqual(5, get_start(3, 1)),
     ?_assertEqual(7, get_start(3, 2))
   ]}.
+
+
 create_start_entries_test() ->
   NodeId = 0,
   Entries = create_start_entries(NodeId, 0, array:new(160)),
   ?assertEqual([], array:get(0,Entries)),
   ?assertEqual(get_start(NodeId, 1), (array:get(1,Entries))#finger_entry.start).
+
+
 finger_entry_node_test_() ->
   {inparallel,
     [
@@ -782,10 +834,13 @@ finger_entry_node_test_() ->
       ?_assertEqual(undefined, (finger_entry_node(0,0))#finger_entry.node)
     ]
   }.
+
+
 create_finger_table_test() ->
   Id = 0,
   FingerTable = create_finger_table(Id),
   ?assertEqual(160, array:size(FingerTable)).
+
 
 %% *** join tests ***
 join_test() ->
@@ -828,30 +883,49 @@ join_test() ->
 
   erlymock:verify().
 
-    
+
 %% *** cast notified tests ***
-perform_notify_no_previous_predecessor_test() ->
-  % Being notified when you have no previous predecessor
-  % should set the predecessor.
-  State = test_get_empty_state(),
+perform_notify_no_previous_predecessor_or_successor_test() ->
+  % This is somewhat of a special case.
+  % When the chord ring start the first node has no successor or
+  % predecessor. Upon being notified about a predecessor it should 
+  % then also set it as its successor, and at the same time
+  % forward any data it has that should live in that nodes keyspace.
+
+  Self = nForKey(0),
+  State = (test_get_empty_state())#chord_state{self = Self},
   NewNode = nForKey(1234),
+
+  erlymock:start(),
+
+  % Expect the datastore to get called to ask for records 
+  erlymock:strict(datastore_srv, get_entries_in_range, [Self#node.key, NewNode#node.key], [{return, []}]),
+  erlymock:replay(),
+
   NewState = perform_notify(NewNode, State),
-  ?assertEqual(NewNode, NewState#chord_state.predecessor).
-perform_notify_no_successor_test() ->
-  % If there is no successor in the state, then the predecessor
-  % should also become the successor.
-  State = test_get_empty_state(),
-  NewNode = #node{key=1234},
-  NewState = perform_notify(NewNode, State),
+  erlymock:verify(),
+
+  % The new node should have been set as predecessor
+  ?assertEqual(NewNode, NewState#chord_state.predecessor),
+  % The new node should also have become the nodes successor!
   ?assertEqual(NewNode, get_successor(NewState)).
+
+
 perform_notify_should_update_newer_predecessors_test() ->
   % If the predecessor is closer in the chord ring than
   % the one currently in the state, then update the state.
   OldPred = nForKey(1),
   NewPred = nForKey(2),
-  State = #chord_state{predecessor = OldPred, self=nForKey(3)},
+  Self = nForKey(3),
+  State = #chord_state{predecessor = OldPred, self=Self},
+  % Because of set_predecessor we need the expectations
+  erlymock:start(),
+  erlymock:strict(datastore_srv, get_entries_in_range, [Self#node.key, NewPred#node.key], [{return, []}]),
+  erlymock:replay(),
   NewState = perform_notify(NewPred, State),
+  erlymock:verify(),
   ?assertEqual(NewPred, NewState#chord_state.predecessor).
+
 
 remove_node_test() ->
   % The bad node is both a successor, predecessor AND a normal finger... get that if you can :)
@@ -862,9 +936,11 @@ remove_node_test() ->
   BadState = State#chord_state{fingers = array:set(1, BadFinger, Fingers)},
   ?assert(doesnt_contain_node(BadNode, remove_node(BadNode, BadState))).
 
+
 doesnt_contain_node(Node, State) ->
   State#chord_state.predecessor =/= Node andalso
     no_bad_fingers(Node, State#chord_state.fingers).
+
 
 no_bad_fingers(Node, Fingers) ->
   array:foldl(
@@ -874,6 +950,7 @@ no_bad_fingers(Node, Fingers) ->
        (_, F, _) when is_record(F, finger_entry) ->
           F#finger_entry.node =/= Node
     end, true, Fingers).
+
 
 sort_successors_test() ->
   Self = nForKey(10),
@@ -892,6 +969,7 @@ sort_successors_test() ->
     #finger_entry{node = nForKey(9)}
   ], sort_successors(Successors, Self)).
 
+
 extend_successor_list_test() ->
   OurId = 1,
   Succ = nForKey(5),
@@ -905,6 +983,7 @@ extend_successor_list_test() ->
   extend_successor_list(State),
 
   erlymock:verify().
+
 
 extend_successor_list_enough_successor_test() ->
   OurId = 1,
@@ -921,5 +1000,51 @@ extend_successor_list_enough_successor_test() ->
   extend_successor_list(State),
 
   erlymock:verify().
+
+
+set_predecessor_no_data_to_transfer_test() ->
+  MyKey = 0,
+  Self = nForKey(MyKey),
+  State = (test_get_state())#chord_state{self = nForKey(MyKey)},
+  Pred = nForKey(100),
+  erlymock:start(),
+  erlymock:strict(datastore_srv, get_entries_in_range, [Self#node.key, Pred#node.key], [{return, []}]),
+  erlymock:replay(),
+  ?assertEqual(Pred, (set_predecessor(Pred, State))#chord_state.predecessor),
+  erlymock:verify().
+
+
+set_predecessor_there_is_data_to_transfer_test() ->
+  MyKey = 0,
+  State = (test_get_state())#chord_state{self = nForKey(MyKey)},
+  Pred = nForKey(100),
+  Data = [#entry{}],
+  erlymock:start(),
+  erlymock:strict(datastore_srv, get_entries_in_range, [MyKey, Pred#node.key], [{return, Data}]),
+  erlymock:strict(chord_tcp, rpc_send_entries, [Data, Pred], [{return, {ok, ok}}]),
+  erlymock:replay(),
+  ?assertEqual(Pred, (set_predecessor(Pred, State))#chord_state.predecessor),
+  erlymock:verify().
+
+
+set_predecessor_there_is_data_to_transfer_but_cant_connect_with_predecessor_test() ->
+  MyKey = 0,
+  OldPred = nForKey(90),
+  Pred = nForKey(100),
+  % This node also has this predecessor in a finger
+  Fingers = array:set(100, #finger_entry{node=Pred}, create_finger_table(MyKey)),
+  State = (test_get_state())#chord_state{self = nForKey(MyKey), fingers = Fingers, predecessor = OldPred},
+  Data = [#entry{}],
+  erlymock:start(),
+  erlymock:strict(datastore_srv, get_entries_in_range, [MyKey, Pred#node.key], [{return, Data}]),
+  erlymock:strict(chord_tcp, rpc_send_entries, [Data, Pred], [{return, {error, some_error}}]),
+  erlymock:replay(),
+  NewState = set_predecessor(Pred, State),
+  erlymock:verify(),
+
+  % Should not have changed the predecessor
+  ?assertEqual(OldPred, NewState#chord_state.predecessor),
+  % Should not reference the node.
+  doesnt_contain_node(Pred, NewState).
 
 -endif.

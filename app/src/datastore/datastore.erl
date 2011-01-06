@@ -8,7 +8,7 @@
 %% API Function Exports
 %% ------------------------------------------------------------------
 
--export([set/3, lookup/2, spring_cleaning/1]).
+-export([set/3, lookup/2, spring_cleaning/1, get_entries_in_range/3]).
 -export([init/0]).
 
 %% ------------------------------------------------------------------
@@ -65,6 +65,19 @@ spring_cleaning(State) ->
       dict:filter(fun(_Key, []) -> false; (_, _) -> true end, WithoutOldEntries), 
   State#datastore_state{data = WithoutEmtpyKeys}.
 
+% @doc: Returns the data for all items with a key greater than start and less
+% than or equal to end.
+-spec(get_entries_in_range/3::(Start::key(), End::key(), State::#datastore_state{}) -> [#entry{}]).
+get_entries_in_range(Start, End, State) ->
+  Entries = dict:to_list(State#datastore_state.data),
+  apply_range(Start, End, lists:flatten([E || {_Key, E} <- Entries])).
+apply_range(Start, End, Entries) when Start < End ->
+  [Entry || Entry <- Entries, Entry#entry.key > Start, Entry#entry.key =< End];
+apply_range(Start, End, Entries) ->
+  [Entry || Entry <- Entries, Entry#entry.key > Start orelse Entry#entry.key =< End].
+
+
+
 %% ------------------------------------------------------------------
 %% Tests
 %% ------------------------------------------------------------------
@@ -91,7 +104,7 @@ set_lookup_test() ->
   ?assertEqual([Value2, Value1],
       datastore:lookup(Key, NewState2)).
 
-lookup() ->
+lookup_test() ->
   State = test_state(),
   ?assertEqual([], datastore:lookup(<<"Key">>, State)),
 
@@ -149,5 +162,29 @@ spring_cleaning_test() ->
   ?assertEqual(1, dict:size(UpdatedState3#datastore_state.data)),
   UpdatedState4 = datastore:spring_cleaning(UpdatedState3),
   ?assertEqual(1, dict:size(UpdatedState4#datastore_state.data)).
+
+entry_with_valid_timeout_and_key(Key) ->
+  #entry{timeout = utilities:get_time() + 10, key = Key}.
+
+assert_exclusively_contains_entries(Entries, Test) ->
+  [?assert(lists:member(E, Test)) || E <- Entries],
+  ?assertEqual(Test -- Entries, Entries -- Test).
+
+get_entries_in_range_test() ->
+  % State with entries with keys from 1 through 10
+  Entries = [entry_with_valid_timeout_and_key(K) || K <- lists:seq(1,10)],
+  State = lists:foldl(fun(E,A) -> datastore:set(E#entry.key, E, A) end, #datastore_state{data=datastore:init()}, Entries),
+  
+  % Out of range
+  assert_exclusively_contains_entries([], get_entries_in_range(100, 9999, State)),
+  % Normal direction
+  assert_exclusively_contains_entries(Entries, get_entries_in_range(0, 100, State)),
+  assert_exclusively_contains_entries(Entries, get_entries_in_range(0, 10, State)),
+  assert_exclusively_contains_entries(lists:sublist(Entries, 2, 9), get_entries_in_range(1, 10, State)),
+  assert_exclusively_contains_entries(lists:sublist(Entries, 1, 1), get_entries_in_range(0, 1, State)),
+  % When start is after end (remember chord's keyspace is on a circle so this will happen!)
+  assert_exclusively_contains_entries(Entries, get_entries_in_range(100000, 100, State)),
+  assert_exclusively_contains_entries(lists:sublist(Entries, 1, 1) ++ lists:sublist(Entries, 10, 1), 
+    get_entries_in_range(9, 1, State)).
 
 -endif.

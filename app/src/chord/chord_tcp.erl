@@ -20,9 +20,15 @@
 %% ------------------------------------------------------------------
 
 -export([start_link/0, start/0, stop/0]).
--export([rpc_get_closest_preceding_finger_and_succ/2, rpc_find_successor/3]).
--export([rpc_lookup_key/2, rpc_set_key/3]).
--export([notify_successor/2, get_predecessor/1, rpc_get_successor/1]).
+-export([rpc_get_closest_preceding_finger_and_succ/2, 
+         rpc_find_successor/3,
+         rpc_lookup_key/2, 
+         rpc_set_key/3,
+         notify_successor/2, 
+         get_predecessor/1, 
+         rpc_get_successor/1,
+         rpc_send_entries/2
+       ]).
 
 %% ------------------------------------------------------------------
 %% gen_listener_tcp Function Exports
@@ -34,6 +40,12 @@
 %% ------------------------------------------------------------------
 %% API Function Definitions
 %% ------------------------------------------------------------------
+
+-spec(rpc_send_entries/2::(Entries::[#entry{}], Node::#node{}) ->
+    {ok, done} | {error, _}).
+rpc_send_entries(Entries, #node{ip=Ip, port=Port}) ->
+  io:format("Sending ~p entries~n", [length(Entries)]),
+  perform_rpc({send_entries, Entries}, Ip, Port).
 
 -spec(rpc_lookup_key/2::(Key::key(), Node::#node{}) ->
     {ok, [#entry{}]} | {error, _}).
@@ -88,7 +100,13 @@ receive_data(Socket, SoFar) ->
     {tcp, Socket, Bin} ->
       receive_data(Socket, [Bin | SoFar]);
     {tcp_closed, Socket} ->
-      {ok, binary_to_term(list_to_binary(SoFar), [safe])}
+      try
+        {ok, binary_to_term(list_to_binary(lists:reverse(SoFar)), [safe])}
+      catch
+        error:badarg ->
+          error_logger:error_msg("Response returned by other part couldn't be parsed"),
+          {error, badarg}
+      end
   after 5000 ->
     error_logger:info_msg("PerformRPC times out~n"),
     {error, timeout}
@@ -188,6 +206,9 @@ handle_msg({lookup_key, Key}) ->
 
 handle_msg(get_successor) ->
   chord:get_successor();
+
+handle_msg({send_entries, Entries}) ->
+  chord:receive_entries(Entries);
 
 handle_msg(_) ->
   ?NYI.

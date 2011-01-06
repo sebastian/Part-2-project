@@ -14,10 +14,10 @@
 -include("../fs.hrl").
 
 %% ------------------------------------------------------------------
-%% API Function Exports
+%% PUBLIC API Function Exports
 %% ------------------------------------------------------------------
 
--export([set/2, lookup/1, spring_cleaning/0]).
+-export([set/2, lookup/1, spring_cleaning/0, get_entries_in_range/2]).
 -export([start_link/0, start/0, stop/0]).
 
 %% ------------------------------------------------------------------
@@ -59,6 +59,12 @@ lookup(Key) ->
 spring_cleaning() ->
   gen_server:cast(?MODULE, spring_cleaning). 
 
+% @doc Returns all entries with keys greater than start, and less than
+% or equal to end.
+-spec(get_entries_in_range/2::(Start::key(), End::key()) -> [#entry{}]).
+get_entries_in_range(Start, End) ->
+  gen_server:call(?MODULE, {get_entries_in_range, Start, End}).
+
 %% ------------------------------------------------------------------
 %% gen_server Function Definitions
 %% ------------------------------------------------------------------
@@ -66,6 +72,10 @@ spring_cleaning() ->
 init(_Args) -> 
   {ok, TimerRef} = timer:apply_interval(?CLEAN_INTERVAL, ?MODULE, spring_cleaning, []),
   {ok, #datastore_state{timer = TimerRef, data = datastore:init()}}.
+
+handle_call({get_entries_in_range, Start, End}, _From, State) ->
+  io:format("datastore_srv:get_range(~p, ~p)~n", [Start, End]),
+  {reply, datastore:get_entries_in_range(Start, End, State), State};
 
 handle_call({lookup, Key}, _From, State) ->
   io:format("datastore_srv:lookup(~p,....)~n", [Key]),
@@ -84,7 +94,7 @@ handle_call(stop, _From, State) ->
 handle_cast(spring_cleaning, State) ->
   {noreply, datastore:spring_cleaning(State)}.
 
-handle_info(spring_cleaning, State) ->
+handle_info(_Info, State) ->
   {noreply, State}.
 
 terminate(_Reason, State) ->
