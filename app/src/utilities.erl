@@ -232,6 +232,14 @@ get_ip() ->
   end.
      
 
+
+% @doc: Returns a number in a certain base, but expressed in base 10.
+% Each digit is a separate list element in the returned value.
+-spec(key_for_node_with_b/3::(Ip::ip(), Port::port_number(), Base::integer()) -> [integer()]).
+key_for_node_with_b(Ip, Port, B) ->
+  bitstring_to_list_in_base(term_to_sha({Ip, Port}), B).
+
+
 -spec(key_for_node/2::(Ip::ip(), Port::port_number()) -> number()).
 key_for_node(Ip, Port) ->
   key_for_data({Ip, Port}).
@@ -240,6 +248,16 @@ key_for_node(Ip, Port) ->
 -spec(key_for_data/1::(Data::term()) -> number()).
 key_for_data(Data) ->
   bitstring_to_number(term_to_sha(Data)).
+
+
+-spec(bitstring_to_list_in_base/2::(BitString::bitstring(), integer()) -> [integer()]).
+bitstring_to_list_in_base(BitString, Base) ->
+  bitstring_to_list_in_base(BitString, [], Base, bit_size(BitString)).
+-spec(bitstring_to_list_in_base/4::(bitstring(), [integer()], integer(), integer()) -> [integer()]).
+bitstring_to_list_in_base(_BitString, Acc, _Base, 0) -> lists:reverse(Acc);
+bitstring_to_list_in_base(BitString, Acc, Base, _) ->
+  <<Num:Base/integer, Rest/bitstring>> = BitString,
+  bitstring_to_list_in_base(Rest, [Num|Acc], Base, bit_size(Rest)).
 
 %% ------------------------------------------------------------------
 %% Tests
@@ -315,6 +333,30 @@ bitstring_to_num_test_() ->
      ?_assertEqual(255, bitstring_to_number(<<255>>)),
      ?_assertEqual(65535, bitstring_to_number(<<255,255>>)),
      ?_assertEqual(1461501637330902918203684832716283019655932542975, bitstring_to_number(<<255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255>>))
+   ]}.
+
+bitstring_to_list_in_base_test_() ->
+  {inparallel,
+    [
+    % Base 2 (b = 1)
+     ?_assertEqual([0,0,0,0,0,0,0,1], bitstring_to_list_in_base(<<1>>, 1)),
+     ?_assertEqual([0,0,0,0,0,0,1,0], bitstring_to_list_in_base(<<2>>, 1)),
+     ?_assertEqual([1,1,1,1,1,1,1,1], bitstring_to_list_in_base(<<255>>, 1)),
+
+    % Base 4 (b = 2)
+     ?_assertEqual([0,0,0,1], bitstring_to_list_in_base(<<1>>, 2)),
+     ?_assertEqual([0,0,0,2], bitstring_to_list_in_base(<<2>>, 2)),
+     ?_assertEqual([3,3,3,3], bitstring_to_list_in_base(<<255>>, 2)),
+
+    % Base 8 (b = 3)
+     ?_assertEqual([0,0,2,0,0,0,0,0], bitstring_to_list_in_base(<<1,0,0>>, 3)),
+     ?_assertEqual([0,0,4,0,0,0,0,0], bitstring_to_list_in_base(<<2,0,0>>, 3)),
+     ?_assertEqual([7,7,7,7,7,7,7,7], bitstring_to_list_in_base(<<255,255,255>>, 3)),
+     
+    % Base 16 (b = 4)
+     ?_assertEqual([0,1], bitstring_to_list_in_base(<<1>>, 4)),
+     ?_assertEqual([0,2], bitstring_to_list_in_base(<<2>>, 4)),
+     ?_assertEqual([15,15], bitstring_to_list_in_base(<<255>>, 4))
    ]}.
 
 downcase_str_test() ->
