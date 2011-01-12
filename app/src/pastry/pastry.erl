@@ -73,7 +73,7 @@ pastryInit(Node) ->
   magic.
 
 route(Msg, Key) ->
-  {Msg, Key}.
+  gen_server:call({route, Msg, Key}).
 
 
 %% ------------------------------------------------------------------
@@ -88,14 +88,19 @@ augment_routing_table(RoutingTable) ->
 let_join(Node) ->
   % Forward the routing message to the next node
   route({join, Node}, Node#node.key),
-  % Respond with our routing table
   % @todo: If this is the final destination of the join message, then
   % also send a special welcome message to the node to let
   % it know that is has received all the info it will receive for now.
   % Following that the node should broadcast its routing table to all
   % it knows about.
-  % @todo: At this point we should also add the node to our table if it fits in
+  % We add the node to our routing table so we can route to it later.
+  add_nodes(Node),
+  % Respond with our routing table
   gen_server:call(?SERVER, get_routing_table).
+
+
+add_nodes(Nodes) ->
+  gen_server:cast(?SERVER, {add_nodes, Nodes}).
 
 
 %% ------------------------------------------------------------------
@@ -122,23 +127,24 @@ init(Args) ->
 handle_call(get_routing_table, _From, State) ->
   {reply, State#pastry_state.routing_table, State};
 
+handle_call({route, Msg, Key}, From, State) ->
+  route_msg(Msg, Key, From, State),
+  {noreply, State};
+
 handle_call(stop, _From, State) ->
   {stop, normal, ok, State}.
 
 
 % Casts:
 handle_cast({augment_routing_table, RoutingTable}, State) ->
-  % Get the local distance of the nodes before adding them
-  % to our own routing table
-  spawn(fun() ->
-    gen_server:cast(?SERVER, {
-      add_nodes, 
-      [N#node{distance = pastry_locality:distance(N#node.ip)} || N <- nodes_in_routing_table(RoutingTable)]
-    })
-  end),
+  add_nodes(nodes_in_routing_table(RoutingTable)),
   {noreply, State};
 
 handle_cast({add_nodes, Nodes}, #pastry_state{routing_table = RT} = State) ->
+  prepare_nodes_for_adding(Nodes),
+  {noreply, State};
+
+handle_cast({update_local_state_with_nodes, Nodes}, #pastry_state{routing_table = RT} = State) ->
   NewRT = foldl(fun(Node, PrevRoutingTable) ->
     merge_node(Node, PrevRoutingTable)
   end, RT, Nodes),
@@ -216,6 +222,73 @@ collect_all_nodes([#routing_table_entry{nodes = N}|R]) ->
   [N|collect_all_nodes(R)].
 
 
+prepare_nodes_for_adding(Nodes) when is_list(Nodes) ->
+  % Get the local distance of the nodes before adding them
+  % to our own routing table.
+  spawn(fun() ->
+    gen_server:cast(?SERVER, {
+      update_local_state_with_nodes, 
+      [N#node{distance = pastry_locality:distance(N#node.ip)} || N <- Nodes]
+    })
+  end);
+prepare_nodes_for_adding(Node) -> prepare_nodes_for_adding([Node]).
+
+
+route_msg(Msg, Key, From, State) ->
+  ok.
+
+route_to_leaf_set(Msg, Key, From, State) ->
+  ok.
+
+% Returns the node closest to the key in the leaf set, or none if
+% the key is outside the leafset
+node_in_leaf_set(Key, #pastry_state{leaf_set = {LeafSetSmaller, LeafSetGreater}, b = B}) ->
+  % Is it in the leaf set in the first place?
+  case key_in_range(Key, (hd(LeafSetSmaller))#node.key, (hd(reverse(LeafSetGreater)))#node.key) of
+    false -> none;
+    true ->
+      case node_closest_to_key(Key, reverse(LeafSetSmaller), B) of
+        none -> node_closest_to_key(Key, LeafSetGreater, B);
+        Node -> Node
+      end
+  end.
+
+
+% @doc: returns the node from the list that has a key numerically
+% closest to the given key. none is returned if the key falls 
+% outside the range of what is covered by the nodes.
+% The nodes should be in order of increasing keys.
+-spec(node_closest_to_key/3::(Key::pastry_key(), [#node{}], B::integer())
+  -> #node{} | none).
+node_closest_to_key(Key, [Node1,Node2|Ns], B) ->
+  case key_in_range(Key, Node1#node.key, Node2#node.key) of
+    false -> node_closest_to_key(Key, [Node2|Ns], B);
+    true -> closest_to_key(Key, Node1, Node2, B)
+  end;
+node_closest_to_key(_, _, _) -> none.
+
+
+% @doc: Inclusive range check. Returns true if Key is greater or equal to start and
+% less or equal to end.
+key_in_range(Key, Start, End) ->
+  case Start < End of
+    true -> (Start =< Key) andalso (Key =< End);
+    false -> (Start =< Key) orelse ((0 =< Key) andalso (Key =< End))
+  end.
+
+
+closest_to_key(Key, #node{key = Ka} = NodeA, #node{key = Kb} = NodeB, B) ->
+  case key_diff(Key, Ka, B) =< key_diff(Key, Kb, B) of
+    true -> NodeA;
+    false -> NodeB
+  end.
+
+
+key_diff(K1, K2, B) -> key_diff(K1, K2, 1 bsl B, {0,0}).
+key_diff([], [], _, {A,B}) -> abs(A-B);
+key_diff([A|As], [B|Bs], Mul, {K1, K2}) -> key_diff(As, Bs, Mul, {K1 * Mul + A, K2 * Mul + B}). 
+
+
 %% ------------------------------------------------------------------
 %% Tests
 %% ------------------------------------------------------------------
@@ -230,7 +303,9 @@ test_state() ->
       ip = {1,2,3,4},
       port = 1234
     },
-    routing_table = create_routing_table(Key)
+    routing_table = create_routing_table(Key),
+    leaf_set = {[#node{key = [7,0,0,0]}, #node{key=[6,0,0,0]}], [#node{key = [1,0,0,0]}, #node{key = [2,0,0,0]}]},
+    b = 3
   }.
 
 create_routing_table_test() ->
@@ -356,5 +431,68 @@ nodes_in_routing_table_test() ->
   ?assert(member(N2, NodesInTable)),
   ?assert(member(N3, NodesInTable)),
   ?assert(member(N4, NodesInTable)).
+
+route_to_leaf_set_test() ->
+  State = test_state(),
+  Msg = test_msg,
+  GoodKey = [1,2,2,2],
+  BadKey = [10,10,10,10].
+
+node_in_leaf_set_test() ->
+  State = test_state(),
+  GoodKey = [1,0,2,3],
+  GoodKey2 = [1,7,2,3],
+  BadKey = [7,7,7,7],
+  ?assertEqual(#node{key=[1,0,0,0]}, node_in_leaf_set(GoodKey, State)),
+  ?assertEqual(#node{key=[2,0,0,0]}, node_in_leaf_set(GoodKey2, State)),
+  ?assertEqual(none, node_in_leaf_set(BadKey, State)).
+
+node_closest_to_key_test() ->
+  B = 1,
+  NodeA = #node{
+    key = [0,0,0,1]
+  },
+  NodeB = #node{
+    key = [1,0,0,0]
+  },
+  Nodes = [NodeA, NodeB],
+  ?assertEqual(NodeA, node_closest_to_key([0,0,0,1], Nodes, B)),
+  ?assertEqual(NodeA, node_closest_to_key([0,0,0,2], Nodes, B)),
+  ?assertEqual(none, node_closest_to_key([1,1,1,1], Nodes, B)),
+  ?assertEqual(none, node_closest_to_key([0,0,0,0], Nodes, B)),
+  ?assertEqual(NodeA, node_closest_to_key([0,0,1,0], Nodes, B)).
+
+key_in_range_test() ->
+  ?assert(key_in_range([1,1], [0,0], [2,2])),
+  ?assert(key_in_range([0,0], [0,0], [2,2])),
+  ?assert(key_in_range([2,2], [0,0], [2,2])),
+  ?assert(key_in_range([4,1], [3,0], [2,2])),
+  ?assert(key_in_range([0,0], [8,0], [2,2])),
+  ?assert(key_in_range([0,0,0,0], [0,0,0,0], [1,0,0,0])),
+  ?assertNot(key_in_range([1,1], [2,0], [2,3])),
+  ?assertNot(key_in_range([4,1], [2,0], [2,3])).
+
+closest_to_key_test() ->
+  B = 1,
+  NodeA = #node{
+    key = [0,0,0]
+  },
+  NodeB = #node{
+    key = [1,0,0]
+  },
+  Nodes = [NodeA, NodeB],
+  ?assertEqual(NodeA, closest_to_key([0,0,0], NodeA, NodeB, B)),
+  ?assertEqual(NodeA, closest_to_key([0,0,1], NodeA, NodeB, B)),
+  ?assertEqual(NodeA, closest_to_key([0,1,0], NodeA, NodeB, B)),
+  ?assertEqual(NodeB, closest_to_key([0,1,1], NodeA, NodeB, B)),
+  ?assertEqual(NodeB, closest_to_key([1,0,0], NodeA, NodeB, B)).
+
+key_diff_test() ->
+  B = 2,
+  ?assertEqual(4, key_diff([2,0], [1,0], B)),
+  ?assertEqual(4, key_diff([1,0], [2,0], B)),
+  ?assertEqual(4, key_diff([-1,0], [0,0], B)),
+  ?assertEqual(85, key_diff([1,1,1,1], [2,2,2,2], B)),
+  ?assertEqual(0, key_diff([2,0], [2,0], B)).
 
 -endif.
