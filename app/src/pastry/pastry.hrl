@@ -7,7 +7,7 @@
   }).
 -record(routing_table_entry, {
     value :: integer() | none,
-    nodes :: [#node{}]
+    nodes = [] :: [#node{}]
   }).
 -record(pastry_state, {
     b :: integer(),

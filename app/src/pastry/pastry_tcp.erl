@@ -22,7 +22,7 @@
 -export([start_link/0, start/0, stop/0]).
 -export([
     perform_join/2,
-    respond_to_join/3
+    respond_to_join/2
   ]).
 
 %% ------------------------------------------------------------------
@@ -39,8 +39,8 @@
 perform_join(JoinNode, #node{ip = Ip, port = Port}) ->
   perform_rpc({join, JoinNode}, Ip, Port).
 
-respond_to_join(RoutingTable, From, #node{ip = Ip, port = Port}) ->
-  perform_rpc({join_response, RoutingTable, From}, Ip, Port).
+respond_to_join(RoutingTable, #node{ip = Ip, port = Port}) ->
+  perform_rpc({join_response, RoutingTable}, Ip, Port).
 
 -spec(perform_rpc/3::(Message::term(), Ip::ip(), Port::port_number()) ->
     {ok, _} | {error, _}).
@@ -145,8 +145,8 @@ code_change(_OldVsn, State, _Extra) ->
 %% Internal Function Definitions
 %% ------------------------------------------------------------------
 
-handle_msg({join_response, RoutingTable, From}) ->
-  pastry:augment_routing_table(RoutingTable, From);
+handle_msg({join_response, RoutingTable}) ->
+  pastry:augment_routing_table(RoutingTable);
 
 handle_msg({join, JoinNode}) ->
   pastry:let_join(JoinNode);

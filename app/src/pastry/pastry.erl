@@ -10,6 +10,8 @@
 -include("../fs.hrl").
 -include("pastry.hrl").
 
+-import(lists, [reverse/1, foldl/3, member/2, flatten/1]).
+
 %% ------------------------------------------------------------------
 %% Public API
 %% ------------------------------------------------------------------
@@ -27,7 +29,7 @@
 
 % For joining
 -export([
-    augment_routing_table/2,
+    augment_routing_table/1,
     let_join/1
   ]).
 
@@ -78,8 +80,8 @@ route(Msg, Key) ->
 %% PRIVATE API Function Definitions
 %% ------------------------------------------------------------------
 
-augment_routing_table(RoutingTable, From) ->
-  gen_server:cast(?SERVER, {augment_routing_table, RoutingTable, From}),
+augment_routing_table(RoutingTable) ->
+  gen_server:cast(?SERVER, {augment_routing_table, RoutingTable}),
   thanks.
 
 
@@ -125,8 +127,22 @@ handle_call(stop, _From, State) ->
 
 
 % Casts:
-handle_cast({augment_routing_table, RoutingTable, From}, State) ->
-  {noreply, augment_routing_table(RoutingTable, From, State)};
+handle_cast({augment_routing_table, RoutingTable}, State) ->
+  % Get the local distance of the nodes before adding them
+  % to our own routing table
+  spawn(fun() ->
+    gen_server:cast(?SERVER, {
+      add_nodes, 
+      [N#node{distance = pastry_locality:distance(N#node.ip)} || N <- nodes_in_routing_table(RoutingTable)]
+    })
+  end),
+  {noreply, State};
+
+handle_cast({add_nodes, Nodes}, #pastry_state{routing_table = RT} = State) ->
+  NewRT = foldl(fun(Node, PrevRoutingTable) ->
+    merge_node(Node, PrevRoutingTable)
+  end, RT, Nodes),
+  {noreply, State#pastry_state{routing_table = NewRT}};
 
 handle_cast(Msg, State) ->
   error_logger:error_msg("received unknown cast: ~p", [Msg]),
@@ -155,12 +171,50 @@ create_routing_table(Key) ->
   [#routing_table_entry{value = none} | [#routing_table_entry{value = V} || V <- Key]].
 
 
-augment_routing_table(RoutingTable, From, State) ->
-  State.
+% @doc: Adds a node to the routing table. If there is already a node
+% occupying the location, then the closer of the two is kept.
+merge_node(#node{key = Key} = OtherNode, [R|_] = RoutingTable) ->
+  merge_node(RoutingTable, empty, [none|Key], [], OtherNode).
+% Last routing table entry. Since we have a match, the node must be us.
+% We don't want to include ourselves in the list.
+merge_node([], R, _, _, _Node) ->
+  [R];
+% The keypath matches, so nothing to do as of yet.
+merge_node([#routing_table_entry{value = I} = R|RR], PrevR, [I|Is], KeySoFar, Node) ->
+  case PrevR of
+    empty -> merge_node(RR, R, Is, [I], Node);
+    Prev -> [Prev|merge_node(RR, R, Is, [I|KeySoFar], Node)]
+  end;
+% At this point there is no longer a match between our key and the key 
+% of the node. Conditionally change it in place.
+merge_node(RR, #routing_table_entry{nodes = Nodes} = PrevR, [I|Is], KeySoFar, Node) ->
+  [PrevR#routing_table_entry{nodes = conditionally_replace_node(Node, Nodes, reverse([I|KeySoFar] -- [none]))} | RR].
+ 
+conditionally_replace_node(N, [], _) -> [N];
+conditionally_replace_node(#node{distance = D1} = N1, [#node{distance = D2} = N2|Ns] = NNs, KeySoFar) ->
+  case is_valid_key_path(N2, KeySoFar) of
+    true -> 
+      case D1 < D2 of
+        true -> [N1|Ns];
+        false -> NNs
+      end;
+    false -> [N2 | conditionally_replace_node(N1, Ns, KeySoFar)]
+  end.
 
-merge_nodes(MyNodes, TheirNodes, SharedKey) ->
-  TheirNodesWithDistance = [Node#node{distance = pastry_location:distance(Node#node.ip)} || Node <- TheirNodes],
-  MyNodes ++ TheirNodesWithDistance.
+
+is_valid_key_path(#node{key=Key}, KeyPath) ->
+  check_path(Key, KeyPath).
+check_path(_, []) -> true;
+check_path([K|Ks], [K|KPs]) -> check_path(Ks, KPs);
+check_path(_, _) -> false.
+
+
+nodes_in_routing_table(RoutingTable) ->
+  flatten(collect_all_nodes(RoutingTable)).
+collect_all_nodes([]) -> [];
+collect_all_nodes([#routing_table_entry{nodes = N}|R]) ->
+  [N|collect_all_nodes(R)].
+
 
 %% ------------------------------------------------------------------
 %% Tests
@@ -187,28 +241,120 @@ create_routing_table_test() ->
       #routing_table_entry{value = 3}],
     create_routing_table(Key)).
 
-augment_routing_table_test() ->
-  State = test_state(),
-  From = #node{
-    key = [0,1,0,0]
-  },
-  NewNodes = [#node{key=[1,2,3,4]}],
-  NewRoutingTable = [#routing_table_entry{}].
 
-merge_nodes_test() ->
-  SharedKey = [1],
-  MyNodes = [#node{key = [1,0]}],
-  NodeIp = {1,2,3,4},
-  ANode = #node{key = [1,1], ip = NodeIp},
-  TheirNodes = [ANode],
-
-  erlymock:start(),
-  erlymock:strict(pastry_location, distance, [NodeIp], [{return, 3}]),
-  erlymock:replay(), 
-  [A,B] = merge_nodes(MyNodes, TheirNodes, SharedKey),
-  erlymock:verify(),
-
-  ?assertEqual(3, B#node.distance).
-
+level_for_key_path_contains_node([KeyItem], Node, [#routing_table_entry{value=KeyItem, nodes = Nodes}|RestRouting]) ->
+  lists:member(Node, Nodes);
+level_for_key_path_contains_node([KeyItem|RestPath], Node, [#routing_table_entry{value=KeyItem}|RestRouting]) ->
+  level_for_key_path_contains_node(RestPath, Node, RestRouting); 
+level_for_key_path_contains_node(_, _, _) -> false.
   
+
+merge_node_no_shared_test() ->
+  MyKey = [0,0],
+  RoutingTable = create_routing_table(MyKey),
+
+  ANode = #node{key = [1,1]},
+  BNode = #node{key = [0,1], distance = 12},
+  CNode = #node{key = [0,1], distance = 2},
+  DNode = #node{key = [0,2], distance = 12},
+  Self  = #node{key = MyKey, distance = 0},
+
+  ?assert(level_for_key_path_contains_node([none], ANode, merge_node(ANode, RoutingTable))),
+  RoutingTableWithB = merge_node(BNode, RoutingTable),
+  ?assert(level_for_key_path_contains_node([none,0], BNode, RoutingTableWithB)),
+  % Now we add node C, which should replace node B.
+  RoutingTableWithC = merge_node(CNode, RoutingTableWithB),
+  ?assert(level_for_key_path_contains_node([none,0], CNode, RoutingTableWithC)),
+  ?assertNot(level_for_key_path_contains_node([none,0], BNode, RoutingTableWithC)),
+  % Now we add node D which doesn't conflict. It should therefore have both C and D
+  RoutingTableWithCandD = merge_node(DNode, RoutingTableWithC),
+  ?assert(level_for_key_path_contains_node([none,0], CNode, RoutingTableWithCandD)),
+  ?assert(level_for_key_path_contains_node([none,0], DNode, RoutingTableWithCandD)),
+
+  % Try to add myself, but that shouldn't affect the table
+  ?assertNot(level_for_key_path_contains_node([none], Self, merge_node(Self, RoutingTable))),
+  ?assertNot(level_for_key_path_contains_node([none,0], Self, merge_node(Self, RoutingTable))),
+  ?assertNot(level_for_key_path_contains_node([none,0,0], Self, merge_node(Self, RoutingTable))).
+
+
+conditionally_replace_node_test() ->
+  % Our key could in this case be [0,0,0,...]
+  Nodes = [
+    #node{
+      key = [0,0,1,1],
+      distance = 12
+    },
+    #node{
+      key = [0,0,2,0],
+      distance = 3
+    },
+    #node{
+      key = [0,0,3,9],
+      distance = 30
+    }
+  ],
+
+  NotReplace = #node{
+    key = [0,0,1,2],
+    distance = 13
+  },
+  NotReplace2 = #node{
+    key = [0,0,1,0],
+    distance = 12
+  },
+  Replace = #node{
+    key = [0,0,4,1],
+    distance = 100
+  },
+  Replace2 = #node{
+    key = [0,0,3,2],
+    distance = 15
+  },
+
+  ?assertEqual(Nodes, conditionally_replace_node(NotReplace, Nodes, [0,0,1])),
+  ?assertEqual(Nodes, conditionally_replace_node(NotReplace2, Nodes, [0,0,1])),
+  ?assertNot(Nodes =:= conditionally_replace_node(Replace, Nodes, [0,0,4])),
+  ?assertNot(Nodes =:= conditionally_replace_node(Replace2, Nodes, [0,0,3])). 
+
+is_valid_key_path_test() ->
+  CheckKey = [0,0,1],
+  TrueNode = #node{
+    key = [0,0,1,2,3]
+  },
+  TrueNode2 = #node{
+    key = [0,0,1,4,2]
+  },
+  FalseNode = #node{
+    key = [0,0,2,1,1]
+  },
+  FalseNode2 = #node{
+    key = [1,0,0,0,0]
+  },
+  ?assert(is_valid_key_path(TrueNode, CheckKey)),
+  ?assert(is_valid_key_path(TrueNode2, CheckKey)),
+  ?assertNot(is_valid_key_path(FalseNode, CheckKey)),
+  ?assertNot(is_valid_key_path(FalseNode2, CheckKey)).
+
+nodes_in_routing_table_test() ->
+  MyKey = [0,0],
+  RoutingTable = create_routing_table(MyKey),
+  N1 = #node{
+    key = [1,1]
+  },
+  N2 = #node{
+    key = [0,1]
+  },
+  N3 = #node{
+    key = [2,1]
+  },
+  N4 = #node{
+    key = [0,4]
+  },
+  FullRoutingTable = merge_node(N1, merge_node(N2, merge_node(N3, merge_node(N4, RoutingTable)))),
+  NodesInTable = nodes_in_routing_table(FullRoutingTable),
+  ?assert(member(N1, NodesInTable)),
+  ?assert(member(N2, NodesInTable)),
+  ?assert(member(N3, NodesInTable)),
+  ?assert(member(N4, NodesInTable)).
+
 -endif.
