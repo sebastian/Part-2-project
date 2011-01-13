@@ -85,7 +85,6 @@ augment_routing_table(RoutingTable) ->
   gen_server:cast(?SERVER, {augment_routing_table, RoutingTable}),
   thanks.
 
-
 let_join(Node) ->
   % Forward the routing message to the next node
   route({join, Node}, Node#node.key),
@@ -98,7 +97,6 @@ let_join(Node) ->
   add_nodes(Node),
   % Respond with our routing table
   gen_server:call(?SERVER, get_routing_table).
-
 
 add_nodes(Nodes) ->
   gen_server:cast(?SERVER, {add_nodes, Nodes}).
@@ -177,7 +175,6 @@ code_change(_OldVsn, State, _Extra) ->
 create_routing_table(Key) ->
   [#routing_table_entry{value = none} | [#routing_table_entry{value = V} || V <- Key]].
 
-
 % @doc: Adds a node to the routing table. If there is already a node
 % occupying the location, then the closer of the two is kept.
 merge_node(#node{key = Key} = OtherNode, RoutingTable) ->
@@ -208,20 +205,17 @@ conditionally_replace_node(#node{distance = D1} = N1, [#node{distance = D2} = N2
     false -> [N2 | conditionally_replace_node(N1, Ns, KeySoFar)]
   end.
 
-
 is_valid_key_path(#node{key=Key}, KeyPath) ->
   check_path(Key, KeyPath).
 check_path(_, []) -> true;
 check_path([K|Ks], [K|KPs]) -> check_path(Ks, KPs);
 check_path(_, _) -> false.
 
-
 nodes_in_routing_table(RoutingTable) ->
   flatten(collect_all_nodes(RoutingTable)).
 collect_all_nodes([]) -> [];
 collect_all_nodes([#routing_table_entry{nodes = N}|R]) ->
   [N|collect_all_nodes(R)].
-
 
 prepare_nodes_for_adding(Nodes) when is_list(Nodes) ->
   % Get the local distance of the nodes before adding them
@@ -234,12 +228,10 @@ prepare_nodes_for_adding(Nodes) when is_list(Nodes) ->
   end);
 prepare_nodes_for_adding(Node) -> prepare_nodes_for_adding([Node]).
 
-
 route_msg(Msg, Key, State) ->
   route_to_leaf_set(Msg, Key, State) orelse
   route_to_node_in_routing_table(Msg, Key, State) orelse
   route_to_closer_node(Msg, Key, State).
-
 
 route_to_closer_node(Msg, Key, #pastry_state{
     self = Self, 
@@ -255,11 +247,9 @@ route_to_closer_node(Msg, Key, #pastry_state{
   ClosestNode = foldl(fun(N, CurrentClosest) -> closer_node(Key, N, CurrentClosest, B) end, Self, Nodes),
   do_forward_msg(Msg, Key, ClosestNode).
 
-
 shared_key_segment(#node{key = NodeKey}, Key) -> shared_key_segment(NodeKey, Key, []).
 shared_key_segment([A|As], [A|Bs], Acc) -> shared_key_segment(As, Bs, [A|Acc]);
 shared_key_segment(_, _, Acc) -> reverse(Acc).
-
 
 route_to_node_in_routing_table(Msg, Key, State) ->
   {#routing_table_entry{nodes = Nodes}, [none|PreferredKeyMatch]} = find_corresponding_routing_table(Key, State),
@@ -268,13 +258,11 @@ route_to_node_in_routing_table(Msg, Key, State) ->
     [Node] -> do_forward_msg(Msg, Key, Node)
   end.
 
-
 find_corresponding_routing_table(Key, #pastry_state{routing_table = [R|Rs]}) ->
   find_corresponding_routing_table([none|Key], [R|Rs], R, []).
 find_corresponding_routing_table([Key|Ks], [#routing_table_entry{value = Key} = R|Rs], _, KeySoFar) ->
   find_corresponding_routing_table(Ks, Rs, R, [Key|KeySoFar]);
 find_corresponding_routing_table([Key|_], _, Previous, KeySoFar) -> {Previous, reverse([Key|KeySoFar])}.
-
 
 route_to_leaf_set(Msg, Key, #pastry_state{self = Self} = State) ->
   case node_in_leaf_set(Key, State) of
@@ -284,7 +272,6 @@ route_to_leaf_set(Msg, Key, #pastry_state{self = Self} = State) ->
       true;
     Node -> do_forward_msg(Msg, Key, Node)
   end.
-
 
 do_forward_msg(Msg, Key, Node) ->
   case pastry_app:forward(Msg, Key, Node) of
@@ -312,7 +299,6 @@ node_in_leaf_set(Key, #pastry_state{leaf_set = {LeafSetSmaller, LeafSetGreater},
       end
   end.
 
-
 % @doc: returns the node from the list that has a key numerically
 % closest to the given key. none is returned if the key falls 
 % outside the range of what is covered by the nodes.
@@ -325,7 +311,6 @@ node_closest_to_key(Key, [Node1,Node2|Ns], B) ->
   end;
 node_closest_to_key(_, _, _) -> none.
 
-
 % @doc: Inclusive range check. Returns true if Key is greater or equal to start and
 % less or equal to end.
 key_in_range(Key, Start, End) ->
@@ -334,13 +319,11 @@ key_in_range(Key, Start, End) ->
     false -> (Start =< Key) orelse ((0 =< Key) andalso (Key =< End))
   end.
 
-
 closer_node(Key, #node{key = Ka} = NodeA, #node{key = Kb} = NodeB, B) ->
   case key_diff(Key, Ka, B) =< key_diff(Key, Kb, B) of
     true -> NodeA;
     false -> NodeB
   end.
-
 
 key_diff(K1, K2, B) -> key_diff(K1, K2, 1 bsl B, {0,0}, 0).
 % This slightly more complex formula comes from the following problem.
