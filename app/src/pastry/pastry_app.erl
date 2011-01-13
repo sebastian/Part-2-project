@@ -33,12 +33,12 @@ deliver(Msg, Key) -> ok.
 
 
 % @doc: Called by Pastry before a message is forwarded to NextId.
-% The message and the NextId can be changed. 
-% The message is not forwarded if the returned NextId is null.
--spec(forward/3::(Msg::#entry{}, Key::pastry_key(), NextId::pastry_key())
-  -> {#entry{}, pastry_key()} | {_, null}).
-forward(Msg, Key, NextId) ->
-  {Msg, NextId}.
+% The message and the NextNode can be changed. 
+% The message is not forwarded if the returned NextNode is null.
+-spec(forward/3::(Msg::#entry{}, Key::pastry_key(), NextNode::#node{})
+  -> {#entry{}, #node{}} | {_, null}).
+forward(Msg, Key, NextNode) ->
+  {Msg, NextNode}.
 
 
 % @doc: Called by pastry whenever there is a change in the local node's leaf set.

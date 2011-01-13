@@ -10,7 +10,7 @@
 -include("../fs.hrl").
 -include("pastry.hrl").
 
--import(lists, [reverse/1, foldl/3, member/2, flatten/1]).
+-import(lists, [reverse/1, foldl/3, member/2, flatten/1, filter/2]).
 
 %% ------------------------------------------------------------------
 %% Public API
@@ -61,19 +61,20 @@ stop() ->
 
 %% @doc: gets a value from the chord network
 -spec(lookup/1::(Key::key()) -> [#entry{}]).
-lookup(Key) ->
+lookup(_Key) ->
   ok.
 
 %% @doc: stores a value in the chord network
 -spec(set/2::(Key::key(), Entry::#entry{}) -> ok).
-set(Key, Entry) ->
+set(_Key, _Entry) ->
   ok.
 
-pastryInit(Node) ->
+pastryInit(_Node) ->
   magic.
 
 route(Msg, Key) ->
-  gen_server:call({route, Msg, Key}).
+  gen_server:cast({route, Msg, Key}),
+  ok.
 
 
 %% ------------------------------------------------------------------
@@ -114,7 +115,7 @@ init(Args) ->
   Key = utilities:key_for_node_with_b(Ip, Port, B),
   Self = #node{key = Key, port = Port, ip = Ip},
 
-  {JoinIp, JoinPort} = proplists:get_value(joinNode, Args),
+  {_JoinIp, _JoinPort} = proplists:get_value(joinNode, Args),
 
   State = #pastry_state{
     b = B,
@@ -127,20 +128,20 @@ init(Args) ->
 handle_call(get_routing_table, _From, State) ->
   {reply, State#pastry_state.routing_table, State};
 
-handle_call({route, Msg, Key}, From, State) ->
-  route_msg(Msg, Key, From, State),
-  {noreply, State};
-
 handle_call(stop, _From, State) ->
   {stop, normal, ok, State}.
 
 
 % Casts:
+handle_cast({route, Msg, Key}, State) ->
+  route_msg(Msg, Key, State),
+  {noreply, State};
+
 handle_cast({augment_routing_table, RoutingTable}, State) ->
   add_nodes(nodes_in_routing_table(RoutingTable)),
   {noreply, State};
 
-handle_cast({add_nodes, Nodes}, #pastry_state{routing_table = RT} = State) ->
+handle_cast({add_nodes, Nodes}, State) ->
   prepare_nodes_for_adding(Nodes),
   {noreply, State};
 
@@ -162,7 +163,7 @@ handle_info(Info, State) ->
 
 
 % Terminate:
-terminate(_Reason, State) ->
+terminate(_Reason, _State) ->
   ok.
 
 
@@ -179,7 +180,7 @@ create_routing_table(Key) ->
 
 % @doc: Adds a node to the routing table. If there is already a node
 % occupying the location, then the closer of the two is kept.
-merge_node(#node{key = Key} = OtherNode, [R|_] = RoutingTable) ->
+merge_node(#node{key = Key} = OtherNode, RoutingTable) ->
   merge_node(RoutingTable, empty, [none|Key], [], OtherNode).
 % Last routing table entry. Since we have a match, the node must be us.
 % We don't want to include ourselves in the list.
@@ -193,7 +194,7 @@ merge_node([#routing_table_entry{value = I} = R|RR], PrevR, [I|Is], KeySoFar, No
   end;
 % At this point there is no longer a match between our key and the key 
 % of the node. Conditionally change it in place.
-merge_node(RR, #routing_table_entry{nodes = Nodes} = PrevR, [I|Is], KeySoFar, Node) ->
+merge_node(RR, #routing_table_entry{nodes = Nodes} = PrevR, [I|_], KeySoFar, Node) ->
   [PrevR#routing_table_entry{nodes = conditionally_replace_node(Node, Nodes, reverse([I|KeySoFar] -- [none]))} | RR].
  
 conditionally_replace_node(N, [], _) -> [N];
@@ -234,21 +235,79 @@ prepare_nodes_for_adding(Nodes) when is_list(Nodes) ->
 prepare_nodes_for_adding(Node) -> prepare_nodes_for_adding([Node]).
 
 
-route_msg(Msg, Key, From, State) ->
-  ok.
+route_msg(Msg, Key, State) ->
+  route_to_leaf_set(Msg, Key, State) orelse
+  route_to_node_in_routing_table(Msg, Key, State) orelse
+  route_to_closer_node(Msg, Key, State).
 
-route_to_leaf_set(Msg, Key, From, State) ->
-  ok.
+
+route_to_closer_node(Msg, Key, #pastry_state{
+    self = Self, 
+    routing_table = RoutingTable,
+    leaf_set = {LeafSetSmaller, LeafSetLarger},
+    neighborhood_set = NeighborHoodSet,
+    b = B}) ->
+  SharedKeySegment = shared_key_segment(Self, Key),
+  Nodes = filter(
+    fun(N) -> is_valid_key_path(N, SharedKeySegment) end, 
+    nodes_in_routing_table(RoutingTable) ++ LeafSetSmaller ++ LeafSetLarger ++ NeighborHoodSet
+  ),
+  ClosestNode = foldl(fun(N, CurrentClosest) -> closer_node(Key, N, CurrentClosest, B) end, Self, Nodes),
+  do_forward_msg(Msg, Key, ClosestNode).
+
+
+shared_key_segment(#node{key = NodeKey}, Key) -> shared_key_segment(NodeKey, Key, []).
+shared_key_segment([A|As], [A|Bs], Acc) -> shared_key_segment(As, Bs, [A|Acc]);
+shared_key_segment(_, _, Acc) -> reverse(Acc).
+
+
+route_to_node_in_routing_table(Msg, Key, State) ->
+  {#routing_table_entry{nodes = Nodes}, [none|PreferredKeyMatch]} = find_corresponding_routing_table(Key, State),
+  case filter(fun(Node) -> is_valid_key_path(Node, PreferredKeyMatch) end, Nodes) of
+    [] -> false;
+    [Node] -> do_forward_msg(Msg, Key, Node)
+  end.
+
+
+find_corresponding_routing_table(Key, #pastry_state{routing_table = [R|Rs]}) ->
+  find_corresponding_routing_table([none|Key], [R|Rs], R, []).
+find_corresponding_routing_table([Key|Ks], [#routing_table_entry{value = Key} = R|Rs], _, KeySoFar) ->
+  find_corresponding_routing_table(Ks, Rs, R, [Key|KeySoFar]);
+find_corresponding_routing_table([Key|_], _, Previous, KeySoFar) -> {Previous, reverse([Key|KeySoFar])}.
+
+
+route_to_leaf_set(Msg, Key, #pastry_state{self = Self} = State) ->
+  case node_in_leaf_set(Key, State) of
+    none -> false;
+    Self -> 
+      pastry_app:deliver(Msg, Key),
+      true;
+    Node -> do_forward_msg(Msg, Key, Node)
+  end.
+
+
+do_forward_msg(Msg, Key, Node) ->
+  case pastry_app:forward(Msg, Key, Node) of
+    {_, null} -> true; % Message shouldn't be forwarded.
+    {NewMsg, NewNode} ->
+      case pastry_tcp:route_msg(NewMsg, Key, NewNode) of
+        {ok, _} -> true;
+        {error, Reason} ->
+          % TODO
+          error_logger:error_msg("Couldn't forward a message. Need to handle error mesage: ~p", [Reason]),
+          true
+      end
+  end.
 
 % Returns the node closest to the key in the leaf set, or none if
 % the key is outside the leafset
-node_in_leaf_set(Key, #pastry_state{leaf_set = {LeafSetSmaller, LeafSetGreater}, b = B}) ->
+node_in_leaf_set(Key, #pastry_state{leaf_set = {LeafSetSmaller, LeafSetGreater}, b = B, self = Self}) ->
   % Is it in the leaf set in the first place?
   case key_in_range(Key, (hd(LeafSetSmaller))#node.key, (hd(reverse(LeafSetGreater)))#node.key) of
     false -> none;
     true ->
-      case node_closest_to_key(Key, reverse(LeafSetSmaller), B) of
-        none -> node_closest_to_key(Key, LeafSetGreater, B);
+      case node_closest_to_key(Key, LeafSetSmaller ++ [Self], B) of
+        none -> node_closest_to_key(Key, [Self|LeafSetGreater], B);
         Node -> Node
       end
   end.
@@ -257,13 +316,12 @@ node_in_leaf_set(Key, #pastry_state{leaf_set = {LeafSetSmaller, LeafSetGreater},
 % @doc: returns the node from the list that has a key numerically
 % closest to the given key. none is returned if the key falls 
 % outside the range of what is covered by the nodes.
-% The nodes should be in order of increasing keys.
 -spec(node_closest_to_key/3::(Key::pastry_key(), [#node{}], B::integer())
   -> #node{} | none).
 node_closest_to_key(Key, [Node1,Node2|Ns], B) ->
   case key_in_range(Key, Node1#node.key, Node2#node.key) of
     false -> node_closest_to_key(Key, [Node2|Ns], B);
-    true -> closest_to_key(Key, Node1, Node2, B)
+    true -> closer_node(Key, Node1, Node2, B)
   end;
 node_closest_to_key(_, _, _) -> none.
 
@@ -277,16 +335,20 @@ key_in_range(Key, Start, End) ->
   end.
 
 
-closest_to_key(Key, #node{key = Ka} = NodeA, #node{key = Kb} = NodeB, B) ->
+closer_node(Key, #node{key = Ka} = NodeA, #node{key = Kb} = NodeB, B) ->
   case key_diff(Key, Ka, B) =< key_diff(Key, Kb, B) of
     true -> NodeA;
     false -> NodeB
   end.
 
 
-key_diff(K1, K2, B) -> key_diff(K1, K2, 1 bsl B, {0,0}).
-key_diff([], [], _, {A,B}) -> abs(A-B);
-key_diff([A|As], [B|Bs], Mul, {K1, K2}) -> key_diff(As, Bs, Mul, {K1 * Mul + A, K2 * Mul + B}). 
+key_diff(K1, K2, B) -> key_diff(K1, K2, 1 bsl B, {0,0}, 0).
+% This slightly more complex formula comes from the following problem.
+% Suppose you have a b = 3 and you want the difference between keys
+% [7] and [0]. That difference, since the keyspace wraps at 7, should
+% be 0 rather than 1.
+key_diff([], [], _, {A,B}, Max) -> min(abs(A-B), Max - max(A,B) + min(A,B));
+key_diff([A|As], [B|Bs], Mul, {K1, K2}, Max) -> key_diff(As, Bs, Mul, {K1 * Mul + A, K2 * Mul + B}, Max * Mul + Mul-1). 
 
 
 %% ------------------------------------------------------------------
@@ -304,7 +366,7 @@ test_state() ->
       port = 1234
     },
     routing_table = create_routing_table(Key),
-    leaf_set = {[#node{key = [7,0,0,0]}, #node{key=[6,0,0,0]}], [#node{key = [1,0,0,0]}, #node{key = [2,0,0,0]}]},
+    leaf_set = {[#node{key = [6,0,0,0]}, #node{key=[7,0,0,0]}], [#node{key = [1,0,0,0]}, #node{key = [2,0,0,0]}]},
     b = 3
   }.
 
@@ -317,7 +379,7 @@ create_routing_table_test() ->
     create_routing_table(Key)).
 
 
-level_for_key_path_contains_node([KeyItem], Node, [#routing_table_entry{value=KeyItem, nodes = Nodes}|RestRouting]) ->
+level_for_key_path_contains_node([KeyItem], Node, [#routing_table_entry{value=KeyItem, nodes = Nodes}|_]) ->
   lists:member(Node, Nodes);
 level_for_key_path_contains_node([KeyItem|RestPath], Node, [#routing_table_entry{value=KeyItem}|RestRouting]) ->
   level_for_key_path_contains_node(RestPath, Node, RestRouting); 
@@ -435,17 +497,38 @@ nodes_in_routing_table_test() ->
 route_to_leaf_set_test() ->
   State = test_state(),
   Msg = test_msg,
-  GoodKey = [1,2,2,2],
-  BadKey = [10,10,10,10].
+  GoodKey = [1,0,0,1],
+  GoodKeyToSelf = [0,0,0,1],
+  BadKey = [5,0,0,0],
+
+  RouteToNode = #node{
+    key = [1,0,0,0]
+  },
+
+  erlymock:start(),
+  % This is for the message with the GoodKey
+  erlymock:strict(pastry_app, forward, [Msg, GoodKey, RouteToNode], [{return, {Msg, RouteToNode}}]),
+  erlymock:strict(pastry_tcp, route_msg, [Msg, GoodKey, RouteToNode], [{return, {ok, ok}}]),
+
+  % This is for the message that should be delivered rather than routed
+  erlymock:strict(pastry_app, deliver, [Msg, GoodKeyToSelf], [{return, ok}]),
+  erlymock:replay(), 
+
+  ?assertEqual(true, route_to_leaf_set(Msg, GoodKey, State)),
+  ?assertEqual(true, route_to_leaf_set(Msg, GoodKeyToSelf, State)),
+  ?assertEqual(false, route_to_leaf_set(Msg, BadKey, State)),
+
+  erlymock:verify().
+  
 
 node_in_leaf_set_test() ->
   State = test_state(),
-  GoodKey = [1,0,2,3],
-  GoodKey2 = [1,7,2,3],
-  BadKey = [7,7,7,7],
-  ?assertEqual(#node{key=[1,0,0,0]}, node_in_leaf_set(GoodKey, State)),
-  ?assertEqual(#node{key=[2,0,0,0]}, node_in_leaf_set(GoodKey2, State)),
-  ?assertEqual(none, node_in_leaf_set(BadKey, State)).
+  Self = State#pastry_state.self,
+  ?assertEqual(#node{key=[1,0,0,0]}, node_in_leaf_set([1,0,2,3], State)),
+  ?assertEqual(#node{key=[2,0,0,0]}, node_in_leaf_set([1,7,2,3], State)),
+  ?assertEqual(Self, node_in_leaf_set([0,0,0,1], State)),
+  ?assertEqual(Self, node_in_leaf_set([7,7,7,7], State)),
+  ?assertEqual(none, node_in_leaf_set([5,0,0,0], State)).
 
 node_closest_to_key_test() ->
   B = 1,
@@ -472,7 +555,7 @@ key_in_range_test() ->
   ?assertNot(key_in_range([1,1], [2,0], [2,3])),
   ?assertNot(key_in_range([4,1], [2,0], [2,3])).
 
-closest_to_key_test() ->
+closer_node_test() ->
   B = 1,
   NodeA = #node{
     key = [0,0,0]
@@ -480,19 +563,103 @@ closest_to_key_test() ->
   NodeB = #node{
     key = [1,0,0]
   },
-  Nodes = [NodeA, NodeB],
-  ?assertEqual(NodeA, closest_to_key([0,0,0], NodeA, NodeB, B)),
-  ?assertEqual(NodeA, closest_to_key([0,0,1], NodeA, NodeB, B)),
-  ?assertEqual(NodeA, closest_to_key([0,1,0], NodeA, NodeB, B)),
-  ?assertEqual(NodeB, closest_to_key([0,1,1], NodeA, NodeB, B)),
-  ?assertEqual(NodeB, closest_to_key([1,0,0], NodeA, NodeB, B)).
+  ?assertEqual(NodeA, closer_node([0,0,0], NodeA, NodeB, B)),
+  ?assertEqual(NodeA, closer_node([0,0,1], NodeA, NodeB, B)),
+  ?assertEqual(NodeA, closer_node([0,1,0], NodeA, NodeB, B)),
+  ?assertEqual(NodeB, closer_node([0,1,1], NodeA, NodeB, B)),
+  ?assertEqual(NodeB, closer_node([1,0,0], NodeA, NodeB, B)),
+
+  HighB = 3,
+  Node1 = #node{
+    key = [7,0,0]
+  },
+  ?assertEqual(NodeA, closer_node([7,7,7], NodeA, Node1, HighB)).
 
 key_diff_test() ->
   B = 2,
   ?assertEqual(4, key_diff([2,0], [1,0], B)),
+  ?assertEqual(0, key_diff([3,3], [0,0], B)),
   ?assertEqual(4, key_diff([1,0], [2,0], B)),
   ?assertEqual(4, key_diff([-1,0], [0,0], B)),
   ?assertEqual(85, key_diff([1,1,1,1], [2,2,2,2], B)),
   ?assertEqual(0, key_diff([2,0], [2,0], B)).
+
+find_corresponding_routing_table_test() ->
+  MyKey = [1,2,3,4],
+  State = (test_state())#pastry_state{routing_table = create_routing_table(MyKey)},
+  {#routing_table_entry{value = none}, [none,2]} = find_corresponding_routing_table([2,4,0,0], State),
+  {#routing_table_entry{value = 1}, [none, 1, 4]} = find_corresponding_routing_table([1,4,0,0], State),
+  {#routing_table_entry{value = 2}, [none, 1, 2, 0]} = find_corresponding_routing_table([1,2,0,0], State),
+  {#routing_table_entry{value = 3}, [none, 1, 2, 3, 0]} = find_corresponding_routing_table([1,2,3,0], State).
+
+route_to_node_in_routing_table_test() ->
+  State = test_state(),
+  Node = #node{
+    key = [0,1,4,0]
+  },
+  UpdatedState = State#pastry_state{routing_table = merge_node(Node, State#pastry_state.routing_table)},
+  Msg = msg,
+
+  ?assertNot(route_to_node_in_routing_table(Msg, [0,2,0,0], UpdatedState)),
+
+  GoodKey = [0,1,5,0],
+  erlymock:start(),
+  erlymock:strict(pastry_app, forward, [Msg, GoodKey, Node], [{return, {Msg, Node}}]),
+  erlymock:strict(pastry_tcp, route_msg, [Msg, GoodKey, Node], [{return, {ok, ok}}]),
+  erlymock:replay(), 
+  ?assert(route_to_node_in_routing_table(Msg, GoodKey, UpdatedState)),
+  erlymock:verify().
+
+route_to_closer_node_test() ->
+  State = test_state(),
+  Msg = msg,
+  CloserNode = #node{
+    key = [3,0,0,0]
+  },
+  % This node is already in the State from test_state()
+  LeafNode = #node{
+    key = [6,0,0,0]
+  },
+
+  NeighborNode = #node{
+    key = [5,2,0,0]
+  },
+
+  UpdatedState = State#pastry_state{
+    routing_table = merge_node(CloserNode, State#pastry_state.routing_table),
+    neighborhood_set = [NeighborNode]
+  },
+
+  erlymock:start(),
+  % When called with key = [4,0,0,0]
+  Key1 = [4,0,0,0],
+  erlymock:strict(pastry_app, forward, [Msg, Key1, CloserNode], [{return, {Msg, CloserNode}}]),
+  erlymock:strict(pastry_tcp, route_msg, [Msg, Key1, CloserNode], [{return, {ok, ok}}]),
+
+  % When called with key = [5,5,5,5]
+  Key2 = [5,5,5,5],
+  erlymock:strict(pastry_app, forward, [Msg, Key2, LeafNode], [{return, {Msg, LeafNode}}]),
+  erlymock:strict(pastry_tcp, route_msg, [Msg, Key2, LeafNode], [{return, {ok, ok}}]),
+  
+  % When called with key = [5,0,0,0]
+  Key3 = [5,0,0,0],
+  erlymock:strict(pastry_app, forward, [Msg, Key3, NeighborNode], [{return, {Msg, NeighborNode}}]),
+  erlymock:strict(pastry_tcp, route_msg, [Msg, Key3, NeighborNode], [{return, {ok, ok}}]),
+
+  erlymock:replay(), 
+  ?assert(route_to_closer_node(Msg, Key1, UpdatedState)),
+  ?assert(route_to_closer_node(Msg, Key2, UpdatedState)),
+  ?assert(route_to_closer_node(Msg, Key3, UpdatedState)),
+  erlymock:verify().
+
+shared_key_segment_test() ->
+  Node = #node{
+    key = [1,2,3,4]
+  },
+  ?assertEqual([], shared_key_segment(Node, [2,3,4,0])),
+  ?assertEqual([1], shared_key_segment(Node, [1,3,4,0])),
+  ?assertEqual([1,2], shared_key_segment(Node, [1,2,4,0])),
+  ?assertEqual([1,2,3], shared_key_segment(Node, [1,2,3,0])),
+  ?assertEqual([1,2,3,4], shared_key_segment(Node, [1,2,3,4])).
 
 -endif.

@@ -22,7 +22,8 @@
 -export([start_link/0, start/0, stop/0]).
 -export([
     perform_join/2,
-    respond_to_join/2
+    respond_to_join/2,
+    route_msg/3
   ]).
 
 %% ------------------------------------------------------------------
@@ -41,6 +42,9 @@ perform_join(JoinNode, #node{ip = Ip, port = Port}) ->
 
 respond_to_join(RoutingTable, #node{ip = Ip, port = Port}) ->
   perform_rpc({join_response, RoutingTable}, Ip, Port).
+
+route_msg(Msg, Key, #node{ip = Ip, port = Port}) ->
+  perform_rpc({route, Msg, Key}, Ip, Port).
 
 -spec(perform_rpc/3::(Message::term(), Ip::ip(), Port::port_number()) ->
     {ok, _} | {error, _}).
@@ -150,6 +154,9 @@ handle_msg({join_response, RoutingTable}) ->
 
 handle_msg({join, JoinNode}) ->
   pastry:let_join(JoinNode);
+
+handle_msg({route, Msg, Key}) ->
+  pastry:route(Msg, Key);
 
 handle_msg(_) ->
   ?NYI.
