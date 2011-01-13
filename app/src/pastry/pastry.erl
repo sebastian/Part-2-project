@@ -10,7 +10,7 @@
 -include("../fs.hrl").
 -include("pastry.hrl").
 
--import(lists, [reverse/1, foldl/3, member/2, flatten/1, filter/2]).
+-import(lists, [reverse/1, foldl/3, member/2, flatten/1, filter/2, sort/2, sublist/2]).
 
 %% ------------------------------------------------------------------
 %% Public API
@@ -155,11 +155,17 @@ handle_cast({add_nodes, Nodes}, State) ->
   prepare_nodes_for_adding(Nodes),
   {noreply, State};
 
-handle_cast({update_local_state_with_nodes, Nodes}, #pastry_state{routing_table = RT} = State) ->
+handle_cast({update_local_state_with_nodes, Nodes}, #pastry_state{routing_table = RT, neighborhood_set = NS, b = B} = State) ->
+  UpdatedLeafSetState = foldl(fun(Node, PrevState) ->
+    merge_node_in_leaf_set(Node, PrevState)
+  end, State, Nodes),
   NewRT = foldl(fun(Node, PrevRoutingTable) ->
-    merge_node(Node, PrevRoutingTable)
+    merge_note_in_rt(Node, PrevRoutingTable)
   end, RT, Nodes),
-  {noreply, State#pastry_state{routing_table = NewRT}};
+  NewNeighborhoodSet = foldl(fun(Node, PrevNHS) ->
+    merge_node_in_nhs(Node, PrevNHS, B)
+  end, NS, Nodes),
+  {noreply, UpdatedLeafSetState#pastry_state{routing_table = NewRT, neighborhood_set = NewNeighborhoodSet}};
 
 handle_cast(Msg, State) ->
   error_logger:error_msg("received unknown cast: ~p", [Msg]),
@@ -187,23 +193,53 @@ code_change(_OldVsn, State, _Extra) ->
 create_routing_table(Key) ->
   [#routing_table_entry{value = none} | [#routing_table_entry{value = V} || V <- Key]].
 
+merge_node_in_nhs(Node, NeighborHoodSet, B) -> 
+  MaxNeighbors = 1 bsl B,
+  sublist(sort(fun(N, M) -> N#node.distance < M#node.distance end, [Node|NeighborHoodSet]), MaxNeighbors).
+
+merge_node_in_leaf_set(Node, #pastry_state{b = B, self = Self, leaf_set = {LSS, LSG}} = State) ->
+  LeafSetSize = trunc((1 bsl B)/2),
+  case is_node_less_than_me(Node, Self, B) of
+    true ->
+      % Wow this is ugly and inefficient, but OK, these lists are short anyway, but still... TODO!
+      NewLSS = reverse(sublist(reverse(sort_leaves([Node|LSS], B)), LeafSetSize)),
+      State#pastry_state{leaf_set = {NewLSS, LSG}};
+    false ->
+      NewLSG = sublist(sort_leaves([Node|LSG], B), LeafSetSize),
+      State#pastry_state{leaf_set = {LSS, NewLSG}}
+  end.
+
+sort_leaves(Leaves, B) -> sort(fun(N, M) -> is_node_less_than_me(N, M, B) end, Leaves).
+
+
+is_node_less_than_me(#node{key = Key}, Self, B) ->
+  Max = max_for_keylength(Key, B),
+  KeyVal = value_of_key(Key, B),
+  SelfVal = value_of_key(Self#node.key, B),
+  HalfPoint = trunc(Max/2),
+  NewPos = SelfVal + HalfPoint,
+  case NewPos > Max of
+    true -> key_in_range(KeyVal, NewPos - Max, SelfVal);
+    false -> key_in_range(KeyVal, NewPos, SelfVal)
+  end.
+
 % @doc: Adds a node to the routing table. If there is already a node
 % occupying the location, then the closer of the two is kept.
-merge_node(#node{key = Key} = OtherNode, RoutingTable) ->
-  merge_node(RoutingTable, empty, [none|Key], [], OtherNode).
+merge_note_in_rt(#node{key = Key} = OtherNode, RoutingTable) ->
+  merge_note_in_rt(RoutingTable, empty, [none|Key], [], OtherNode).
 % Last routing table entry. Since we have a match, the node must be us.
 % We don't want to include ourselves in the list.
-merge_node([], R, _, _, _Node) ->
+merge_note_in_rt([], R, _, _, _Node) ->
   [R];
 % The keypath matches, so nothing to do as of yet.
-merge_node([#routing_table_entry{value = I} = R|RR], PrevR, [I|Is], KeySoFar, Node) ->
+merge_note_in_rt([#routing_table_entry{value = I} = R|RR], PrevR, [I|Is], KeySoFar, Node) ->
   case PrevR of
-    empty -> merge_node(RR, R, Is, [I], Node);
-    Prev -> [Prev|merge_node(RR, R, Is, [I|KeySoFar], Node)]
+    empty -> merge_note_in_rt(RR, R, Is, [I], Node);
+    Prev -> [Prev|merge_note_in_rt(RR, R, Is, [I|KeySoFar], Node)]
   end;
 % At this point there is no longer a match between our key and the key 
 % of the node. Conditionally change it in place.
-merge_node(RR, #routing_table_entry{nodes = Nodes} = PrevR, [I|_], KeySoFar, Node) ->
+merge_note_in_rt(RR, #routing_table_entry{nodes = Nodes} = PrevR, [I|_], KeySoFar, Node) ->
   [PrevR#routing_table_entry{nodes = conditionally_replace_node(Node, Nodes, reverse([I|KeySoFar] -- [none]))} | RR].
  
 conditionally_replace_node(N, [], _) -> [N];
@@ -337,13 +373,19 @@ closer_node(Key, #node{key = Ka} = NodeA, #node{key = Kb} = NodeB, B) ->
     false -> NodeB
   end.
 
-key_diff(K1, K2, B) -> key_diff(K1, K2, 1 bsl B, {0,0}, 0).
-% This slightly more complex formula comes from the following problem.
-% Suppose you have a b = 3 and you want the difference between keys
-% [7] and [0]. That difference, since the keyspace wraps at 7, should
-% be 0 rather than 1.
-key_diff([], [], _, {A,B}, Max) -> min(abs(A-B), Max - max(A,B) + min(A,B));
-key_diff([A|As], [B|Bs], Mul, {K1, K2}, Max) -> key_diff(As, Bs, Mul, {K1 * Mul + A, K2 * Mul + B}, Max * Mul + Mul-1). 
+key_diff(K1, K2, B) -> 
+  K1Val = value_of_key(K1, B),
+  K2Val = value_of_key(K2, B),
+  Max = max_for_keylength(K1, B),
+  min(abs(K1Val-K2Val), Max - max(K1Val,K2Val) + min(K1Val,K2Val)).
+
+value_of_key(Key, B) -> value_of_key(Key, 1 bsl B, 0).
+value_of_key([], _, Val) -> Val;
+value_of_key([A|As], Mul, Acc) -> value_of_key(As, Mul, Acc * Mul + A).
+
+max_for_keylength(SampleKey, B) -> max_for_keylength(SampleKey, 1 bsl B, 0).
+max_for_keylength([], _, Val) -> Val;
+max_for_keylength([_|K], Mul, Acc) -> max_for_keylength(K, Mul, Acc * Mul + Mul-1).
 
 % @doc: When a node has joined it is welcomed.
 % When a welcome message is received, the newcomer
@@ -392,7 +434,7 @@ level_for_key_path_contains_node([KeyItem|RestPath], Node, [#routing_table_entry
 level_for_key_path_contains_node(_, _, _) -> false.
   
 
-merge_node_no_shared_test() ->
+merge_note_in_rt_no_shared_test() ->
   MyKey = [0,0],
   RoutingTable = create_routing_table(MyKey),
 
@@ -402,22 +444,22 @@ merge_node_no_shared_test() ->
   DNode = #node{key = [0,2], distance = 12},
   Self  = #node{key = MyKey, distance = 0},
 
-  ?assert(level_for_key_path_contains_node([none], ANode, merge_node(ANode, RoutingTable))),
-  RoutingTableWithB = merge_node(BNode, RoutingTable),
+  ?assert(level_for_key_path_contains_node([none], ANode, merge_note_in_rt(ANode, RoutingTable))),
+  RoutingTableWithB = merge_note_in_rt(BNode, RoutingTable),
   ?assert(level_for_key_path_contains_node([none,0], BNode, RoutingTableWithB)),
   % Now we add node C, which should replace node B.
-  RoutingTableWithC = merge_node(CNode, RoutingTableWithB),
+  RoutingTableWithC = merge_note_in_rt(CNode, RoutingTableWithB),
   ?assert(level_for_key_path_contains_node([none,0], CNode, RoutingTableWithC)),
   ?assertNot(level_for_key_path_contains_node([none,0], BNode, RoutingTableWithC)),
   % Now we add node D which doesn't conflict. It should therefore have both C and D
-  RoutingTableWithCandD = merge_node(DNode, RoutingTableWithC),
+  RoutingTableWithCandD = merge_note_in_rt(DNode, RoutingTableWithC),
   ?assert(level_for_key_path_contains_node([none,0], CNode, RoutingTableWithCandD)),
   ?assert(level_for_key_path_contains_node([none,0], DNode, RoutingTableWithCandD)),
 
   % Try to add myself, but that shouldn't affect the table
-  ?assertNot(level_for_key_path_contains_node([none], Self, merge_node(Self, RoutingTable))),
-  ?assertNot(level_for_key_path_contains_node([none,0], Self, merge_node(Self, RoutingTable))),
-  ?assertNot(level_for_key_path_contains_node([none,0,0], Self, merge_node(Self, RoutingTable))).
+  ?assertNot(level_for_key_path_contains_node([none], Self, merge_note_in_rt(Self, RoutingTable))),
+  ?assertNot(level_for_key_path_contains_node([none,0], Self, merge_note_in_rt(Self, RoutingTable))),
+  ?assertNot(level_for_key_path_contains_node([none,0,0], Self, merge_note_in_rt(Self, RoutingTable))).
 
 
 conditionally_replace_node_test() ->
@@ -495,7 +537,7 @@ nodes_in_routing_table_test() ->
   N4 = #node{
     key = [0,4]
   },
-  FullRoutingTable = merge_node(N1, merge_node(N2, merge_node(N3, merge_node(N4, RoutingTable)))),
+  FullRoutingTable = merge_note_in_rt(N1, merge_note_in_rt(N2, merge_note_in_rt(N3, merge_note_in_rt(N4, RoutingTable)))),
   NodesInTable = nodes_in_routing_table(FullRoutingTable),
   ?assert(member(N1, NodesInTable)),
   ?assert(member(N2, NodesInTable)),
@@ -618,7 +660,7 @@ route_to_node_in_routing_table_test() ->
   Node = #node{
     key = [0,1,4,0]
   },
-  UpdatedState = State#pastry_state{routing_table = merge_node(Node, State#pastry_state.routing_table)},
+  UpdatedState = State#pastry_state{routing_table = merge_note_in_rt(Node, State#pastry_state.routing_table)},
   Msg = msg,
 
   ?assertNot(route_to_node_in_routing_table(Msg, [0,2,0,0], UpdatedState)),
@@ -648,7 +690,7 @@ route_to_closer_node_test() ->
   },
 
   UpdatedState = State#pastry_state{
-    routing_table = merge_node(CloserNode, State#pastry_state.routing_table),
+    routing_table = merge_note_in_rt(CloserNode, State#pastry_state.routing_table),
     neighborhood_set = [NeighborNode]
   },
 
@@ -707,7 +749,7 @@ welcomed_test() ->
     key = [4,1]
   },
 
-  RoutingTable = merge_node(OtherNode1, merge_node(OtherNode2, create_routing_table(MyId))),
+  RoutingTable = merge_note_in_rt(OtherNode1, merge_note_in_rt(OtherNode2, create_routing_table(MyId))),
   State = #pastry_state{
     self = Self,
     routing_table = RoutingTable, 
@@ -746,7 +788,7 @@ all_known_nodes_test() ->
     key = [4,1]
   },
 
-  RoutingTable = merge_node(OtherNode1, merge_node(OtherNode2, create_routing_table(MyId))),
+  RoutingTable = merge_note_in_rt(OtherNode1, merge_note_in_rt(OtherNode2, create_routing_table(MyId))),
   State = #pastry_state{
     self = Self,
     routing_table = RoutingTable, 
@@ -758,6 +800,86 @@ all_known_nodes_test() ->
   Nodes = [SmallerLeaf, GreaterLeaf, OtherNode1, OtherNode2, NeighborNode],
   KnownNodes = all_known_nodes(State),
   Nodes -- KnownNodes =:= KnownNodes -- Nodes.
+
+assert_member_of_smaller_leaf_set(Node, State) ->
+  {LS,_} = State#pastry_state.leaf_set,
+  ?assert(member(Node, LS)).
+assert_not_member_of_smaller_leaf_set(Node, State) ->
+  {LS,_} = State#pastry_state.leaf_set,
+  ?assertNot(member(Node, LS)).
+assert_member_of_greater_leaf_set(Node, State) ->
+  {_,LSG} = State#pastry_state.leaf_set,
+  ?assert(member(Node, LSG)).
+assert_not_member_of_greater_leaf_set(Node, State) ->
+  {_,LSG} = State#pastry_state.leaf_set,
+  ?assertNot(member(Node, LSG)).
+
+merge_node_in_leaf_set_test() ->
+  MyKey = [1,0],
+  Self = #node{
+    key = MyKey
+  },
+  State = #pastry_state{b = 2, self = Self},
+  SmallerNode1 = #node{key = [3,0]},
+  SmallerNode2 = #node{key = [0,0]},
+  SmallerNode3 = #node{key = [0,3]},
+  GreaterNode1 = #node{key = [2,0]},
+  GreaterNode2 = #node{key = [1,3]},
+  GreaterNode3 = #node{key = [1,1]},
+  NewState = merge_node_in_leaf_set(SmallerNode1, State),
+  assert_member_of_smaller_leaf_set(SmallerNode1, NewState),
+  assert_not_member_of_greater_leaf_set(SmallerNode1, NewState),
+  NewState2 = merge_node_in_leaf_set(SmallerNode2, NewState),
+  assert_member_of_smaller_leaf_set(SmallerNode1, NewState2),
+  assert_member_of_smaller_leaf_set(SmallerNode2, NewState2),
+  assert_not_member_of_greater_leaf_set(SmallerNode2, NewState2),
+  NewState3 = merge_node_in_leaf_set(SmallerNode3, NewState2),
+  assert_not_member_of_smaller_leaf_set(SmallerNode1, NewState3),
+  assert_member_of_smaller_leaf_set(SmallerNode2, NewState3),
+  assert_member_of_smaller_leaf_set(SmallerNode3, NewState3),
+
+  NewState4 = merge_node_in_leaf_set(GreaterNode1, NewState3),
+  assert_member_of_greater_leaf_set(GreaterNode1, NewState4),
+  assert_not_member_of_smaller_leaf_set(GreaterNode1, NewState4),
+  NewState5 = merge_node_in_leaf_set(GreaterNode2, NewState4),
+  assert_member_of_greater_leaf_set(GreaterNode1, NewState5),
+  assert_member_of_greater_leaf_set(GreaterNode2, NewState5),
+  assert_not_member_of_smaller_leaf_set(GreaterNode2, NewState5),
+  NewState6 = merge_node_in_leaf_set(GreaterNode3, NewState5),
+  assert_not_member_of_greater_leaf_set(GreaterNode1, NewState6),
+  assert_member_of_greater_leaf_set(GreaterNode2, NewState6),
+  assert_member_of_greater_leaf_set(GreaterNode3, NewState6).
+
+
+is_node_less_than_me_test() ->
+  Self = #node{key = [0,0,0,0]},
+  B = 3,
+  ?assert(is_node_less_than_me(#node{key=[7,7,7,7]},Self,B)),
+  ?assert(is_node_less_than_me(#node{key=[6,7,7,7]},Self,B)),
+  ?assert(is_node_less_than_me(#node{key=[5,0,0,0]},Self,B)),
+  ?assert(is_node_less_than_me(#node{key=[4,0,0,0]},Self,B)),
+  ?assertNot(is_node_less_than_me(#node{key=[3,0,0,0]},Self,B)),
+  ?assertNot(is_node_less_than_me(#node{key=[2,0,0,0]},Self,B)),
+  ?assertNot(is_node_less_than_me(#node{key=[1,0,0,0]},Self,B)).
+
+
+merge_node_in_nhs_test() ->
+  B = 1,
+  Node1 = #node{distance=4},
+  Node2 = #node{distance=3},
+  Node3 = #node{distance=2},
+  NewNHS = merge_node_in_nhs(Node1, [], B),
+  ?assert(member(Node1, NewNHS)),
+  NewNHS2 = merge_node_in_nhs(Node2, NewNHS, B),
+  ?assert(member(Node1, NewNHS2)),
+  ?assert(member(Node2, NewNHS2)),
+  NewNHS3 = merge_node_in_nhs(Node3, NewNHS2, B),
+  ?assertNot(member(Node1, NewNHS3)),
+  ?assert(member(Node2, NewNHS3)),
+  ?assert(member(Node3, NewNHS3)).
+
+
+
 
 
 -endif.

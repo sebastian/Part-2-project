@@ -28,13 +28,13 @@
 
 % @doc: Called by pastry when the current node is the numerically
 % closest to the key among all live nodes.
--spec(deliver/2::(_, Key::pastry_key()) -> ok).
-deliver({join, Node}, Key) ->
+-spec(deliver/2::(_, pastry_key()) -> ok).
+deliver({join, Node}, _Key) ->
   % Hurrah, there is a new node in the network.
   % Wholeheartedly welcome it!
   pastry_tcp:welcome(Node);
 
-deliver(Msg, Key) ->
+deliver(Msg, _Key) ->
   error_handler:error_msg("Unknown message delivered: ~p", [Msg]).
 
 
@@ -43,7 +43,7 @@ deliver(Msg, Key) ->
 % The message is not forwarded if the returned NextNode is null.
 -spec(forward/3::(Msg::#entry{}, Key::pastry_key(), NextNode::#node{})
   -> {#entry{}, #node{}} | {_, null}).
-forward(Msg, Key, NextNode) ->
+forward(Msg, _Key, NextNode) ->
   {Msg, NextNode}.
 
 
