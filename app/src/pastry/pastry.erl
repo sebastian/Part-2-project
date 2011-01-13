@@ -370,6 +370,7 @@ test_state() ->
     b = 3
   }.
 
+
 create_routing_table_test() ->
   Key = [1,2,3],
   ?assertEqual([#routing_table_entry{value = none}, 
@@ -453,6 +454,7 @@ conditionally_replace_node_test() ->
   ?assertNot(Nodes =:= conditionally_replace_node(Replace, Nodes, [0,0,4])),
   ?assertNot(Nodes =:= conditionally_replace_node(Replace2, Nodes, [0,0,3])). 
 
+
 is_valid_key_path_test() ->
   CheckKey = [0,0,1],
   TrueNode = #node{
@@ -471,6 +473,7 @@ is_valid_key_path_test() ->
   ?assert(is_valid_key_path(TrueNode2, CheckKey)),
   ?assertNot(is_valid_key_path(FalseNode, CheckKey)),
   ?assertNot(is_valid_key_path(FalseNode2, CheckKey)).
+
 
 nodes_in_routing_table_test() ->
   MyKey = [0,0],
@@ -493,6 +496,7 @@ nodes_in_routing_table_test() ->
   ?assert(member(N2, NodesInTable)),
   ?assert(member(N3, NodesInTable)),
   ?assert(member(N4, NodesInTable)).
+
 
 route_to_leaf_set_test() ->
   State = test_state(),
@@ -530,6 +534,7 @@ node_in_leaf_set_test() ->
   ?assertEqual(Self, node_in_leaf_set([7,7,7,7], State)),
   ?assertEqual(none, node_in_leaf_set([5,0,0,0], State)).
 
+
 node_closest_to_key_test() ->
   B = 1,
   NodeA = #node{
@@ -545,6 +550,7 @@ node_closest_to_key_test() ->
   ?assertEqual(none, node_closest_to_key([0,0,0,0], Nodes, B)),
   ?assertEqual(NodeA, node_closest_to_key([0,0,1,0], Nodes, B)).
 
+
 key_in_range_test() ->
   ?assert(key_in_range([1,1], [0,0], [2,2])),
   ?assert(key_in_range([0,0], [0,0], [2,2])),
@@ -554,6 +560,7 @@ key_in_range_test() ->
   ?assert(key_in_range([0,0,0,0], [0,0,0,0], [1,0,0,0])),
   ?assertNot(key_in_range([1,1], [2,0], [2,3])),
   ?assertNot(key_in_range([4,1], [2,0], [2,3])).
+
 
 closer_node_test() ->
   B = 1,
@@ -575,6 +582,7 @@ closer_node_test() ->
   },
   ?assertEqual(NodeA, closer_node([7,7,7], NodeA, Node1, HighB)).
 
+
 key_diff_test() ->
   B = 2,
   ?assertEqual(4, key_diff([2,0], [1,0], B)),
@@ -584,6 +592,7 @@ key_diff_test() ->
   ?assertEqual(85, key_diff([1,1,1,1], [2,2,2,2], B)),
   ?assertEqual(0, key_diff([2,0], [2,0], B)).
 
+
 find_corresponding_routing_table_test() ->
   MyKey = [1,2,3,4],
   State = (test_state())#pastry_state{routing_table = create_routing_table(MyKey)},
@@ -591,6 +600,7 @@ find_corresponding_routing_table_test() ->
   {#routing_table_entry{value = 1}, [none, 1, 4]} = find_corresponding_routing_table([1,4,0,0], State),
   {#routing_table_entry{value = 2}, [none, 1, 2, 0]} = find_corresponding_routing_table([1,2,0,0], State),
   {#routing_table_entry{value = 3}, [none, 1, 2, 3, 0]} = find_corresponding_routing_table([1,2,3,0], State).
+
 
 route_to_node_in_routing_table_test() ->
   State = test_state(),
@@ -609,6 +619,7 @@ route_to_node_in_routing_table_test() ->
   erlymock:replay(), 
   ?assert(route_to_node_in_routing_table(Msg, GoodKey, UpdatedState)),
   erlymock:verify().
+
 
 route_to_closer_node_test() ->
   State = test_state(),
@@ -651,6 +662,7 @@ route_to_closer_node_test() ->
   ?assert(route_to_closer_node(Msg, Key2, UpdatedState)),
   ?assert(route_to_closer_node(Msg, Key3, UpdatedState)),
   erlymock:verify().
+
 
 shared_key_segment_test() ->
   Node = #node{
