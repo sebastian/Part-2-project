@@ -30,7 +30,8 @@
 % For joining
 -export([
     augment_routing_table/1,
-    let_join/1
+    let_join/1,
+    welcomed/0
   ]).
 
 %% ------------------------------------------------------------------
@@ -86,17 +87,24 @@ augment_routing_table(RoutingTable) ->
   thanks.
 
 let_join(Node) ->
+  % Send the newcomer our routing table
+  spawn(fun() ->
+    pastry_tcp:send_routing_table(gen_server:call(?SERVER, get_routing_table), Node)
+  end),
   % Forward the routing message to the next node
   route({join, Node}, Node#node.key),
-  % @todo: If this is the final destination of the join message, then
-  % also send a special welcome message to the node to let
-  % it know that is has received all the info it will receive for now.
-  % Following that the node should broadcast its routing table to all
-  % it knows about.
   % We add the node to our routing table so we can route to it later.
   add_nodes(Node),
-  % Respond with our routing table
-  gen_server:call(?SERVER, get_routing_table).
+  ok.
+
+% @doc: Once a node has joined a pastry network and the join
+% message has reached the final destination, the final node
+% welcomes the newcomer. Following the welcoming message
+% the node broadcasts its routing table to all the nodes
+% it knows about.
+welcomed() ->
+  gen_server:cast(?SERVER, welcomed),
+  thanks.
 
 add_nodes(Nodes) ->
   gen_server:cast(?SERVER, {add_nodes, Nodes}).
@@ -131,6 +139,10 @@ handle_call(stop, _From, State) ->
 
 
 % Casts:
+handle_cast(welcomed, State) ->
+  welcomed(State),
+  {noreply, State};
+
 handle_cast({route, Msg, Key}, State) ->
   route_msg(Msg, Key, State),
   {noreply, State};
@@ -233,16 +245,11 @@ route_msg(Msg, Key, State) ->
   route_to_node_in_routing_table(Msg, Key, State) orelse
   route_to_closer_node(Msg, Key, State).
 
-route_to_closer_node(Msg, Key, #pastry_state{
-    self = Self, 
-    routing_table = RoutingTable,
-    leaf_set = {LeafSetSmaller, LeafSetLarger},
-    neighborhood_set = NeighborHoodSet,
-    b = B}) ->
+route_to_closer_node(Msg, Key, #pastry_state{self = Self, b = B} = State) ->
   SharedKeySegment = shared_key_segment(Self, Key),
   Nodes = filter(
     fun(N) -> is_valid_key_path(N, SharedKeySegment) end, 
-    nodes_in_routing_table(RoutingTable) ++ LeafSetSmaller ++ LeafSetLarger ++ NeighborHoodSet
+    all_known_nodes(State)
   ),
   ClosestNode = foldl(fun(N, CurrentClosest) -> closer_node(Key, N, CurrentClosest, B) end, Self, Nodes),
   do_forward_msg(Msg, Key, ClosestNode).
@@ -288,6 +295,11 @@ do_forward_msg(Msg, Key, Node) ->
 
 % Returns the node closest to the key in the leaf set, or none if
 % the key is outside the leafset
+node_in_leaf_set(_, #pastry_state{leaf_set = {[], []}, self = Self}) -> Self;
+node_in_leaf_set(Key, #pastry_state{leaf_set = {LeafSetSmaller, []}, self = Self} = State) ->
+  node_in_leaf_set(Key, State#pastry_state{leaf_set = {LeafSetSmaller, [Self]}});
+node_in_leaf_set(Key, #pastry_state{leaf_set = {[], LeafSetGreater}, self = Self} = State) ->
+  node_in_leaf_set(Key, State#pastry_state{leaf_set = {[Self], LeafSetGreater}});
 node_in_leaf_set(Key, #pastry_state{leaf_set = {LeafSetSmaller, LeafSetGreater}, b = B, self = Self}) ->
   % Is it in the leaf set in the first place?
   case key_in_range(Key, (hd(LeafSetSmaller))#node.key, (hd(reverse(LeafSetGreater)))#node.key) of
@@ -333,6 +345,16 @@ key_diff(K1, K2, B) -> key_diff(K1, K2, 1 bsl B, {0,0}, 0).
 key_diff([], [], _, {A,B}, Max) -> min(abs(A-B), Max - max(A,B) + min(A,B));
 key_diff([A|As], [B|Bs], Mul, {K1, K2}, Max) -> key_diff(As, Bs, Mul, {K1 * Mul + A, K2 * Mul + B}, Max * Mul + Mul-1). 
 
+% @doc: When a node has joined it is welcomed.
+% When a welcome message is received, the newcomer
+% broadcasts its routing table so other nodes get
+% a chance to update their own.
+welcomed(#pastry_state{routing_table = RT} = State) ->
+  [spawn(fun() -> pastry_tcp:send_routing_table(RT, N) end) || N <- all_known_nodes(State)].
+
+all_known_nodes(#pastry_state{routing_table = RT, leaf_set = {LSS, LSG}, neighborhood_set = NS}) ->
+  nodes_in_routing_table(RT) ++ LSS ++ LSG ++ NS.
+  
 
 %% ------------------------------------------------------------------
 %% Tests
@@ -516,6 +538,12 @@ node_in_leaf_set_test() ->
   ?assertEqual(Self, node_in_leaf_set([0,0,0,1], State)),
   ?assertEqual(Self, node_in_leaf_set([7,7,7,7], State)),
   ?assertEqual(none, node_in_leaf_set([5,0,0,0], State)).
+node_in_leaf_set_when_leaf_set_is_empty_test() ->
+  State = (test_state())#pastry_state{leaf_set = {[], []}},
+  Self = State#pastry_state.self,
+  % Regardless what the key, self should be returned if the leaf set is empty
+  ?assertEqual(Self, node_in_leaf_set([0,1,2,3], State)),
+  ?assertEqual(Self, node_in_leaf_set([4,3,2,1], State)).
 
 
 node_closest_to_key_test() ->
@@ -656,5 +684,80 @@ shared_key_segment_test() ->
   ?assertEqual([1,2], shared_key_segment(Node, [1,2,4,0])),
   ?assertEqual([1,2,3], shared_key_segment(Node, [1,2,3,0])),
   ?assertEqual([1,2,3,4], shared_key_segment(Node, [1,2,3,4])).
+
+
+welcomed_test() ->
+  MyId = [1,0],
+  Self = #node{
+    key = MyId
+  },
+  SmallerLeaf = #node{
+    key = [0,7]
+  },
+  GreaterLeaf = #node{
+    key = [1,1]
+  },
+  OtherNode1 = #node{
+    key = [2,0]
+  },
+  OtherNode2 = #node{
+    key = [1,4]
+  },
+  NeighborNode = #node{
+    key = [4,1]
+  },
+
+  RoutingTable = merge_node(OtherNode1, merge_node(OtherNode2, create_routing_table(MyId))),
+  State = #pastry_state{
+    self = Self,
+    routing_table = RoutingTable, 
+    neighborhood_set = [NeighborNode],
+    leaf_set = {[SmallerLeaf], [GreaterLeaf]},
+    b = 4
+  },
+
+  Nodes = [SmallerLeaf, GreaterLeaf, OtherNode1, OtherNode2, NeighborNode],
+
+  erlymock:start(),
+  [erlymock:o_o(pastry_tcp, send_routing_table, [RoutingTable, Node], [{return, {ok, ok}}]) || Node <- Nodes],
+  erlymock:replay(), 
+  welcomed(State),
+  erlymock:verify().
+
+
+all_known_nodes_test() ->
+  MyId = [1,0],
+  Self = #node{
+    key = MyId
+  },
+  SmallerLeaf = #node{
+    key = [0,7]
+  },
+  GreaterLeaf = #node{
+    key = [1,1]
+  },
+  OtherNode1 = #node{
+    key = [2,0]
+  },
+  OtherNode2 = #node{
+    key = [1,4]
+  },
+  NeighborNode = #node{
+    key = [4,1]
+  },
+
+  RoutingTable = merge_node(OtherNode1, merge_node(OtherNode2, create_routing_table(MyId))),
+  State = #pastry_state{
+    self = Self,
+    routing_table = RoutingTable, 
+    neighborhood_set = [NeighborNode],
+    leaf_set = {[SmallerLeaf], [GreaterLeaf]},
+    b = 4
+  },
+
+  Nodes = [SmallerLeaf, GreaterLeaf, OtherNode1, OtherNode2, NeighborNode],
+  KnownNodes = all_known_nodes(State),
+  Nodes -- KnownNodes =:= KnownNodes -- Nodes.
+
 
 -endif.

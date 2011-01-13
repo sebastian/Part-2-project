@@ -22,8 +22,9 @@
 -export([start_link/0, start/0, stop/0]).
 -export([
     perform_join/2,
-    respond_to_join/2,
-    route_msg/3
+    send_routing_table/2,
+    route_msg/3,
+    welcome/1
   ]).
 
 %% ------------------------------------------------------------------
@@ -40,11 +41,14 @@
 perform_join(JoinNode, #node{ip = Ip, port = Port}) ->
   perform_rpc({join, JoinNode}, Ip, Port).
 
-respond_to_join(RoutingTable, #node{ip = Ip, port = Port}) ->
-  perform_rpc({join_response, RoutingTable}, Ip, Port).
+send_routing_table(RoutingTable, #node{ip = Ip, port = Port}) ->
+  perform_rpc({send_routing_table, RoutingTable}, Ip, Port).
 
 route_msg(Msg, Key, #node{ip = Ip, port = Port}) ->
   perform_rpc({route, Msg, Key}, Ip, Port).
+
+welcome(#node{ip = Ip, port = Port}) ->
+  perform_rpc(welcome, Ip, Port).
 
 -spec(perform_rpc/3::(Message::term(), Ip::ip(), Port::port_number()) ->
     {ok, _} | {error, _}).
@@ -149,7 +153,7 @@ code_change(_OldVsn, State, _Extra) ->
 %% Internal Function Definitions
 %% ------------------------------------------------------------------
 
-handle_msg({join_response, RoutingTable}) ->
+handle_msg({send_routing_table, RoutingTable}) ->
   pastry:augment_routing_table(RoutingTable);
 
 handle_msg({join, JoinNode}) ->
@@ -157,6 +161,9 @@ handle_msg({join, JoinNode}) ->
 
 handle_msg({route, Msg, Key}) ->
   pastry:route(Msg, Key);
+
+handle_msg(welcome) ->
+  pastry:welcomed();
 
 handle_msg(_) ->
   ?NYI.

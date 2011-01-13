@@ -28,8 +28,14 @@
 
 % @doc: Called by pastry when the current node is the numerically
 % closest to the key among all live nodes.
--spec(deliver/2::(Msg::#entry{}, Key::pastry_key()) -> ok).
-deliver(Msg, Key) -> ok.
+-spec(deliver/2::(_, Key::pastry_key()) -> ok).
+deliver({join, Node}, Key) ->
+  % Hurrah, there is a new node in the network.
+  % Wholeheartedly welcome it!
+  pastry_tcp:welcome(Node);
+
+deliver(Msg, Key) ->
+  error_handler:error_msg("Unknown message delivered: ~p", [Msg]).
 
 
 % @doc: Called by Pastry before a message is forwarded to NextId.
