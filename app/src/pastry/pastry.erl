@@ -1,6 +1,6 @@
 -module(pastry).
 -behaviour(gen_server).
-
+-compile([export_all]).
 -define(SERVER, ?MODULE).
 
 -ifdef(TEST).
@@ -16,7 +16,7 @@
 %% Public API
 %% ------------------------------------------------------------------
 
--export([start_link/0, start/0, stop/0]).
+-export([start_link/1, start/1, stop/0]).
 -export([lookup/1, set/2]).
 -export([
     pastryInit/1,
@@ -31,7 +31,17 @@
 -export([
     augment_routing_table/1,
     let_join/1,
-    welcomed/0
+    welcomed/0,
+    welcome/1
+  ]).
+
+% For exchanging nodes
+-export([
+    get_leafset/0,
+    get_routing_table/0,
+    get_neighborhoodset/0,
+    get_self/0,
+    add_nodes/1
   ]).
 
 %% ------------------------------------------------------------------
@@ -51,11 +61,11 @@
 %% PUBLIC API Function Definitions
 %% ------------------------------------------------------------------
 
-start() ->
-  gen_server:start({local, ?SERVER}, ?MODULE, [], []).
+start(Args) ->
+  gen_server:start({local, ?SERVER}, ?MODULE, Args, []).
 
-start_link() ->
-  gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
+start_link(Args) ->
+  gen_server:start_link({local, ?SERVER}, ?MODULE, Args, []).
 
 stop() ->
   gen_server:call(?MODULE, stop).
@@ -74,7 +84,7 @@ pastryInit(_Node) ->
   magic.
 
 route(Msg, Key) ->
-  gen_server:cast({route, Msg, Key}),
+  gen_server:cast(?SERVER, {route, Msg, Key}),
   ok.
 
 
@@ -84,17 +94,18 @@ route(Msg, Key) ->
 
 augment_routing_table(RoutingTable) ->
   gen_server:cast(?SERVER, {augment_routing_table, RoutingTable}),
-  thanks.
+  ok.
 
 let_join(Node) ->
   % Send the newcomer our routing table
   spawn(fun() ->
-    pastry_tcp:send_routing_table(gen_server:call(?SERVER, get_routing_table), Node)
+    pastry_tcp:send_routing_table(gen_server:call(?SERVER, get_routing_table), Node),
+    pastry_tcp:send_nodes(gen_server:call(?SERVER, get_self), Node),
+    % Forward the routing message to the next node
+    route({join, Node}, Node#node.key),
+    % We add the node to our routing table so we can route to it later.
+    add_nodes(Node)
   end),
-  % Forward the routing message to the next node
-  route({join, Node}, Node#node.key),
-  % We add the node to our routing table so we can route to it later.
-  add_nodes(Node),
   ok.
 
 % @doc: Once a node has joined a pastry network and the join
@@ -104,33 +115,71 @@ let_join(Node) ->
 % it knows about.
 welcomed() ->
   gen_server:cast(?SERVER, welcomed),
-  thanks.
+  ok.
 
 add_nodes(Nodes) ->
-  gen_server:cast(?SERVER, {add_nodes, Nodes}).
+  gen_server:cast(?SERVER, {add_nodes, Nodes}),
+  ok.
 
+welcome(Node) ->
+  gen_server:cast(?SERVER, {welcome, Node}).
+
+get_leafset() ->
+  gen_server:call(?SERVER, get_leafset).
+
+get_routing_table() ->
+  gen_server:call(?SERVER, get_routing_table).
+
+get_neighborhoodset() ->
+  gen_server:call(?SERVER, get_neighborhoodset).
+
+get_self() ->
+  gen_server:call(?SERVER, get_self).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Definitions
 %% ------------------------------------------------------------------
 
+% Sample args:
+% pastry:start([{b,10},{port,3001},{joinNode,{{172,21,229,189},3000}}]).
 init(Args) -> 
-  B = proplists:get_value(b, Args),
-  Port = proplists:get_value(port, Args),
+  B = proplists:get_value(b, Args, 20),
+  Port = proplists:get_value(port, Args, 3000),
   Ip = utilities:get_ip(),
   Key = utilities:key_for_node_with_b(Ip, Port, B),
   Self = #node{key = Key, port = Port, ip = Ip},
 
-  {_JoinIp, _JoinPort} = proplists:get_value(joinNode, Args),
+  error_logger:info_msg("Starting pastry node at Ip: ~p, Port: ~p, with B: ~p", [Ip, Port, B]),
 
-  State = #pastry_state{
+  % We attempt to join the pastry network.
+  case proplists:get_value(joinNode, Args, first) of
+    first -> 
+      error_logger:info_msg("No joinNode info available. Not attempting to join preexisting network"),
+      init_state(B, Self, Key);
+    {JoinIp, JoinPort} ->
+      case pastry_tcp:perform_join(Self, #node{ip = JoinIp, port = JoinPort}) of
+        {error, _} -> {stop, couldnt_join_pastry_network};
+        {ok, _} -> init_state(B, Self, Key)
+      end
+  end.
+init_state(B, Self, Key) ->
+  {ok, #pastry_state{
     b = B,
     self = Self,
     routing_table = create_routing_table(Key)
-  },
-  {ok, State}.
+  }}.
+
 
 % Call:
+handle_call(get_leafset, _From, State) ->
+  {reply, State#pastry_state.leaf_set, State};
+
+handle_call(get_self, _From, State) ->
+  {reply, State#pastry_state.self, State};
+
+handle_call(get_neighborhoodset, _From, State) ->
+  {reply, State#pastry_state.neighborhood_set, State};
+
 handle_call(get_routing_table, _From, State) ->
   {reply, State#pastry_state.routing_table, State};
 
@@ -139,6 +188,13 @@ handle_call(stop, _From, State) ->
 
 
 % Casts:
+handle_cast({welcome, Node}, #pastry_state{leaf_set = {LSS, LSG}} = State) ->
+  spawn(fun() ->
+    % We send the node our leafset
+    pastry_tcp:send_nodes(LSS ++ LSG, Node)
+  end),
+  {noreply, State};
+
 handle_cast(welcomed, State) ->
   welcomed(State),
   {noreply, State};
@@ -197,20 +253,24 @@ merge_node_in_nhs(Node, NeighborHoodSet, B) ->
   MaxNeighbors = 1 bsl B,
   sublist(sort(fun(N, M) -> N#node.distance < M#node.distance end, [Node|NeighborHoodSet]), MaxNeighbors).
 
+merge_node_in_leaf_set(Self, #pastry_state{self = Self} = State) -> State;
 merge_node_in_leaf_set(Node, #pastry_state{b = B, self = Self, leaf_set = {LSS, LSG}} = State) ->
-  LeafSetSize = trunc((1 bsl B)/2),
-  case is_node_less_than_me(Node, Self, B) of
-    true ->
-      % Wow this is ugly and inefficient, but OK, these lists are short anyway, but still... TODO!
-      NewLSS = reverse(sublist(reverse(sort_leaves([Node|LSS], B)), LeafSetSize)),
-      State#pastry_state{leaf_set = {NewLSS, LSG}};
-    false ->
-      NewLSG = sublist(sort_leaves([Node|LSG], B), LeafSetSize),
-      State#pastry_state{leaf_set = {LSS, NewLSG}}
+  case member(Node, LSS) orelse member(Node, LSG) of
+    true -> State;
+    false -> 
+      LeafSetSize = trunc((1 bsl B)/2),
+      case is_node_less_than_me(Node, Self, B) of
+        true ->
+          % Wow this is ugly and inefficient, but OK, these lists are short anyway, but still... TODO!
+          NewLSS = reverse(sublist(reverse(sort_leaves([Node|LSS], B)), LeafSetSize)),
+          State#pastry_state{leaf_set = {NewLSS, LSG}};
+        false ->
+          NewLSG = sublist(sort_leaves([Node|LSG], B), LeafSetSize),
+          State#pastry_state{leaf_set = {LSS, NewLSG}}
+      end
   end.
 
 sort_leaves(Leaves, B) -> sort(fun(N, M) -> is_node_less_than_me(N, M, B) end, Leaves).
-
 
 is_node_less_than_me(#node{key = Key}, Self, B) ->
   Max = max_for_keylength(Key, B),
@@ -219,8 +279,8 @@ is_node_less_than_me(#node{key = Key}, Self, B) ->
   HalfPoint = trunc(Max/2),
   NewPos = SelfVal + HalfPoint,
   case NewPos > Max of
-    true -> key_in_range(KeyVal, NewPos - Max, SelfVal);
-    false -> key_in_range(KeyVal, NewPos, SelfVal)
+    true -> key_in_range(KeyVal, NewPos - Max, SelfVal, B);
+    false -> key_in_range(KeyVal, NewPos, SelfVal, B)
   end.
 
 % @doc: Adds a node to the routing table. If there is already a node
@@ -282,23 +342,31 @@ route_msg(Msg, Key, State) ->
   route_to_closer_node(Msg, Key, State).
 
 route_to_closer_node(Msg, Key, #pastry_state{self = Self, b = B} = State) ->
+  io:format("Routing to node that is closer to key~n"),
   SharedKeySegment = shared_key_segment(Self, Key),
   Nodes = filter(
     fun(N) -> is_valid_key_path(N, SharedKeySegment) end, 
     all_known_nodes(State)
   ),
-  ClosestNode = foldl(fun(N, CurrentClosest) -> closer_node(Key, N, CurrentClosest, B) end, Self, Nodes),
-  do_forward_msg(Msg, Key, ClosestNode).
+  case foldl(fun(N, CurrentClosest) -> closer_node(Key, N, CurrentClosest, B) end, Self, Nodes) of
+    Self -> pastry_app:deliver(Msg, Key);
+    Node -> do_forward_msg(Msg, Key, Node)
+  end.
 
 shared_key_segment(#node{key = NodeKey}, Key) -> shared_key_segment(NodeKey, Key, []).
 shared_key_segment([A|As], [A|Bs], Acc) -> shared_key_segment(As, Bs, [A|Acc]);
 shared_key_segment(_, _, Acc) -> reverse(Acc).
 
 route_to_node_in_routing_table(Msg, Key, State) ->
+  io:format("Routing to node in routing table~n"),
   {#routing_table_entry{nodes = Nodes}, [none|PreferredKeyMatch]} = find_corresponding_routing_table(Key, State),
   case filter(fun(Node) -> is_valid_key_path(Node, PreferredKeyMatch) end, Nodes) of
     [] -> false;
-    [Node] -> do_forward_msg(Msg, Key, Node)
+    [Node] -> 
+      case Node =:= State#pastry_state.self of
+        true -> pastry_app:deliver(Msg, Key);
+        false -> do_forward_msg(Msg, Key, Node)
+      end
   end.
 
 find_corresponding_routing_table(Key, #pastry_state{routing_table = [R|Rs]}) ->
@@ -308,9 +376,10 @@ find_corresponding_routing_table([Key|Ks], [#routing_table_entry{value = Key} = 
 find_corresponding_routing_table([Key|_], _, Previous, KeySoFar) -> {Previous, reverse([Key|KeySoFar])}.
 
 route_to_leaf_set(Msg, Key, #pastry_state{self = Self} = State) ->
+  io:format("Routing through leaf table set~n"),
   case node_in_leaf_set(Key, State) of
     none -> false;
-    Self -> 
+    Node when Node =:= Self -> 
       pastry_app:deliver(Msg, Key),
       true;
     Node -> do_forward_msg(Msg, Key, Node)
@@ -320,11 +389,12 @@ do_forward_msg(Msg, Key, Node) ->
   case pastry_app:forward(Msg, Key, Node) of
     {_, null} -> true; % Message shouldn't be forwarded.
     {NewMsg, NewNode} ->
+      io:format("PastryApp approved of forwarding message. Route to ~p~n", [NewNode]),
       case pastry_tcp:route_msg(NewMsg, Key, NewNode) of
         {ok, _} -> true;
         {error, Reason} ->
           % TODO
-          error_logger:error_msg("Couldn't forward a message. Need to handle error mesage: ~p", [Reason]),
+          error_logger:error_msg("Couldn't forward a message. Need to handle error mesage: ~p~n", [Reason]),
           true
       end
   end.
@@ -338,7 +408,7 @@ node_in_leaf_set(Key, #pastry_state{leaf_set = {[], LeafSetGreater}, self = Self
   node_in_leaf_set(Key, State#pastry_state{leaf_set = {[Self], LeafSetGreater}});
 node_in_leaf_set(Key, #pastry_state{leaf_set = {LeafSetSmaller, LeafSetGreater}, b = B, self = Self}) ->
   % Is it in the leaf set in the first place?
-  case key_in_range(Key, (hd(LeafSetSmaller))#node.key, (hd(reverse(LeafSetGreater)))#node.key) of
+  case key_in_range(Key, (hd(LeafSetSmaller))#node.key, (hd(reverse(LeafSetGreater)))#node.key, B) of
     false -> none;
     true ->
       case node_closest_to_key(Key, LeafSetSmaller ++ [Self], B) of
@@ -353,7 +423,7 @@ node_in_leaf_set(Key, #pastry_state{leaf_set = {LeafSetSmaller, LeafSetGreater},
 -spec(node_closest_to_key/3::(Key::pastry_key(), [#node{}], B::integer())
   -> #node{} | none).
 node_closest_to_key(Key, [Node1,Node2|Ns], B) ->
-  case key_in_range(Key, Node1#node.key, Node2#node.key) of
+  case key_in_range(Key, Node1#node.key, Node2#node.key, B) of
     false -> node_closest_to_key(Key, [Node2|Ns], B);
     true -> closer_node(Key, Node1, Node2, B)
   end;
@@ -361,10 +431,12 @@ node_closest_to_key(_, _, _) -> none.
 
 % @doc: Inclusive range check. Returns true if Key is greater or equal to start and
 % less or equal to end.
-key_in_range(Key, Start, End) ->
-  case Start < End of
-    true -> (Start =< Key) andalso (Key =< End);
-    false -> (Start =< Key) orelse ((0 =< Key) andalso (Key =< End))
+key_in_range(Key, NKey, NKey, _) when NKey =/= Key -> false;
+key_in_range(Key, Start, End, B) ->
+  ValKey = value_of_key(Key, B), ValStart = value_of_key(Start, B), ValEnd = value_of_key(End, B),
+  case ValStart < ValEnd of
+    true -> (ValStart =< ValKey) andalso (ValKey =< ValEnd);
+    false -> (ValStart =< ValKey) orelse ((0 =< ValKey) andalso (ValKey =< ValEnd))
   end.
 
 closer_node(Key, #node{key = Ka} = NodeA, #node{key = Kb} = NodeB, B) ->
@@ -379,7 +451,8 @@ key_diff(K1, K2, B) ->
   Max = max_for_keylength(K1, B),
   min(abs(K1Val-K2Val), Max - max(K1Val,K2Val) + min(K1Val,K2Val)).
 
-value_of_key(Key, B) -> value_of_key(Key, 1 bsl B, 0).
+value_of_key(Key, B) when is_list(Key) -> value_of_key(Key, 1 bsl B, 0);
+value_of_key(KeyVal, _) -> KeyVal.
 value_of_key([], _, Val) -> Val;
 value_of_key([A|As], Mul, Acc) -> value_of_key(As, Mul, Acc * Mul + A).
 
@@ -601,18 +674,22 @@ node_closest_to_key_test() ->
   ?assertEqual(NodeA, node_closest_to_key([0,0,0,2], Nodes, B)),
   ?assertEqual(none, node_closest_to_key([1,1,1,1], Nodes, B)),
   ?assertEqual(none, node_closest_to_key([0,0,0,0], Nodes, B)),
+  ?assertEqual(none, node_closest_to_key([0,0,0,0], [NodeA,NodeA], B)),
   ?assertEqual(NodeA, node_closest_to_key([0,0,1,0], Nodes, B)).
 
 
 key_in_range_test() ->
-  ?assert(key_in_range([1,1], [0,0], [2,2])),
-  ?assert(key_in_range([0,0], [0,0], [2,2])),
-  ?assert(key_in_range([2,2], [0,0], [2,2])),
-  ?assert(key_in_range([4,1], [3,0], [2,2])),
-  ?assert(key_in_range([0,0], [8,0], [2,2])),
-  ?assert(key_in_range([0,0,0,0], [0,0,0,0], [1,0,0,0])),
-  ?assertNot(key_in_range([1,1], [2,0], [2,3])),
-  ?assertNot(key_in_range([4,1], [2,0], [2,3])).
+  B = 2,
+  ?assert(key_in_range([1,1], [0,0], [2,2], B)),
+  ?assert(key_in_range([0,0], [0,0], [2,2], B)),
+  ?assert(key_in_range([2,2], [0,0], [2,2], B)),
+  ?assert(key_in_range([4,1], [3,0], [2,2], B)),
+  ?assert(key_in_range([0,0], [8,0], [2,2], B)),
+  ?assert(key_in_range([0,0,0,0], [0,0,0,0], [1,0,0,0], B)),
+  ?assertNot(key_in_range([1,1], [2,0], [2,3], B)),
+  ?assertNot(key_in_range([1,1], [2,0], [2,0], B)),
+  ?assertNot(key_in_range([1,1], [2,0], [2,2], B)),
+  ?assertNot(key_in_range([4,1], [2,0], [2,3], 3)).
 
 
 closer_node_test() ->
@@ -849,6 +926,22 @@ merge_node_in_leaf_set_test() ->
   assert_not_member_of_greater_leaf_set(GreaterNode1, NewState6),
   assert_member_of_greater_leaf_set(GreaterNode2, NewState6),
   assert_member_of_greater_leaf_set(GreaterNode3, NewState6).
+merge_node_in_leaf_set_should_not_allow_duplicates_test() ->
+  MyKey = [1,0],
+  Self = #node{
+    key = MyKey
+  },
+  State = #pastry_state{b = 2, self = Self},
+  SmallerNode1 = #node{key = [3,0]},
+  NewState = merge_node_in_leaf_set(SmallerNode1, State),
+  NewState = merge_node_in_leaf_set(SmallerNode1, NewState).
+merge_node_in_leaf_set_should_not_self_in_leafset_test() ->
+  MyKey = [1,0],
+  Self = #node{
+    key = MyKey
+  },
+  State = #pastry_state{b = 2, self = Self},
+  State = merge_node_in_leaf_set(Self, State).
 
 
 is_node_less_than_me_test() ->
@@ -877,9 +970,5 @@ merge_node_in_nhs_test() ->
   ?assertNot(member(Node1, NewNHS3)),
   ?assert(member(Node2, NewNHS3)),
   ?assert(member(Node3, NewNHS3)).
-
-
-
-
 
 -endif.

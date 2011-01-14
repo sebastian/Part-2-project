@@ -46,11 +46,33 @@ init([]) ->
         permanent, infinity, supervisor,
         []}
       end,
+    CreateSupWithArgs = fun(Name,Args) -> {Name,
+        {Name, start_link, [Args]},
+        permanent, infinity, supervisor,
+        []}
+      end,
 
-    Processes = [
+    Processes = 
+    % General things we want to start
+    [
       CreateSup(datastore_sup),
-      CreateSup(chord_sup),
-      CreateSup(friendsearch_sup),
-      CreateSup(fs_web_sup)
-    ],
+      CreateSup(friendsearch_sup)
+    ] ++
+    case utilities:get_pastry_port() of
+      none -> [];
+      Port -> [CreateSupWithArgs(pastry_sup, [{port, Port}])]
+    end ++
+    case utilities:get_chord_port() of
+      none -> [];
+      Port -> [CreateSupWithArgs(chord_sup, [{port, Port}])]
+    end ++
+    % Check if the webmachine should be launched too:
+    % Only launch webmachine if it is explicitly asked for.
+    case utilities:get_webmachine_port() of 
+      none ->
+        % It shouldn't launch webmachine
+        [];
+      Port -> [CreateSupWithArgs(fs_web_sup, Port)]
+    end, 
+
     {ok, { {one_for_one, 10, 10}, Processes} }.

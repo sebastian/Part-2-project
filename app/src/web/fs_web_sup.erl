@@ -9,15 +9,15 @@
 -behaviour(supervisor).
 
 %% External exports
--export([start_link/0, upgrade/0]).
+-export([start_link/1, upgrade/0]).
 
 %% supervisor callbacks
 -export([init/1]).
 
 %% @spec start_link() -> ServerRet
 %% @doc API for starting the supervisor.
-start_link() ->
-    supervisor:start_link({local, ?MODULE}, ?MODULE, []).
+start_link(Port) ->
+    supervisor:start_link({local, ?MODULE}, ?MODULE, Port).
 
 %% @spec upgrade() -> ok
 %% @doc Add processes if necessary.
@@ -40,26 +40,19 @@ upgrade() ->
 
 %% @spec init([]) -> SupervisorTree
 %% @doc supervisor callback.
-init([]) ->
+init(Port) ->
     Ip = case os:getenv("WEBMACHINE_IP") of false -> "0.0.0.0"; Any -> Any end,
     {ok, Dispatch} = file:consult(filename:join(
                          [filename:dirname(code:which(?MODULE)),
                           "..", "priv", "dispatch.conf"])),
 
-    % Only launch webmachine if it is explicitly asked for.
-    Processes = case utilities:get_webmachine_port() of 
-      none ->
-        % It shouldn't launch webmachine
-        [];
-      Port ->
-        WebConfig = [
-                     {ip, Ip},
-                     {port, Port},
-                     {log_dir, "priv/log"},
-                     {dispatch, Dispatch}],
-        Web = {webmachine_mochiweb,
-               {webmachine_mochiweb, start, [WebConfig]},
-               permanent, 5000, worker, dynamic},
-        [Web]
-    end,
+    WebConfig = [
+                 {ip, Ip},
+                 {port, Port},
+                 {log_dir, "priv/log"},
+                 {dispatch, Dispatch}],
+    Web = {webmachine_mochiweb,
+           {webmachine_mochiweb, start, [WebConfig]},
+           permanent, 5000, worker, dynamic},
+    Processes = [Web],
     {ok, { {one_for_one, 10, 10}, Processes} }.

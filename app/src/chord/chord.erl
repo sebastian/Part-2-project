@@ -20,7 +20,7 @@
 %% Public API
 %% ------------------------------------------------------------------
 
--export([start_link/0, start/0, stop/0]).
+-export([start_link/1, start/1, stop/0]).
 -export([lookup/1, set/2]).
 
 %% ------------------------------------------------------------------
@@ -44,11 +44,11 @@
 %% API Function Definitions
 %% ------------------------------------------------------------------
 
-start() ->
-  gen_server:start({local, ?SERVER}, ?MODULE, [], []).
+start(Args) ->
+  gen_server:start({local, ?SERVER}, ?MODULE, [Args], []).
 
-start_link() ->
-  gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
+start_link(Args) ->
+  gen_server:start_link({local, ?SERVER}, ?MODULE, Args, []).
 
 stop() ->
   gen_server:call(chord, stop).
@@ -119,8 +119,8 @@ fix_fingers() -> gen_server:cast(chord, fix_fingers).
 %% gen_server Function Definitions
 %% ------------------------------------------------------------------
 
-init(_Args) -> 
-  Port = utilities:get_chord_port(),
+init(Args) -> 
+  Port = proplists:get_value(port, Args),
   Ip = utilities:get_ip(),
   NodeId = utilities:key_for_node(Ip, Port),
 

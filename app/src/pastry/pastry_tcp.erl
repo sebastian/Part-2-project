@@ -19,12 +19,16 @@
 %% API Function Exports
 %% ------------------------------------------------------------------
 
--export([start_link/0, start/0, stop/0]).
+-export([start_link/1, start/1, stop/0]).
 -export([
     perform_join/2,
     send_routing_table/2,
     route_msg/3,
-    welcome/1
+    welcome/2,
+    request_routing_table/1,
+    request_leaf_set/1,
+    request_neighborhood_set/1,
+    send_nodes/2
   ]).
 
 %% ------------------------------------------------------------------
@@ -47,8 +51,20 @@ send_routing_table(RoutingTable, #node{ip = Ip, port = Port}) ->
 route_msg(Msg, Key, #node{ip = Ip, port = Port}) ->
   perform_rpc({route, Msg, Key}, Ip, Port).
 
-welcome(#node{ip = Ip, port = Port}) ->
-  perform_rpc(welcome, Ip, Port).
+welcome({LSS, LSG}, #node{ip = Ip, port = Port}) ->
+  perform_rpc({welcome, LSS ++ LSG}, Ip, Port).
+
+request_routing_table(#node{ip = Ip, port = Port}) ->
+  perform_rpc(request_routing_table, Ip, Port).
+
+request_leaf_set(#node{ip = Ip, port = Port}) ->
+  perform_rpc(request_leaf_set, Ip, Port).
+
+request_neighborhood_set(#node{ip = Ip, port = Port}) ->
+  perform_rpc(request_neighborhood_set, Ip, Port).
+
+send_nodes(Nodes, #node{ip = Ip, port = Port}) ->
+  perform_rpc({add_nodes, Nodes}, Ip, Port).
 
 -spec(perform_rpc/3::(Message::term(), Ip::ip(), Port::port_number()) ->
     {ok, _} | {error, _}).
@@ -67,12 +83,10 @@ receive_data(Socket, SoFar) ->
     {tcp, Socket, Bin} ->
       receive_data(Socket, [Bin | SoFar]);
     {tcp_closed, Socket} ->
-      try
-        {ok, binary_to_term(list_to_binary(lists:reverse(SoFar)), [safe])}
-      catch
-        error:badarg ->
-          error_logger:error_msg("Response returned by other part couldn't be parsed"),
-          {error, badarg}
+      try {ok, binary_to_term(list_to_binary(lists:reverse(SoFar)), [safe])}
+      catch error:badarg ->
+        error_logger:error_msg("Response returned by other part couldn't be parsed"),
+        {error, badarg}
       end
   after 5000 ->
     error_logger:info_msg("PerformRPC times out~n"),
@@ -84,18 +98,18 @@ receive_data(Socket, SoFar) ->
 %% gen_listener_tcp Function Definitions
 %% ------------------------------------------------------------------
 
-start() ->
-  gen_listener_tcp:start({local, ?MODULE}, ?MODULE, [], []).
+start(Port) ->
+  gen_listener_tcp:start({local, ?MODULE}, ?MODULE, [Port], []).
 
 stop() ->
-  gen_listener_tcp:call(chord_tcp, stop).
+  gen_listener_tcp:call(pastry_tcp, stop).
 
 %% @doc Start the server.
-start_link() ->
-  gen_listener_tcp:start_link({local, ?MODULE}, ?MODULE, [], []).
+start_link(Args) ->
+  gen_listener_tcp:start_link({local, ?MODULE}, ?MODULE, Args, []).
 
 %% @doc The echo client process.
-chord_tcp_client(Socket) ->
+pastry_tcp_client(Socket) ->
   receive_incoming(Socket, []).
 
 receive_incoming(Socket, SoFar) ->
@@ -109,6 +123,7 @@ receive_incoming(Socket, SoFar) ->
         gen_tcp:close(Socket)
       catch
         error:badarg ->
+          io:format("Couldn't be made into anything legible...~n"),
           % The packet got fragmented somehow...
           receive_incoming(Socket, [Bin|SoFar])
       end;
@@ -123,11 +138,13 @@ receive_incoming(Socket, SoFar) ->
     gen_tcp:close(Socket)
   end.
 
-init([]) ->
-  {ok, {utilities:get_chord_port(), ?TCP_OPTS}, []}.
+init(Args) ->
+  Port = proplists:get_value(port, Args),
+  error_logger:info_msg("Initializing pastry_tcp listening on port: ~p~n", [Port]),
+  {ok, {Port, ?TCP_OPTS}, []}.
 
 handle_accept(Sock, State) ->
-  Pid = spawn(fun() -> chord_tcp_client(Sock) end),
+  Pid = spawn(fun() -> pastry_tcp_client(Sock) end),
   gen_tcp:controlling_process(Sock, Pid),
   {noreply, State}.
 
@@ -157,13 +174,38 @@ handle_msg({send_routing_table, RoutingTable}) ->
   pastry:augment_routing_table(RoutingTable);
 
 handle_msg({join, JoinNode}) ->
-  pastry:let_join(JoinNode);
+  % This call only happens when a node explicitly asks
+  % another node to join the network. As a node nearby
+  % the other node, we should sent it our neighborhood list
+  spawn(fun() -> send_nodes(pastry:get_neighborhoodset(), JoinNode) end),
+  % Now forward the join message
+  pastry:let_join(JoinNode),
+  ok;
+handle_msg({route, {join, JoinNode}, _Key}) ->
+  % Nodes forward a join message as any other message, we therefore
+  % intercept it here and give it the special join treatment
+  pastry:let_join(JoinNode),
+  ok;
 
 handle_msg({route, Msg, Key}) ->
-  pastry:route(Msg, Key);
+  pastry:route(Msg, Key),
+  ok;
 
-handle_msg(welcome) ->
+handle_msg({welcome, Leafs}) ->
+  pastry:add_nodes(Leafs),
   pastry:welcomed();
+
+handle_msg(request_routing_table) ->
+  pastry:get_routing_table();
+
+handle_msg(request_neighborhood_set) ->
+  pastry:get_neighborhoodset();
+
+handle_msg(request_leaf_set) ->
+  pastry:get_leafset();
+
+handle_msg({add_nodes, Nodes}) ->
+  pastry:add_nodes(Nodes);
 
 handle_msg(_) ->
   ?NYI.

@@ -3,7 +3,7 @@
 
 %% @doc Supervisor for the chord application.
 
--module(chord_sup).
+-module(pastry_sup).
 -author('Sebastian Probst Eide sebastian.probst.eide@gmail.com').
 
 -behaviour(supervisor).
@@ -41,12 +41,14 @@ upgrade() ->
 %% @spec init([]) -> SupervisorTree
 %% @doc supervisor callback.
 init(Args) ->
-    Chord = {chord, {chord, start_link, [Args]},
-        permanent, 2000, worker, [chord]},
+  io:format("Got args in sup init: ~p~n", [Args]),
+  PastryLocality = {pastry_locality, {pastry_locality, start_link, []},
+      permanent, 2000, worker, [pastry_locality]},
+  PastryTcp = {pastry_tcp, {pastry_tcp, start_link, [Args]},
+      permanent, 2000, worker, [pastry_tcp]},
+  Pastry = {pastry, {pastry, start_link, [Args]},
+      permanent, 2000, worker, [pastry]},
 
-    ChordTcp = {chord_tcp, {chord_tcp, start_link, [Args]},
-        permanent, 2000, worker, [chord_tcp]},
+  Processes = [PastryLocality, PastryTcp, Pastry],
 
-    Processes = [ChordTcp, Chord],
-
-    {ok, { {one_for_one, 10, 10}, Processes} }.
+  {ok, { {one_for_one, 10, 10}, Processes} }.

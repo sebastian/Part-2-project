@@ -24,6 +24,7 @@ get_time() ->
 
 -spec(get_join_nodes/2::(Ip::ip(), Port::port_number()) -> {ip(), port_number()} | first).
 get_join_nodes(Ip, Port) ->
+  io:format("Trying get join_nodes with Ip: ~p, and port: ~p~n", [Ip, Port]),
   Url = get_join_node_url(Ip, Port),
   {ok, Result} = tcp_utils:get_url(Url),
   Body = case Result of 
@@ -67,12 +68,21 @@ ip_to_string({A,B,C,D}) ->
   lists:flatten(io_lib:format("~p.~p.~p.~p", [A,B,C,D])).
 
 %% @doc: returns the port number at which chord is listening.
--spec(get_chord_port/0::() -> number()).
+-spec(get_chord_port/0::() -> number() | none).
 get_chord_port() ->
   case init:get_argument(chord_port) of
     {ok, [[PortNumber]]} ->
       list_to_integer(PortNumber);
-    _ -> ?CHORD_PORT
+    _ -> none
+  end.
+
+%% @doc: returns the port number at which chord is listening.
+-spec(get_pastry_port/0::() -> number() | none).
+get_pastry_port() ->
+  case init:get_argument(pastry_port) of
+    {ok, [[PortNumber]]} ->
+      list_to_integer(PortNumber);
+    _ -> none
   end.
 
 %% @doc: returns the port number at which the webserver should be listening.
@@ -237,7 +247,33 @@ get_ip() ->
 % Each digit is a separate list element in the returned value.
 -spec(key_for_node_with_b/3::(Ip::ip(), Port::port_number(), Base::integer()) -> [integer()]).
 key_for_node_with_b(Ip, Port, B) ->
-  bitstring_to_list_in_base(term_to_sha({Ip, Port}), B).
+  BitString = bitstring_to_list_in_base(term_to_sha({Ip, Port}), B),
+  pad_as_needed(length_of_max_num_in_base(B) - length(BitString), BitString).
+
+pad_as_needed(0, Num) -> Num;
+pad_as_needed(N, Num) -> pad_as_needed(N-1, [0|Num]).
+
+length_of_max_num_in_base(1) -> 160;
+length_of_max_num_in_base(2) -> 80;
+length_of_max_num_in_base(3) -> 54;
+length_of_max_num_in_base(4) -> 40;
+length_of_max_num_in_base(5) -> 32;
+length_of_max_num_in_base(6) -> 27;
+length_of_max_num_in_base(7) -> 23;
+length_of_max_num_in_base(8) -> 20;
+length_of_max_num_in_base(9) -> 18;
+length_of_max_num_in_base(10) -> 16;
+length_of_max_num_in_base(11) -> 15;
+length_of_max_num_in_base(12) -> 14;
+length_of_max_num_in_base(13) -> 13;
+length_of_max_num_in_base(14) -> 12;
+length_of_max_num_in_base(15) -> 11;
+length_of_max_num_in_base(16) -> 10;
+length_of_max_num_in_base(17) -> 10;
+length_of_max_num_in_base(18) -> 9;
+length_of_max_num_in_base(19) -> 9;
+length_of_max_num_in_base(20) -> 8;
+length_of_max_num_in_base(B) -> length(bitstring_to_list_in_base(1461501637330902918203684832716283019655932542975, B, [])).
 
 
 -spec(key_for_node/2::(Ip::ip(), Port::port_number()) -> number()).
@@ -251,13 +287,15 @@ key_for_data(Data) ->
 
 
 -spec(bitstring_to_list_in_base/2::(BitString::bitstring(), integer()) -> [integer()]).
-bitstring_to_list_in_base(BitString, Base) ->
-  bitstring_to_list_in_base(BitString, [], Base, bit_size(BitString)).
--spec(bitstring_to_list_in_base/4::(bitstring(), [integer()], integer(), integer()) -> [integer()]).
-bitstring_to_list_in_base(_BitString, Acc, _Base, 0) -> lists:reverse(Acc);
-bitstring_to_list_in_base(BitString, Acc, Base, _) ->
-  <<Num:Base/integer, Rest/bitstring>> = BitString,
-  bitstring_to_list_in_base(Rest, [Num|Acc], Base, bit_size(Rest)).
+bitstring_to_list_in_base(BitString, B) ->
+  bitstring_to_list_in_base(bitstring_to_number(BitString), B, []).
+-spec(bitstring_to_list_in_base/3::(number(), number(), [number()]) -> [integer()]).
+bitstring_to_list_in_base(0, _, Num) -> Num;
+bitstring_to_list_in_base(Rest, B, Acc) ->
+  Next = Rest bsr B, 
+  CurrNum = Rest - Next*(1 bsl B),
+  bitstring_to_list_in_base(Next, B, [CurrNum|Acc]).
+
 
 %% ------------------------------------------------------------------
 %% Tests
@@ -339,23 +377,24 @@ bitstring_to_list_in_base_test_() ->
   {inparallel,
     [
     % Base 2 (b = 1)
-     ?_assertEqual([0,0,0,0,0,0,0,1], bitstring_to_list_in_base(<<1>>, 1)),
-     ?_assertEqual([0,0,0,0,0,0,1,0], bitstring_to_list_in_base(<<2>>, 1)),
-     ?_assertEqual([1,1,1,1,1,1,1,1], bitstring_to_list_in_base(<<255>>, 1)),
+     ?_assertEqual([1], bitstring_to_list_in_base(<<1>>, 1)),
+     ?_assertEqual([1,0], bitstring_to_list_in_base(<<2>>, 1)),
+     ?_assertEqual([1,0,1,0], bitstring_to_list_in_base(<<10>>, 1)),
 
     % Base 4 (b = 2)
-     ?_assertEqual([0,0,0,1], bitstring_to_list_in_base(<<1>>, 2)),
-     ?_assertEqual([0,0,0,2], bitstring_to_list_in_base(<<2>>, 2)),
+     ?_assertEqual([1,0], bitstring_to_list_in_base(<<4>>, 2)),
+     ?_assertEqual([1,0,0], bitstring_to_list_in_base(<<16>>, 2)),
+     ?_assertEqual([2,2], bitstring_to_list_in_base(<<10>>, 2)),
      ?_assertEqual([3,3,3,3], bitstring_to_list_in_base(<<255>>, 2)),
 
     % Base 8 (b = 3)
-     ?_assertEqual([0,0,2,0,0,0,0,0], bitstring_to_list_in_base(<<1,0,0>>, 3)),
-     ?_assertEqual([0,0,4,0,0,0,0,0], bitstring_to_list_in_base(<<2,0,0>>, 3)),
+     ?_assertEqual([2,0,0,0,0,0], bitstring_to_list_in_base(<<1,0,0>>, 3)),
+     ?_assertEqual([4,0,0,0,0,0], bitstring_to_list_in_base(<<2,0,0>>, 3)),
      ?_assertEqual([7,7,7,7,7,7,7,7], bitstring_to_list_in_base(<<255,255,255>>, 3)),
      
     % Base 16 (b = 4)
-     ?_assertEqual([0,1], bitstring_to_list_in_base(<<1>>, 4)),
-     ?_assertEqual([0,2], bitstring_to_list_in_base(<<2>>, 4)),
+     ?_assertEqual([1], bitstring_to_list_in_base(<<1>>, 4)),
+     ?_assertEqual([2], bitstring_to_list_in_base(<<2>>, 4)),
      ?_assertEqual([15,15], bitstring_to_list_in_base(<<255>>, 4))
    ]}.
 

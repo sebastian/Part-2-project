@@ -7,7 +7,7 @@
     fs, fs_app, fs_sup,
     fs_web_sup, entries_resource, search_resource, static_resource,
     chord, chord_sup, chord_tcp, 
-    pastry, pastry_locality, pastry_utils, pastry_tcp, pastry_app,
+    pastry, pastry_locality, pastry_utils, pastry_tcp, pastry_app, pastry_sup,
     gen_listener_tcp,
     datastore, datastore_srv, datastore_sup,
     utilities, tcp_utils, test_utils,

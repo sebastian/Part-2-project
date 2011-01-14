@@ -19,7 +19,7 @@
 %% API Function Exports
 %% ------------------------------------------------------------------
 
--export([start_link/0, start/0, stop/0]).
+-export([start_link/1, start/0, stop/0]).
 -export([rpc_get_closest_preceding_finger_and_succ/2, 
          rpc_find_successor/3,
          rpc_lookup_key/2, 
@@ -122,8 +122,8 @@ stop() ->
   gen_listener_tcp:call(chord_tcp, stop).
 
 %% @doc Start the server.
-start_link() ->
-  gen_listener_tcp:start_link({local, ?MODULE}, ?MODULE, [], []).
+start_link(Args) ->
+  gen_listener_tcp:start_link({local, ?MODULE}, ?MODULE, Args, []).
 
 %% @doc The echo client process.
 chord_tcp_client(Socket) ->
@@ -154,8 +154,10 @@ receive_incoming(Socket, SoFar) ->
     gen_tcp:close(Socket)
   end.
 
-init([]) ->
-  {ok, {utilities:get_chord_port(), ?TCP_OPTS}, []}.
+init(Args) ->
+  Port = proplists:get_value(port, Args),
+  error_logger:info_msg("Initializing chord_tcp listening on port: ~p~n", [Port]),
+  {ok, {Port, ?TCP_OPTS}, []}.
 
 handle_accept(Sock, State) ->
   Pid = spawn(fun() -> chord_tcp_client(Sock) end),

@@ -30,12 +30,15 @@
 % closest to the key among all live nodes.
 -spec(deliver/2::(_, pastry_key()) -> ok).
 deliver({join, Node}, _Key) ->
+  io:format("Received a join message. Welcome stranger~n"),
   % Hurrah, there is a new node in the network.
-  % Wholeheartedly welcome it!
-  pastry_tcp:welcome(Node);
+  % We have to send it our leaf set, and 
+  % wholeheartedly welcome it!
+  pastry:welcome(Node);
 
 deliver(Msg, _Key) ->
-  error_handler:error_msg("Unknown message delivered: ~p", [Msg]).
+  error_logger:error_msg("Unknown message delivered: ~p~n", [Msg]),
+  ok.
 
 
 % @doc: Called by Pastry before a message is forwarded to NextId.
