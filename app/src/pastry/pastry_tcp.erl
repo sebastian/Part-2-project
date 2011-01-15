@@ -28,7 +28,9 @@
     request_routing_table/1,
     request_leaf_set/1,
     request_neighborhood_set/1,
-    send_nodes/2
+    send_nodes/2,
+    deliver_in_bulk/2,
+    send_msg/2
   ]).
 
 %% ------------------------------------------------------------------
@@ -41,6 +43,9 @@
 %% ------------------------------------------------------------------
 %% API Function Definitions
 %% ------------------------------------------------------------------
+
+deliver_in_bulk(Entries, #node{ip = Ip, port = Port}) ->
+  perform_rpc({bulk_delivery, Entries}, Ip, Port).
 
 perform_join(JoinNode, #node{ip = Ip, port = Port}) ->
   perform_rpc({join, JoinNode}, Ip, Port).
@@ -65,6 +70,9 @@ request_neighborhood_set(#node{ip = Ip, port = Port}) ->
 
 send_nodes(Nodes, #node{ip = Ip, port = Port}) ->
   perform_rpc({add_nodes, Nodes}, Ip, Port).
+
+send_msg(Msg, #node{ip = Ip, port = Port}) ->
+  perform_rpc(Msg, Ip, Port).
 
 -spec(perform_rpc/3::(Message::term(), Ip::ip(), Port::port_number()) ->
     {ok, _} | {error, _}).
@@ -206,6 +214,14 @@ handle_msg(request_leaf_set) ->
 
 handle_msg({add_nodes, Nodes}) ->
   pastry:add_nodes(Nodes);
+
+handle_msg({data, {Pid, Ref}, Data}) ->
+  Pid ! {data, Ref, Data},
+  ok;
+
+handle_msg({bulk_delivery, Entries}) ->
+  spawn(fun() -> pastry_app:bulk_delivery(Entries) end),
+  ok;
 
 handle_msg(_) ->
   ?NYI.

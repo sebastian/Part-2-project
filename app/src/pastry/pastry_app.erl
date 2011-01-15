@@ -2,6 +2,7 @@
 -behaviour(gen_server).
 
 -define(SERVER, ?MODULE).
+-define(TIMEOUT, 2000).
 
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
@@ -17,17 +18,24 @@
 %% ------------------------------------------------------------------
 
 -export([
+    set/2,
+    lookup/1
+  ]).
+% For pastry
+-export([
     deliver/2,
     forward/3,
     new_leaves/1,
     pastry_init/2
   ]).
-% Gen server
+% For gen_server
 -export([
     start/1,
     start_link/1,
     stop/0
   ]).
+% For pastry_tcp
+-export([bulk_delivery/1]).
 
 %% ------------------------------------------------------------------
 %% Gen_server exports
@@ -56,6 +64,20 @@
 %% API Function Definitions
 %% ------------------------------------------------------------------
 
+% Used by 3rd party apps --------------------------------------------
+
+%% @doc: gets a value from the chord network
+-spec(lookup/1::(Key::key()) -> [#entry{}]).
+lookup(Key) ->
+  gen_server:call(?SERVER, {lookup, Key}).
+
+%% @doc: stores a value in the chord network
+-spec(set/2::(Key::key(), Entry::#entry{}) -> ok).
+set(Key, Entry) ->
+  gen_server:call(?SERVER, {set, Key, Entry}).
+
+% Used by supervisor ------------------------------------------------
+
 start(Args) ->
   gen_server:start({local, ?SERVER}, ?MODULE, Args, []).
 
@@ -68,6 +90,8 @@ stop() ->
 pastry_init(Node, B) ->
   gen_server:call(?SERVER, {init_with_data, Node, B}).
 
+% Used by pastry_core -----------------------------------------------
+
 % @doc: Called by pastry when the current node is the numerically
 % closest to the key among all live nodes.
 -spec(deliver/2::(_, pastry_key()) -> ok).
@@ -77,6 +101,12 @@ deliver({join, Node}, _Key) ->
   % We have to send it our leaf set, and 
   % wholeheartedly welcome it!
   pastry:welcome(Node);
+
+deliver({lookup_key, Key, Node, Ref}, _Key) ->
+  pastry_tcp:send_msg({data, Ref, datastore:lookup(Key)}, Node);
+
+deliver({set, Key, Entry}, _Key) ->
+  datastore:set(Key, Entry);
 
 deliver(Msg, _Key) ->
   error_logger:error_msg("Unknown message delivered: ~p~n", [Msg]),
@@ -90,12 +120,16 @@ deliver(Msg, _Key) ->
 forward(Msg, _Key, NextNode) ->
   {Msg, NextNode}.
 
-
 % @doc: Called by pastry whenever there is a change in the local node's leaf set.
 -spec(new_leaves/1::({[#node{}], [#node{}]}) -> ok).
 new_leaves(LeafSet) ->
   gen_server:cast(?SERVER, {new_leaves, LeafSet}),
   ok.
+
+% Used by pastry_tcp ------------------------------------------------
+
+bulk_delivery(Entries) ->
+  [datastore:set(Entry#entry.key, Entry) || Entry <- Entries].
 
 %% ------------------------------------------------------------------
 %% gen_server Function Definitions
@@ -105,6 +139,24 @@ init(_Args) ->
   {ok, #pastry_app_state{}}.
 
 % Call:
+handle_call({set, Key, Entry}, _From, #pastry_app_state{b = B} = State) ->
+  PastryKey = utilities:number_to_pastry_key_with_b(Key, B),
+  pastry:route({set, Key, Entry}, PastryKey),
+  {reply, ok, State};
+
+handle_call({lookup, Key}, From, #pastry_app_state{b = B} = State) ->
+  spawn(fun() ->
+    PastryKey = utilities:number_to_pastry_key_with_b(Key, B),
+    Ref = make_ref(),
+    pastry:route(PastryKey, {lookup_key, Key, pastry:get_self(), {self(), Ref}}),
+    ReturnValue = receive
+      {data, Ref, Data} -> Data
+    after ?TIMEOUT -> {error, timeout}
+    end,
+    gen_server:reply(From, ReturnValue)
+  end),
+  {noreply, State};
+
 handle_call({init_with_data, Self, B}, _From, State) ->
   {reply, ok, State#pastry_app_state{self = Self, b = B}};
 
@@ -141,10 +193,10 @@ code_change(_OldVsn, State, _Extra) ->
 %% ------------------------------------------------------------------
 
 ownership_range(#pastry_app_state{leaf_set = {[], []}}) -> all;
-ownership_range(#pastry_app_state{b = B, self = #node{key = SelfKey}, leaf_set = {LSS, []}} = State) -> 
+ownership_range(#pastry_app_state{b = B, self = #node{key = SelfKey}, leaf_set = {LSS, []}}) -> 
   LSSKey = (hd(reverse(LSS)))#node.key,
   {half_between_keys(LSSKey, SelfKey, B), half_between_keys(SelfKey, LSSKey, B)};
-ownership_range(#pastry_app_state{b = B, self = #node{key = SelfKey}, leaf_set = {[], LSG}} = State) -> 
+ownership_range(#pastry_app_state{b = B, self = #node{key = SelfKey}, leaf_set = {[], LSG}}) -> 
   LSGKey = (hd(LSG))#node.key,
   {half_between_keys(LSGKey, SelfKey, B), half_between_keys(SelfKey, LSGKey, B)};
 ownership_range(#pastry_app_state{self = #node{key = SelfKey}, b = B, leaf_set = {LSS, LSG}}) ->
@@ -164,6 +216,9 @@ half_between_keys(Key1, Key2, B) ->
         false -> HP - HM
       end
   end.
+
+deliver_in_bulk(Entries, Node) ->
+  pastry_tcp:deliver_in_bulk(Entries, Node).
 
 %% ------------------------------------------------------------------
 %% Tests

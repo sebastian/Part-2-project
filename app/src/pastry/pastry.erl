@@ -19,7 +19,6 @@
 -export([start_link/1, start/1, stop/0]).
 -export([lookup/1, set/2]).
 -export([
-    pastryInit/1,
     route/2
   ]).
 
@@ -86,9 +85,6 @@ lookup(_Key) ->
 -spec(set/2::(Key::key(), Entry::#entry{}) -> ok).
 set(_Key, _Entry) ->
   ok.
-
-pastryInit(_Node) ->
-  magic.
 
 route(Msg, Key) ->
   gen_server:cast(?SERVER, {route, Msg, Key}),

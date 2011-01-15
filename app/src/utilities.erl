@@ -273,10 +273,10 @@ length_of_max_num_in_base(17) -> 10;
 length_of_max_num_in_base(18) -> 9;
 length_of_max_num_in_base(19) -> 9;
 length_of_max_num_in_base(20) -> 8;
-length_of_max_num_in_base(B) -> length(bitstring_to_list_in_base(1461501637330902918203684832716283019655932542975, B, [])).
+length_of_max_num_in_base(B) -> length(number_to_pastry_key_with_b(1461501637330902918203684832716283019655932542975, B)).
 
 
--spec(key_for_node/2::(Ip::ip(), Port::port_number()) -> number()).
+-spec(key_for_node/2::(ip(), port_number()) -> number()).
 key_for_node(Ip, Port) ->
   key_for_data({Ip, Port}).
 
@@ -288,13 +288,16 @@ key_for_data(Data) ->
 
 -spec(bitstring_to_list_in_base/2::(BitString::bitstring(), integer()) -> [integer()]).
 bitstring_to_list_in_base(BitString, B) ->
-  bitstring_to_list_in_base(bitstring_to_number(BitString), B, []).
--spec(bitstring_to_list_in_base/3::(number(), number(), [number()]) -> [integer()]).
-bitstring_to_list_in_base(0, _, Num) -> Num;
-bitstring_to_list_in_base(Rest, B, Acc) ->
+  number_to_pastry_key_with_b(bitstring_to_number(BitString), B).
+
+
+-spec(number_to_pastry_key_with_b/2::(number(), byte()) -> [number()]).
+number_to_pastry_key_with_b(Number, B) -> number_to_pastry_key_with_b(Number, B, []).
+number_to_pastry_key_with_b(0, _, Num) -> Num;
+number_to_pastry_key_with_b(Rest, B, Acc) ->
   Next = Rest bsr B, 
   CurrNum = Rest - Next*(1 bsl B),
-  bitstring_to_list_in_base(Next, B, [CurrNum|Acc]).
+  number_to_pastry_key_with_b(Next, B, [CurrNum|Acc]).
 
 
 %% ------------------------------------------------------------------
