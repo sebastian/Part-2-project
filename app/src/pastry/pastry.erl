@@ -158,6 +158,8 @@ init(Args) ->
   Key = utilities:key_for_node_with_b(Ip, Port, B),
   Self = #node{key = Key, port = Port, ip = Ip},
 
+  pastry_app:pastry_init(Self, B),
+
   error_logger:info_msg("Starting pastry node at Ip: ~p, Port: ~p, with B: ~p", [Ip, Port, B]),
 
   % We attempt to join the pastry network.
