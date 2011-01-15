@@ -41,7 +41,8 @@
     get_routing_table/0,
     get_neighborhoodset/0,
     get_self/0,
-    add_nodes/1
+    add_nodes/1,
+    discard_dead_node/1
   ]).
 
 %% ------------------------------------------------------------------
@@ -86,7 +87,6 @@ pastryInit(_Node) ->
 route(Msg, Key) ->
   gen_server:cast(?SERVER, {route, Msg, Key}),
   ok.
-
 
 %% ------------------------------------------------------------------
 %% PRIVATE API Function Definitions
@@ -136,6 +136,9 @@ get_neighborhoodset() ->
 get_self() ->
   gen_server:call(?SERVER, get_self).
 
+discard_dead_node(Node) ->
+  gen_server:cast(?SERVER, {discard_dead_node, Node}).
+
 %% ------------------------------------------------------------------
 %% gen_server Function Definitions
 %% ------------------------------------------------------------------
@@ -169,7 +172,6 @@ init_state(B, Self, Key) ->
     routing_table = create_routing_table(Key)
   }}.
 
-
 % Call:
 handle_call(get_leafset, _From, State) ->
   {reply, State#pastry_state.leaf_set, State};
@@ -185,7 +187,6 @@ handle_call(get_routing_table, _From, State) ->
 
 handle_call(stop, _From, State) ->
   {stop, normal, ok, State}.
-
 
 % Casts:
 handle_cast({welcome, Node}, #pastry_state{leaf_set = {LSS, LSG}} = State) ->
@@ -216,28 +217,28 @@ handle_cast({update_local_state_with_nodes, Nodes}, #pastry_state{routing_table 
     merge_node_in_leaf_set(Node, PrevState)
   end, State, Nodes),
   NewRT = foldl(fun(Node, PrevRoutingTable) ->
-    merge_note_in_rt(Node, PrevRoutingTable)
+    merge_node_in_rt(Node, PrevRoutingTable)
   end, RT, Nodes),
   NewNeighborhoodSet = foldl(fun(Node, PrevNHS) ->
     merge_node_in_nhs(Node, PrevNHS, B)
   end, NS, Nodes),
   {noreply, UpdatedLeafSetState#pastry_state{routing_table = NewRT, neighborhood_set = NewNeighborhoodSet}};
 
+handle_cast({discard_dead_node, Node}, State) ->
+  {noreply, discard_dead_node(Node, State)};
+
 handle_cast(Msg, State) ->
   error_logger:error_msg("received unknown cast: ~p", [Msg]),
   {noreply, State}.
-
 
 % Info:
 handle_info(Info, State) ->
   error_logger:error_msg("Got info message: ~p", [Info]),
   {noreply, State}.
 
-
 % Terminate:
 terminate(_Reason, _State) ->
   ok.
-
 
 code_change(_OldVsn, State, _Extra) ->
   {ok, State}.
@@ -285,21 +286,21 @@ is_node_less_than_me(#node{key = Key}, Self, B) ->
 
 % @doc: Adds a node to the routing table. If there is already a node
 % occupying the location, then the closer of the two is kept.
-merge_note_in_rt(#node{key = Key} = OtherNode, RoutingTable) ->
-  merge_note_in_rt(RoutingTable, empty, [none|Key], [], OtherNode).
+merge_node_in_rt(#node{key = Key} = OtherNode, RoutingTable) ->
+  merge_node_in_rt(RoutingTable, empty, [none|Key], [], OtherNode).
 % Last routing table entry. Since we have a match, the node must be us.
 % We don't want to include ourselves in the list.
-merge_note_in_rt([], R, _, _, _Node) ->
+merge_node_in_rt([], R, _, _, _Node) ->
   [R];
 % The keypath matches, so nothing to do as of yet.
-merge_note_in_rt([#routing_table_entry{value = I} = R|RR], PrevR, [I|Is], KeySoFar, Node) ->
+merge_node_in_rt([#routing_table_entry{value = I} = R|RR], PrevR, [I|Is], KeySoFar, Node) ->
   case PrevR of
-    empty -> merge_note_in_rt(RR, R, Is, [I], Node);
-    Prev -> [Prev|merge_note_in_rt(RR, R, Is, [I|KeySoFar], Node)]
+    empty -> merge_node_in_rt(RR, R, Is, [I], Node);
+    Prev -> [Prev|merge_node_in_rt(RR, R, Is, [I|KeySoFar], Node)]
   end;
 % At this point there is no longer a match between our key and the key 
 % of the node. Conditionally change it in place.
-merge_note_in_rt(RR, #routing_table_entry{nodes = Nodes} = PrevR, [I|_], KeySoFar, Node) ->
+merge_node_in_rt(RR, #routing_table_entry{nodes = Nodes} = PrevR, [I|_], KeySoFar, Node) ->
   [PrevR#routing_table_entry{nodes = conditionally_replace_node(Node, Nodes, reverse([I|KeySoFar] -- [none]))} | RR].
  
 conditionally_replace_node(N, [], _) -> [N];
@@ -393,8 +394,9 @@ do_forward_msg(Msg, Key, Node) ->
       case pastry_tcp:route_msg(NewMsg, Key, NewNode) of
         {ok, _} -> true;
         {error, Reason} ->
-          % TODO
-          error_logger:error_msg("Couldn't forward a message. Need to handle error mesage: ~p~n", [Reason]),
+          % Remove the node from our routing table, and retry
+          discard_dead_node(NewNode),
+          route(Msg, Key),
           true
       end
   end.
@@ -470,6 +472,25 @@ welcomed(#pastry_state{routing_table = RT} = State) ->
 all_known_nodes(#pastry_state{routing_table = RT, leaf_set = {LSS, LSG}, neighborhood_set = NS}) ->
   nodes_in_routing_table(RT) ++ LSS ++ LSG ++ NS.
   
+discard_dead_node_from_leafset(Node, #pastry_state{leaf_set = {LSS, LSG}} = State) ->
+  State#pastry_state{leaf_set = {LSS -- [Node], LSG -- [Node]}}.
+
+discard_dead_node_from_neighborhoodset(Node, #pastry_state{neighborhood_set = NS} = State) ->
+  State#pastry_state{neighborhood_set = NS -- [Node]}.
+
+discard_dead_node_from_routing_table(Node, #pastry_state{routing_table = RT} = State) ->
+  % This can be done better. But for now it works.
+  % Could do an approach more similar to the one in merge_node_in_rt to
+  % find the right routing table.
+  State#pastry_state{routing_table = routing_table_without(Node, RT, [])}.
+routing_table_without(_Node, [], Acc) -> reverse(Acc);
+routing_table_without(Node, [#routing_table_entry{nodes = N} = R|Rt], Acc) ->
+  routing_table_without(Node, Rt, [R#routing_table_entry{nodes = N -- [Node]}|Acc]).
+
+discard_dead_node(Node, State) ->
+  discard_dead_node_from_neighborhoodset(Node,
+    discard_dead_node_from_routing_table(Node,
+      discard_dead_node_from_leafset(Node, State))).
 
 %% ------------------------------------------------------------------
 %% Tests
@@ -490,7 +511,6 @@ test_state() ->
     b = 3
   }.
 
-
 create_routing_table_test() ->
   Key = [1,2,3],
   ?assertEqual([#routing_table_entry{value = none}, 
@@ -499,7 +519,6 @@ create_routing_table_test() ->
       #routing_table_entry{value = 3}],
     create_routing_table(Key)).
 
-
 level_for_key_path_contains_node([KeyItem], Node, [#routing_table_entry{value=KeyItem, nodes = Nodes}|_]) ->
   lists:member(Node, Nodes);
 level_for_key_path_contains_node([KeyItem|RestPath], Node, [#routing_table_entry{value=KeyItem}|RestRouting]) ->
@@ -507,7 +526,7 @@ level_for_key_path_contains_node([KeyItem|RestPath], Node, [#routing_table_entry
 level_for_key_path_contains_node(_, _, _) -> false.
   
 
-merge_note_in_rt_no_shared_test() ->
+merge_node_in_rt_no_shared_test() ->
   MyKey = [0,0],
   RoutingTable = create_routing_table(MyKey),
 
@@ -517,23 +536,22 @@ merge_note_in_rt_no_shared_test() ->
   DNode = #node{key = [0,2], distance = 12},
   Self  = #node{key = MyKey, distance = 0},
 
-  ?assert(level_for_key_path_contains_node([none], ANode, merge_note_in_rt(ANode, RoutingTable))),
-  RoutingTableWithB = merge_note_in_rt(BNode, RoutingTable),
+  ?assert(level_for_key_path_contains_node([none], ANode, merge_node_in_rt(ANode, RoutingTable))),
+  RoutingTableWithB = merge_node_in_rt(BNode, RoutingTable),
   ?assert(level_for_key_path_contains_node([none,0], BNode, RoutingTableWithB)),
   % Now we add node C, which should replace node B.
-  RoutingTableWithC = merge_note_in_rt(CNode, RoutingTableWithB),
+  RoutingTableWithC = merge_node_in_rt(CNode, RoutingTableWithB),
   ?assert(level_for_key_path_contains_node([none,0], CNode, RoutingTableWithC)),
   ?assertNot(level_for_key_path_contains_node([none,0], BNode, RoutingTableWithC)),
   % Now we add node D which doesn't conflict. It should therefore have both C and D
-  RoutingTableWithCandD = merge_note_in_rt(DNode, RoutingTableWithC),
+  RoutingTableWithCandD = merge_node_in_rt(DNode, RoutingTableWithC),
   ?assert(level_for_key_path_contains_node([none,0], CNode, RoutingTableWithCandD)),
   ?assert(level_for_key_path_contains_node([none,0], DNode, RoutingTableWithCandD)),
 
   % Try to add myself, but that shouldn't affect the table
-  ?assertNot(level_for_key_path_contains_node([none], Self, merge_note_in_rt(Self, RoutingTable))),
-  ?assertNot(level_for_key_path_contains_node([none,0], Self, merge_note_in_rt(Self, RoutingTable))),
-  ?assertNot(level_for_key_path_contains_node([none,0,0], Self, merge_note_in_rt(Self, RoutingTable))).
-
+  ?assertNot(level_for_key_path_contains_node([none], Self, merge_node_in_rt(Self, RoutingTable))),
+  ?assertNot(level_for_key_path_contains_node([none,0], Self, merge_node_in_rt(Self, RoutingTable))),
+  ?assertNot(level_for_key_path_contains_node([none,0,0], Self, merge_node_in_rt(Self, RoutingTable))).
 
 conditionally_replace_node_test() ->
   % Our key could in this case be [0,0,0,...]
@@ -574,7 +592,6 @@ conditionally_replace_node_test() ->
   ?assertNot(Nodes =:= conditionally_replace_node(Replace, Nodes, [0,0,4])),
   ?assertNot(Nodes =:= conditionally_replace_node(Replace2, Nodes, [0,0,3])). 
 
-
 is_valid_key_path_test() ->
   CheckKey = [0,0,1],
   TrueNode = #node{
@@ -594,7 +611,6 @@ is_valid_key_path_test() ->
   ?assertNot(is_valid_key_path(FalseNode, CheckKey)),
   ?assertNot(is_valid_key_path(FalseNode2, CheckKey)).
 
-
 nodes_in_routing_table_test() ->
   MyKey = [0,0],
   RoutingTable = create_routing_table(MyKey),
@@ -610,13 +626,12 @@ nodes_in_routing_table_test() ->
   N4 = #node{
     key = [0,4]
   },
-  FullRoutingTable = merge_note_in_rt(N1, merge_note_in_rt(N2, merge_note_in_rt(N3, merge_note_in_rt(N4, RoutingTable)))),
+  FullRoutingTable = merge_node_in_rt(N1, merge_node_in_rt(N2, merge_node_in_rt(N3, merge_node_in_rt(N4, RoutingTable)))),
   NodesInTable = nodes_in_routing_table(FullRoutingTable),
   ?assert(member(N1, NodesInTable)),
   ?assert(member(N2, NodesInTable)),
   ?assert(member(N3, NodesInTable)),
   ?assert(member(N4, NodesInTable)).
-
 
 route_to_leaf_set_test() ->
   State = test_state(),
@@ -660,7 +675,6 @@ node_in_leaf_set_when_leaf_set_is_empty_test() ->
   ?assertEqual(Self, node_in_leaf_set([0,1,2,3], State)),
   ?assertEqual(Self, node_in_leaf_set([4,3,2,1], State)).
 
-
 node_closest_to_key_test() ->
   B = 1,
   NodeA = #node{
@@ -677,7 +691,6 @@ node_closest_to_key_test() ->
   ?assertEqual(none, node_closest_to_key([0,0,0,0], [NodeA,NodeA], B)),
   ?assertEqual(NodeA, node_closest_to_key([0,0,1,0], Nodes, B)).
 
-
 key_in_range_test() ->
   B = 2,
   ?assert(key_in_range([1,1], [0,0], [2,2], B)),
@@ -690,7 +703,6 @@ key_in_range_test() ->
   ?assertNot(key_in_range([1,1], [2,0], [2,0], B)),
   ?assertNot(key_in_range([1,1], [2,0], [2,2], B)),
   ?assertNot(key_in_range([4,1], [2,0], [2,3], 3)).
-
 
 closer_node_test() ->
   B = 1,
@@ -712,7 +724,6 @@ closer_node_test() ->
   },
   ?assertEqual(NodeA, closer_node([7,7,7], NodeA, Node1, HighB)).
 
-
 key_diff_test() ->
   B = 2,
   ?assertEqual(4, key_diff([2,0], [1,0], B)),
@@ -722,7 +733,6 @@ key_diff_test() ->
   ?assertEqual(85, key_diff([1,1,1,1], [2,2,2,2], B)),
   ?assertEqual(0, key_diff([2,0], [2,0], B)).
 
-
 find_corresponding_routing_table_test() ->
   MyKey = [1,2,3,4],
   State = (test_state())#pastry_state{routing_table = create_routing_table(MyKey)},
@@ -731,13 +741,12 @@ find_corresponding_routing_table_test() ->
   {#routing_table_entry{value = 2}, [none, 1, 2, 0]} = find_corresponding_routing_table([1,2,0,0], State),
   {#routing_table_entry{value = 3}, [none, 1, 2, 3, 0]} = find_corresponding_routing_table([1,2,3,0], State).
 
-
 route_to_node_in_routing_table_test() ->
   State = test_state(),
   Node = #node{
     key = [0,1,4,0]
   },
-  UpdatedState = State#pastry_state{routing_table = merge_note_in_rt(Node, State#pastry_state.routing_table)},
+  UpdatedState = State#pastry_state{routing_table = merge_node_in_rt(Node, State#pastry_state.routing_table)},
   Msg = msg,
 
   ?assertNot(route_to_node_in_routing_table(Msg, [0,2,0,0], UpdatedState)),
@@ -749,7 +758,6 @@ route_to_node_in_routing_table_test() ->
   erlymock:replay(), 
   ?assert(route_to_node_in_routing_table(Msg, GoodKey, UpdatedState)),
   erlymock:verify().
-
 
 route_to_closer_node_test() ->
   State = test_state(),
@@ -767,7 +775,7 @@ route_to_closer_node_test() ->
   },
 
   UpdatedState = State#pastry_state{
-    routing_table = merge_note_in_rt(CloserNode, State#pastry_state.routing_table),
+    routing_table = merge_node_in_rt(CloserNode, State#pastry_state.routing_table),
     neighborhood_set = [NeighborNode]
   },
 
@@ -793,7 +801,6 @@ route_to_closer_node_test() ->
   ?assert(route_to_closer_node(Msg, Key3, UpdatedState)),
   erlymock:verify().
 
-
 shared_key_segment_test() ->
   Node = #node{
     key = [1,2,3,4]
@@ -803,7 +810,6 @@ shared_key_segment_test() ->
   ?assertEqual([1,2], shared_key_segment(Node, [1,2,4,0])),
   ?assertEqual([1,2,3], shared_key_segment(Node, [1,2,3,0])),
   ?assertEqual([1,2,3,4], shared_key_segment(Node, [1,2,3,4])).
-
 
 welcomed_test() ->
   MyId = [1,0],
@@ -826,7 +832,7 @@ welcomed_test() ->
     key = [4,1]
   },
 
-  RoutingTable = merge_note_in_rt(OtherNode1, merge_note_in_rt(OtherNode2, create_routing_table(MyId))),
+  RoutingTable = merge_node_in_rt(OtherNode1, merge_node_in_rt(OtherNode2, create_routing_table(MyId))),
   State = #pastry_state{
     self = Self,
     routing_table = RoutingTable, 
@@ -842,7 +848,6 @@ welcomed_test() ->
   erlymock:replay(), 
   welcomed(State),
   erlymock:verify().
-
 
 all_known_nodes_test() ->
   MyId = [1,0],
@@ -865,7 +870,7 @@ all_known_nodes_test() ->
     key = [4,1]
   },
 
-  RoutingTable = merge_note_in_rt(OtherNode1, merge_note_in_rt(OtherNode2, create_routing_table(MyId))),
+  RoutingTable = merge_node_in_rt(OtherNode1, merge_node_in_rt(OtherNode2, create_routing_table(MyId))),
   State = #pastry_state{
     self = Self,
     routing_table = RoutingTable, 
@@ -943,7 +948,6 @@ merge_node_in_leaf_set_should_not_self_in_leafset_test() ->
   State = #pastry_state{b = 2, self = Self},
   State = merge_node_in_leaf_set(Self, State).
 
-
 is_node_less_than_me_test() ->
   Self = #node{key = [0,0,0,0]},
   B = 3,
@@ -954,7 +958,6 @@ is_node_less_than_me_test() ->
   ?assertNot(is_node_less_than_me(#node{key=[3,0,0,0]},Self,B)),
   ?assertNot(is_node_less_than_me(#node{key=[2,0,0,0]},Self,B)),
   ?assertNot(is_node_less_than_me(#node{key=[1,0,0,0]},Self,B)).
-
 
 merge_node_in_nhs_test() ->
   B = 1,
@@ -970,5 +973,51 @@ merge_node_in_nhs_test() ->
   ?assertNot(member(Node1, NewNHS3)),
   ?assert(member(Node2, NewNHS3)),
   ?assert(member(Node3, NewNHS3)).
+
+discard_dead_node_from_leafset_test() ->
+  DeadNode = #node{
+    key = [1,2,3,4]
+  },
+  State = (test_state())#pastry_state{leaf_set = {[DeadNode], [DeadNode]}},
+  ?assert(member(DeadNode, all_known_nodes(State))),
+  UpdatedState = discard_dead_node_from_leafset(DeadNode, State),
+  ?assertNot(member(DeadNode, all_known_nodes(UpdatedState))).
+
+discard_dead_node_from_neighborhoodset_test() ->
+  DeadNode = #node{
+    key = [1,2,3,4]
+  },
+  State = (test_state())#pastry_state{neighborhood_set = [DeadNode]},
+  ?assert(member(DeadNode, all_known_nodes(State))),
+  UpdatedState = discard_dead_node_from_neighborhoodset(DeadNode, State),
+  ?assertNot(member(DeadNode, all_known_nodes(UpdatedState))).
+
+discard_dead_node_from_routing_table_test() ->
+  DeadNode = #node{
+    key = [1,2,3,4]
+  },
+  State = test_state(),
+  OrigRoutingTable = State#pastry_state.routing_table,
+  StateWithRoutingTable = State#pastry_state{routing_table = merge_node_in_rt(DeadNode, OrigRoutingTable)},
+  ?assert(member(DeadNode, all_known_nodes(StateWithRoutingTable))),
+  UpdatedState = discard_dead_node_from_routing_table(DeadNode, StateWithRoutingTable),
+  ?assertNot(member(DeadNode, all_known_nodes(UpdatedState))),
+  ?assertEqual(OrigRoutingTable, UpdatedState#pastry_state.routing_table).
+
+discard_dead_node_test() ->
+  DeadNode1 = #node{key = [0,0,1]},
+  DeadNode2 = #node{key = [0,0,2]},
+  DeadNode3 = #node{key = [0,0,3]},
+  State = (test_state())#pastry_state{leaf_set = {[DeadNode1], []}, neighborhood_set = [DeadNode3]},
+  OrigRoutingTable = State#pastry_state.routing_table,
+  StateWithNodes = State#pastry_state{routing_table = merge_node_in_rt(DeadNode2, OrigRoutingTable)},
+  % At this point we have three dead nodes in the mix,
+  ?assert(member(DeadNode1, all_known_nodes(StateWithNodes))),
+  ?assert(member(DeadNode2, all_known_nodes(StateWithNodes))),
+  ?assert(member(DeadNode3, all_known_nodes(StateWithNodes))),
+  UpdatedState = discard_dead_node(DeadNode1, discard_dead_node(DeadNode2, discard_dead_node(DeadNode3, StateWithNodes))),
+  ?assertNot(member(DeadNode1, all_known_nodes(UpdatedState))),
+  ?assertNot(member(DeadNode2, all_known_nodes(UpdatedState))),
+  ?assertNot(member(DeadNode3, all_known_nodes(UpdatedState))).
 
 -endif.
