@@ -45,6 +45,12 @@
     discard_dead_node/1
   ]).
 
+% For use by other modules
+-export([
+    value_of_key/2,
+    max_for_keylength/2
+  ]).
+
 %% ------------------------------------------------------------------
 %% gen_server Function Exports
 %% ------------------------------------------------------------------
