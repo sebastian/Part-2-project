@@ -41,14 +41,17 @@ upgrade() ->
 %% @spec init([]) -> SupervisorTree
 %% @doc supervisor callback.
 init(Args) ->
-  io:format("Got args in sup init: ~p~n", [Args]),
-  PastryLocality = {pastry_locality, {pastry_locality, start_link, []},
-      permanent, 2000, worker, [pastry_locality]},
-  PastryTcp = {pastry_tcp, {pastry_tcp, start_link, [Args]},
-      permanent, 2000, worker, [pastry_tcp]},
-  Pastry = {pastry, {pastry, start_link, [Args]},
-      permanent, 2000, worker, [pastry]},
+  CreateChild = fun(Name,Args) -> {Name,
+      {Name, start_link, [Args]},
+      permanent, 2000, worker,
+      [Name]}
+    end,
 
-  Processes = [PastryLocality, PastryTcp, Pastry],
+  Processes = [
+    CreateChild(pastry_locality, []),
+    CreateChild(pastry_tcp, Args),
+    CreateChild(pastry_app, []),
+    CreateChild(pastry, Args)
+  ],
 
   {ok, { {one_for_one, 10, 10}, Processes} }.
