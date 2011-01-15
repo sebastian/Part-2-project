@@ -264,9 +264,17 @@ merge_node_in_leaf_set(Node, #pastry_state{b = B, self = Self, leaf_set = {LSS, 
         true ->
           % Wow this is ugly and inefficient, but OK, these lists are short anyway, but still... TODO!
           NewLSS = reverse(sublist(reverse(sort_leaves([Node|LSS], B)), LeafSetSize)),
+          case NewLSS =/= LSS of
+            true -> pastry_app:new_leaves({NewLSS, LSG});
+            false -> ok
+          end,
           State#pastry_state{leaf_set = {NewLSS, LSG}};
         false ->
           NewLSG = sublist(sort_leaves([Node|LSG], B), LeafSetSize),
+          case NewLSG =/= LSG of
+            true -> pastry_app:new_leaves({LSS, NewLSG});
+            false -> ok
+          end,
           State#pastry_state{leaf_set = {LSS, NewLSG}}
       end
   end.
@@ -393,7 +401,7 @@ do_forward_msg(Msg, Key, Node) ->
       io:format("PastryApp approved of forwarding message. Route to ~p~n", [NewNode]),
       case pastry_tcp:route_msg(NewMsg, Key, NewNode) of
         {ok, _} -> true;
-        {error, Reason} ->
+        {error, _Reason} ->
           % Remove the node from our routing table, and retry
           discard_dead_node(NewNode),
           route(Msg, Key),
@@ -472,8 +480,14 @@ welcomed(#pastry_state{routing_table = RT} = State) ->
 all_known_nodes(#pastry_state{routing_table = RT, leaf_set = {LSS, LSG}, neighborhood_set = NS}) ->
   nodes_in_routing_table(RT) ++ LSS ++ LSG ++ NS.
   
-discard_dead_node_from_leafset(Node, #pastry_state{leaf_set = {LSS, LSG}} = State) ->
-  State#pastry_state{leaf_set = {LSS -- [Node], LSG -- [Node]}}.
+discard_dead_node_from_leafset(Node, #pastry_state{leaf_set = LS} = State) ->
+  {LSS, LSG} = LS,
+  NewLS = {LSS -- [Node], LSG -- [Node]},
+  case NewLS =/= LS of
+    true -> pastry_app:new_leaves(NewLS);
+    false -> ok
+  end,
+  State#pastry_state{leaf_set = NewLS}.
 
 discard_dead_node_from_neighborhoodset(Node, #pastry_state{neighborhood_set = NS} = State) ->
   State#pastry_state{neighborhood_set = NS -- [Node]}.
@@ -908,6 +922,16 @@ merge_node_in_leaf_set_test() ->
   GreaterNode1 = #node{key = [2,0]},
   GreaterNode2 = #node{key = [1,3]},
   GreaterNode3 = #node{key = [1,1]},
+
+  erlymock:start(),
+  erlymock:o_o(pastry_app, new_leaves, [{[SmallerNode1],[]}], [{return, ok}]),
+  erlymock:o_o(pastry_app, new_leaves, [{[SmallerNode1, SmallerNode2],[]}], [{return, ok}]),
+  erlymock:o_o(pastry_app, new_leaves, [{[SmallerNode2, SmallerNode3],[]}], [{return, ok}]),
+  erlymock:o_o(pastry_app, new_leaves, [{[SmallerNode2, SmallerNode3],[GreaterNode1]}], [{return, ok}]),
+  erlymock:o_o(pastry_app, new_leaves, [{[SmallerNode2, SmallerNode3],[GreaterNode2, GreaterNode1]}], [{return, ok}]),
+  erlymock:o_o(pastry_app, new_leaves, [{[SmallerNode2, SmallerNode3],[GreaterNode3, GreaterNode2]}], [{return, ok}]),
+  erlymock:replay(), 
+
   NewState = merge_node_in_leaf_set(SmallerNode1, State),
   assert_member_of_smaller_leaf_set(SmallerNode1, NewState),
   assert_not_member_of_greater_leaf_set(SmallerNode1, NewState),
@@ -930,7 +954,12 @@ merge_node_in_leaf_set_test() ->
   NewState6 = merge_node_in_leaf_set(GreaterNode3, NewState5),
   assert_not_member_of_greater_leaf_set(GreaterNode1, NewState6),
   assert_member_of_greater_leaf_set(GreaterNode2, NewState6),
-  assert_member_of_greater_leaf_set(GreaterNode3, NewState6).
+  assert_member_of_greater_leaf_set(GreaterNode3, NewState6),
+
+  % This one should not affect the leaf set, and hence not
+  % result in a call to pastry_app
+  merge_node_in_leaf_set(GreaterNode3, NewState6),
+  erlymock:verify().
 merge_node_in_leaf_set_should_not_allow_duplicates_test() ->
   MyKey = [1,0],
   Self = #node{
@@ -980,7 +1009,13 @@ discard_dead_node_from_leafset_test() ->
   },
   State = (test_state())#pastry_state{leaf_set = {[DeadNode], [DeadNode]}},
   ?assert(member(DeadNode, all_known_nodes(State))),
+  erlymock:start(),
+  erlymock:o_o(pastry_app, new_leaves, [{[],[]}], [{return, ok}]),
+  erlymock:replay(), 
   UpdatedState = discard_dead_node_from_leafset(DeadNode, State),
+  % This second time it should not call out to pastry_app again.
+  discard_dead_node_from_leafset(DeadNode, UpdatedState),
+  erlymock:verify(),
   ?assertNot(member(DeadNode, all_known_nodes(UpdatedState))).
 
 discard_dead_node_from_neighborhoodset_test() ->

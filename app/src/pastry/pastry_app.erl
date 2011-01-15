@@ -14,7 +14,7 @@
 -export([
     deliver/2,
     forward/3,
-    newLeafs/1
+    new_leaves/1
   ]).
 
 %% ------------------------------------------------------------------
@@ -51,8 +51,9 @@ forward(Msg, _Key, NextNode) ->
 
 
 % @doc: Called by pastry whenever there is a change in the local node's leaf set.
--spec(newLeafs/1::({[#node{}], [#node{}]}) -> ok).
-newLeafs(leafSet) ->
+-spec(new_leaves/1::({[#node{}], [#node{}]}) -> ok).
+new_leaves(LeafSet) ->
+  io:format("Received new leaf set: ~p~n", [LeafSet]),
   ok.
 
 %% ------------------------------------------------------------------
