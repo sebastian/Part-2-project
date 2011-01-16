@@ -8,8 +8,13 @@
              hub_app,
              hub_sup,
              hub_resource,
+             hub_tcp,
+             gen_listener_tcp,
 
-             node_srv
+             node, node_core,
+             struct,
+             static_resource,
+             auth
             ]},
   {registered, []},
   {applications, [

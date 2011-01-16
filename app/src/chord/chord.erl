@@ -156,6 +156,33 @@ init(Args) ->
     error ->
       {stop, couldnt_join_chord_network}
   end.
+%% @doc: joins another chord node and returns the updated chord state
+-spec(join/1::(State::#chord_state{}) -> 
+    {ok, #chord_state{}} | error).
+join(State) -> 
+  % We are joining the network, so we don't yet have a predecessor
+  PredState = State#chord_state{predecessor = undefined},
+
+  JoinIp = {0,0,0,0},
+  JoinPort = 6001,
+  Self = State#chord_state.self,
+  case chord_tcp:rendevouz(Self, JoinIp, JoinPort) of
+    first -> 
+      error_logger:info_msg("First and only node in the Chord network (Ip: ~p, Port: ~p)", [Self#node.ip, Self#node.port]),
+      {ok, PredState};
+    Nodes -> perform_join(Nodes, PredState)
+  end.
+
+perform_join([], _State) -> error;
+perform_join([{JoinIp, JoinPort}|Ps], #chord_state{self = #node{key = OwnKey}} = State) ->
+  % Find the successor node using the given node
+  case chord_tcp:rpc_find_successor(OwnKey, JoinIp, JoinPort) of
+    {ok, Succ} ->
+      {ok, set_successor(Succ, State)};
+    {error, _} ->
+      perform_join(Ps, State)
+  end.
+
 
 %% Call:
 handle_call({remove_node, BadNode}, _From, State) ->
@@ -455,37 +482,6 @@ check_closest_preceding_finger(Key, #node{key = NodeId} = Node, Fingers, Current
   case ((CurrentNode#node.key < NodeId) andalso (NodeId < Key)) of
     true -> Node;
     false -> closest_preceding_finger(Key, Fingers, CurrentFinger-1, CurrentNode)
-  end.
-
-
-%% @doc: joins another chord node and returns the updated chord state
--spec(join/1::(State::#chord_state{}) -> 
-    {ok, #chord_state{}} | error).
-join(State) -> 
-  OwnIp = (State#chord_state.self)#node.ip,
-  OwnPort = (State#chord_state.self)#node.port,
-
-  % We are joining the network, so we don't yet have a predecessor
-  PredState = State#chord_state{predecessor = undefined},
-
-  % Get node that can be used to join the chord network:
-  case utilities:get_join_nodes(OwnIp, OwnPort) of
-    first ->
-      % We are the first in the network. Return the current state.
-      {ok, PredState};
-    JoinNodes ->
-      perform_join(JoinNodes, PredState)
-  end.
-
-perform_join([], _State) -> error;
-perform_join([{JoinIp, JoinPort}|Ps], State) ->
-  OwnKey = (State#chord_state.self)#node.key,
-  % Find the successor node using the given node
-  case chord_tcp:rpc_find_successor(OwnKey, JoinIp, JoinPort) of
-    {ok, Succ} ->
-      {ok, set_successor(Succ, State)};
-    {error, _} ->
-      perform_join(Ps, State)
   end.
 
 

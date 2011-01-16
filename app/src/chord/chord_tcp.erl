@@ -27,7 +27,8 @@
          notify_successor/2, 
          get_predecessor/1, 
          rpc_get_successor/1,
-         rpc_send_entries/2
+         rpc_send_entries/2,
+         rendevouz/3
        ]).
 
 %% ------------------------------------------------------------------
@@ -41,49 +42,57 @@
 %% API Function Definitions
 %% ------------------------------------------------------------------
 
+% Performs a randevouz with the hub_app which returns nodes to
+% connect to
+rendevouz(#node{ip = SelfIp, port = SelfPort}, Ip, Port) ->
+  case perform_rpc({rendevouz, chord, SelfIp, SelfPort}, #node{ip = Ip, port = Port}) of
+    {ok, Reply} -> Reply;
+    Other -> Other
+  end.
+
 -spec(rpc_send_entries/2::(Entries::[#entry{}], Node::#node{}) ->
     {ok, done} | {error, _}).
-rpc_send_entries(Entries, #node{ip=Ip, port=Port}) ->
-  perform_rpc({send_entries, Entries}, Ip, Port).
+rpc_send_entries(Entries, Node) ->
+  perform_rpc({send_entries, Entries}, Node).
 
 -spec(rpc_lookup_key/2::(Key::key(), Node::#node{}) ->
     {ok, [#entry{}]} | {error, _}).
-rpc_lookup_key(Key, #node{ip=Ip, port=Port}) ->
-  perform_rpc({lookup_key, Key}, Ip, Port).
+rpc_lookup_key(Key, Node) ->
+  perform_rpc({lookup_key, Key}, Node).
 
 -spec(rpc_set_key/3::(Key::key(), Value::#entry{}, Node::#node{}) ->
     {ok, _} | {error, _}).
-rpc_set_key(Key, Value, #node{ip=Ip, port=Port}) ->
-  perform_rpc({set_key, Key, Value}, Ip, Port).
+rpc_set_key(Key, Value, Node) ->
+  perform_rpc({set_key, Key, Value}, Node).
 
 -spec(rpc_get_closest_preceding_finger_and_succ/2::(Key::key(), Node::#node{}) 
     -> {ok, {_::#node{}, _::#node{}}} | {error, _}).
-rpc_get_closest_preceding_finger_and_succ(Key, #node{ip=Ip, port=Port}) ->
-  perform_rpc({preceding_finger, Key}, Ip, Port).
+rpc_get_closest_preceding_finger_and_succ(Key, Node) ->
+  perform_rpc({preceding_finger, Key}, Node).
 
 -spec(rpc_find_successor/3::(Key::key(), Ip::ip(), Port::port_number()) ->
     {ok, #node{}} | {error, _}).
 rpc_find_successor(Key, Ip, Port) ->
-  perform_rpc({find_successor, Key}, Ip, Port).
+  perform_rpc({find_successor, Key}, #node{ip = Ip, port = Port}).
 
 -spec(get_predecessor/1::(#node{}) ->
     {ok, #node{}} | {ok, undefined} | {error, _}).
-get_predecessor(#node{ip=Ip, port=Port}) ->
-  perform_rpc(get_predecessor, Ip, Port).
+get_predecessor(Node) ->
+  perform_rpc(get_predecessor, Node).
 
 -spec(rpc_get_successor/1::(#node{}) ->
     {ok, #node{}} | {ok, undefined} | {error, _}).
-rpc_get_successor(#node{ip=Ip, port=Port}) ->
-  perform_rpc(get_successor, Ip, Port).
+rpc_get_successor(Node) ->
+  perform_rpc(get_successor, Node).
 
 -spec(notify_successor/2::(#node{}, CurrentNode::#node{}) -> ok).
-notify_successor(#node{ip = Ip, port = Port}, CurrentNode) ->
-  perform_rpc({notify_about_predecessor, CurrentNode}, Ip, Port),
+notify_successor(Node, CurrentNode) ->
+  perform_rpc({notify_about_predecessor, CurrentNode}, Node),
   ok.
 
--spec(perform_rpc/3::(Message::term(), Ip::ip(), Port::port_number()) ->
+-spec(perform_rpc/2::(Message::term(), #node{}) ->
     {ok, _} | {error, _}).
-perform_rpc(Message, Ip, Port) ->
+perform_rpc(Message, #node{ip = Ip, port = Port}) ->
   case gen_tcp:connect(Ip, Port, [binary, {packet, 0}, {active, true}]) of
     {ok, Socket} ->
       ok = gen_tcp:send(Socket, term_to_binary(Message)),
@@ -209,6 +218,9 @@ handle_msg(get_successor) ->
 
 handle_msg({send_entries, Entries}) ->
   chord:receive_entries(Entries);
+
+handle_msg(ping) ->
+  pong;
 
 handle_msg(_) ->
   ?NYI.
