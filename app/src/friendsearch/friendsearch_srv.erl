@@ -119,7 +119,7 @@ code_change(_OldVsn, State, _Extra) ->
 
 add_list_test() ->
   test_dht:start(),
-  start(test_dht),
+  start([{dht, test_dht}]),
   Person = test_utils:test_person_sebastianA(),
   ?assertNot(lists:member(Person, list())),
   add(Person),
@@ -129,7 +129,7 @@ add_list_test() ->
 
 find_test() ->
   test_dht:start(),
-  start(test_dht),
+  start([{dht, test_dht}]),
   Person = test_utils:test_person_sebastianA(),
   PersonName = Person#person.name,
   ?assertEqual([], find(PersonName)),
@@ -140,7 +140,7 @@ find_test() ->
 
 find_by_surname_test() ->
   test_dht:start(),
-  start(test_dht),
+  start([{dht, test_dht}]),
   Person = test_utils:test_person_sebastianA(),
   Surname = <<"Eide">>,
   ?assertEqual([], find(Surname)),
@@ -151,7 +151,7 @@ find_by_surname_test() ->
 
 find_multiple_test() ->
   test_dht:start(),
-  start(test_dht),
+  start([{dht, test_dht}]),
   % Name: Sebastian Probst Eide
   Sebastian = test_utils:test_person_sebastianA(),
 

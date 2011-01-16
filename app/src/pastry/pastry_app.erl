@@ -103,10 +103,12 @@ deliver({join, Node}, _Key) ->
   pastry:welcome(Node);
 
 deliver({lookup_key, Key, Node, Ref}, _Key) ->
+  io:format("Received lookup message for ~p~n", [Key]),
   pastry_tcp:send_msg({data, Ref, datastore_srv:lookup(Key)}, Node);
 
-deliver({set, Key, Entry}, _Key) ->
+deliver({set, Key, Entry}, _PastryKey) ->
   gen_server:cast(?SERVER, {replicate, Entry}),
+  io:format("Storing entry for ~p~n", [Key]),
   datastore_srv:set(Key, Entry);
 
 deliver(Msg, _Key) ->
@@ -149,7 +151,7 @@ handle_call({lookup, Key}, From, #pastry_app_state{b = B} = State) ->
   spawn(fun() ->
     PastryKey = utilities:number_to_pastry_key_with_b(Key, B),
     Ref = make_ref(),
-    pastry:route(PastryKey, {lookup_key, Key, pastry:get_self(), {self(), Ref}}),
+    pastry:route({lookup_key, Key, pastry:get_self(), {self(), Ref}}, PastryKey),
     ReturnValue = receive
       {data, Ref, Data} -> Data
     after ?TIMEOUT -> {error, timeout}

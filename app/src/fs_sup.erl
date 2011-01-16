@@ -61,7 +61,7 @@ init([]) ->
       none -> [];
       Port -> [
           CreateSupWithArgs(pastry_sup, [{port, Port}]),
-          CreateSupWithArgs(friendsearch_sup, [{dht, pastry}])
+          CreateSupWithArgs(friendsearch_sup, [{dht, pastry_app}])
         ]
     end ++
     case utilities:get_chord_port() of

@@ -2,7 +2,7 @@
 -behaviour(gen_server).
 -compile([export_all]).
 -define(SERVER, ?MODULE).
--define(NEIGHBORHOODWATCH_TIMER, 10000).
+-define(NEIGHBORHOODWATCH_TIMER, 30000).
 
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
@@ -241,7 +241,7 @@ handle_cast({update_local_state_with_nodes, Nodes}, #pastry_state{routing_table 
     merge_node_in_rt(Node, PrevRoutingTable)
   end, RT, Nodes),
   NewNeighborhoodSet = foldl(fun(Node, PrevNHS) ->
-    merge_node_in_nhs(Node, PrevNHS, B)
+    merge_node_in_nhs(Node, PrevNHS, B, State#pastry_state.self)
   end, NS, Nodes),
   {noreply, UpdatedLeafSetState#pastry_state{routing_table = NewRT, neighborhood_set = NewNeighborhoodSet}};
 
@@ -270,25 +270,38 @@ code_change(_OldVsn, State, _Extra) ->
 %% ------------------------------------------------------------------
 
 perform_neighborhood_watch(#pastry_state{neighborhood_set = NHS}) ->
-  [discard_dead_node(Node) || Node <- NHS, not pastry_tcp:is_node_alive(Node)].
+  [spawn(fun() ->
+      case pastry_tcp:is_node_alive(Node) of
+        true -> awesome;
+        false -> discard_dead_node(Node)
+      end
+  end) || Node <- NHS].
 
 perform_neighborhood_set_expansion(#pastry_state{neighborhood_set = []}) -> ok; % can't expand from non-existant neighbor.
 perform_neighborhood_set_expansion(#pastry_state{b = B, neighborhood_set = NHS}) ->
-  case length(NHS) < (1 bsl B) of
-    true ->
-      {ok, Nodes} = pastry_tcp:request_neighborhood_set(hd(NHS)),
-      add_nodes(Nodes);
-    false -> ok % We are fine
-  end.
+  spawn(fun() ->
+    case length(NHS) < (1 bsl B) of
+      true ->
+        case pastry_tcp:request_neighborhood_set(hd(NHS)) of
+          {ok, Nodes} -> add_nodes(Nodes);
+          {error, _} -> ok
+        end;
+      false -> ok % We are fine
+    end
+  end).
 
 create_routing_table(Key) ->
   [#routing_table_entry{value = none} | [#routing_table_entry{value = V} || V <- Key]].
 
-merge_node_in_nhs(Node, NeighborHoodSet, B) -> 
+merge_node_in_nhs(Node, NeighborHoodSet, _B, Self) when Node#node.key =:= Self#node.key -> NeighborHoodSet;
+merge_node_in_nhs(Node, NeighborHoodSet, B, _) -> 
   MaxNeighbors = 1 bsl B,
-  sublist(sort(fun(N, M) -> N#node.distance < M#node.distance end, [Node|NeighborHoodSet]), MaxNeighbors).
+  case member(Node, NeighborHoodSet) of
+    true -> NeighborHoodSet;
+    false -> sublist(sort(fun(N, M) -> N#node.distance < M#node.distance end, [Node|NeighborHoodSet]), MaxNeighbors)
+  end.
 
-merge_node_in_leaf_set(Self, #pastry_state{self = Self} = State) -> State;
+merge_node_in_leaf_set(Node, #pastry_state{self = Self} = State) when Node#node.key =:= Self#node.key -> State;
 merge_node_in_leaf_set(Node, #pastry_state{b = B, self = Self, leaf_set = {LSS, LSG}} = State) ->
   case member(Node, LSS) orelse member(Node, LSG) of
     true -> State;
@@ -372,10 +385,10 @@ prepare_nodes_for_adding(Nodes) when is_list(Nodes) ->
   % Get the local distance of the nodes before adding them
   % to our own routing table.
   spawn(fun() ->
+    LiveNodes = [Node || Node <- Nodes, pastry_tcp:is_node_alive(Node)],
     gen_server:cast(?SERVER, {
       update_local_state_with_nodes, 
-      [N#node{distance = pastry_locality:distance(N#node.ip)} || N <- 
-        rpc:pmap({pastry_utils, node_if_alive}, [], Nodes), not N =:= dead]
+      [N#node{distance = pastry_locality:distance(N#node.ip)} || N <- LiveNodes]
     })
   end);
 prepare_nodes_for_adding(Node) -> prepare_nodes_for_adding([Node]).
@@ -1013,6 +1026,12 @@ merge_node_in_leaf_set_test() ->
   % This one should not affect the leaf set, and hence not
   % result in a call to pastry_app
   merge_node_in_leaf_set(GreaterNode3, NewState6),
+
+  % It should never add itself to the leaf set
+  AlterEgo = Self#node{distance = 20},
+  NewState7 = merge_node_in_leaf_set(AlterEgo, NewState6),
+  assert_not_member_of_smaller_leaf_set(AlterEgo, NewState7),
+  assert_not_member_of_greater_leaf_set(AlterEgo, NewState7),
   erlymock:verify().
 merge_node_in_leaf_set_should_not_allow_duplicates_test() ->
   MyKey = [1,0],
@@ -1044,18 +1063,23 @@ is_node_less_than_me_test() ->
 
 merge_node_in_nhs_test() ->
   B = 1,
+  Self = #node{key =[1,2,3]},
   Node1 = #node{distance=4},
   Node2 = #node{distance=3},
   Node3 = #node{distance=2},
-  NewNHS = merge_node_in_nhs(Node1, [], B),
+  NewNHS = merge_node_in_nhs(Node1, [], B, Self),
   ?assert(member(Node1, NewNHS)),
-  NewNHS2 = merge_node_in_nhs(Node2, NewNHS, B),
+  NewNHS2 = merge_node_in_nhs(Node2, NewNHS, B, Self),
   ?assert(member(Node1, NewNHS2)),
   ?assert(member(Node2, NewNHS2)),
-  NewNHS3 = merge_node_in_nhs(Node3, NewNHS2, B),
+  NewNHS3 = merge_node_in_nhs(Node3, NewNHS2, B, Self),
   ?assertNot(member(Node1, NewNHS3)),
   ?assert(member(Node2, NewNHS3)),
-  ?assert(member(Node3, NewNHS3)).
+  ?assert(member(Node3, NewNHS3)),
+  % The same node should not be added if already present
+  [Node1] = merge_node_in_nhs(Node1, [Node1], B, Self),
+  % Should not add self
+  [] = merge_node_in_nhs(Self, [], B, Self).
 
 discard_dead_node_from_leafset_test() ->
   DeadNode = #node{key = [1,2,3,4]},

@@ -3,6 +3,7 @@
 
 -include("../fs.hrl").
 -include("pastry.hrl").
+-define(TIMEOUT, 2000).
 
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
@@ -84,7 +85,7 @@ send_msg(Msg, Node) ->
 -spec(perform_rpc/2::(Message::term(), #node{}) ->
     {ok, _} | {error, _}).
 perform_rpc(Message, #node{ip = Ip, port = Port}) ->
-  case gen_tcp:connect(Ip, Port, [binary, {packet, 0}, {active, true}]) of
+  case gen_tcp:connect(Ip, Port, [binary, {packet, 0}, {active, true}], ?TIMEOUT) of
     {ok, Socket} ->
       ok = gen_tcp:send(Socket, term_to_binary(Message)),
       receive_data(Socket, []);
@@ -103,7 +104,7 @@ receive_data(Socket, SoFar) ->
         error_logger:error_msg("Response returned by other part couldn't be parsed"),
         {error, badarg}
       end
-  after 5000 ->
+  after 2 * ?TIMEOUT ->
     error_logger:info_msg("PerformRPC times out~n"),
     {error, timeout}
   end.
@@ -148,7 +149,7 @@ receive_incoming(Socket, SoFar) ->
       % Something is wrong. We aggresively close the socket.
       gen_tcp:close(Socket),
       ok
-  after 2000 ->
+  after ?TIMEOUT ->
     % Client hasn't sent us data for a while, close connection.
     gen_tcp:close(Socket)
   end.
