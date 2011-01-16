@@ -30,7 +30,8 @@
     request_neighborhood_set/1,
     send_nodes/2,
     deliver_in_bulk/2,
-    send_msg/2
+    send_msg/2,
+    is_node_alive/1
   ]).
 
 %% ------------------------------------------------------------------
@@ -44,39 +45,45 @@
 %% API Function Definitions
 %% ------------------------------------------------------------------
 
-deliver_in_bulk(Entries, #node{ip = Ip, port = Port}) ->
-  perform_rpc({bulk_delivery, Entries}, Ip, Port).
+is_node_alive(Node) ->
+  case perform_rpc(ping, Node) of
+    {ok, pong} -> true;
+    _ -> false
+  end.
 
-perform_join(JoinNode, #node{ip = Ip, port = Port}) ->
-  perform_rpc({join, JoinNode}, Ip, Port).
+deliver_in_bulk(Entries, Node) ->
+  perform_rpc({bulk_delivery, Entries}, Node).
 
-send_routing_table(RoutingTable, #node{ip = Ip, port = Port}) ->
-  perform_rpc({send_routing_table, RoutingTable}, Ip, Port).
+perform_join(JoinNode, Node) ->
+  perform_rpc({join, JoinNode}, Node).
 
-route_msg(Msg, Key, #node{ip = Ip, port = Port}) ->
-  perform_rpc({route, Msg, Key}, Ip, Port).
+send_routing_table(RoutingTable, Node) ->
+  perform_rpc({send_routing_table, RoutingTable}, Node).
 
-welcome({LSS, LSG}, #node{ip = Ip, port = Port}) ->
-  perform_rpc({welcome, LSS ++ LSG}, Ip, Port).
+route_msg(Msg, Key, Node) ->
+  perform_rpc({route, Msg, Key}, Node).
 
-request_routing_table(#node{ip = Ip, port = Port}) ->
-  perform_rpc(request_routing_table, Ip, Port).
+welcome({LSS, LSG}, Node) ->
+  perform_rpc({welcome, LSS ++ LSG}, Node).
 
-request_leaf_set(#node{ip = Ip, port = Port}) ->
-  perform_rpc(request_leaf_set, Ip, Port).
+request_routing_table(Node) ->
+  perform_rpc(request_routing_table, Node).
 
-request_neighborhood_set(#node{ip = Ip, port = Port}) ->
-  perform_rpc(request_neighborhood_set, Ip, Port).
+request_leaf_set(Node) ->
+  perform_rpc(request_leaf_set, Node).
 
-send_nodes(Nodes, #node{ip = Ip, port = Port}) ->
-  perform_rpc({add_nodes, Nodes}, Ip, Port).
+request_neighborhood_set(Node) ->
+  perform_rpc(request_neighborhood_set, Node).
 
-send_msg(Msg, #node{ip = Ip, port = Port}) ->
-  perform_rpc(Msg, Ip, Port).
+send_nodes(Nodes, Node) ->
+  perform_rpc({add_nodes, Nodes}, Node).
 
--spec(perform_rpc/3::(Message::term(), Ip::ip(), Port::port_number()) ->
+send_msg(Msg, Node) ->
+  perform_rpc(Msg, Node).
+
+-spec(perform_rpc/2::(Message::term(), #node{}) ->
     {ok, _} | {error, _}).
-perform_rpc(Message, Ip, Port) ->
+perform_rpc(Message, #node{ip = Ip, port = Port}) ->
   case gen_tcp:connect(Ip, Port, [binary, {packet, 0}, {active, true}]) of
     {ok, Socket} ->
       ok = gen_tcp:send(Socket, term_to_binary(Message)),
@@ -222,6 +229,9 @@ handle_msg({data, {Pid, Ref}, Data}) ->
 handle_msg({bulk_delivery, Entries}) ->
   spawn(fun() -> pastry_app:bulk_delivery(Entries) end),
   ok;
+
+handle_msg(ping) ->
+  pong;
 
 handle_msg(_) ->
   ?NYI.
