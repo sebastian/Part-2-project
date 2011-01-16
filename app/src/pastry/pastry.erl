@@ -2,6 +2,7 @@
 -behaviour(gen_server).
 -compile([export_all]).
 -define(SERVER, ?MODULE).
+-define(NEIGHBORHOODWATCH_TIMER, 10000).
 
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
@@ -47,7 +48,8 @@
 % For use by other modules
 -export([
     value_of_key/2,
-    max_for_keylength/2
+    max_for_keylength/2,
+    neighborhood_watch/0
   ]).
 
 %% ------------------------------------------------------------------
@@ -93,6 +95,10 @@ route(Msg, Key) ->
 %% ------------------------------------------------------------------
 %% PRIVATE API Function Definitions
 %% ------------------------------------------------------------------
+
+neighborhood_watch() ->
+  gen_server:cast(?SERVER, perform_neighborhood_watch),
+  gen_server:cast(?SERVER, perform_neighborhood_expansion).
 
 augment_routing_table(RoutingTable) ->
   gen_server:cast(?SERVER, {augment_routing_table, RoutingTable}),
@@ -170,10 +176,13 @@ init(Args) ->
       end
   end.
 init_state(B, Self, Key) ->
+  {ok, TimerRefNeighborhoodsetRevitalization} = 
+    timer:apply_interval(?NEIGHBORHOODWATCH_TIMER, ?MODULE, neighborhood_watch, []),
   {ok, #pastry_state{
     b = B,
     self = Self,
-    routing_table = create_routing_table(Key)
+    routing_table = create_routing_table(Key),
+    neighborhood_watch_ref = TimerRefNeighborhoodsetRevitalization
   }}.
 
 % Call:
@@ -193,6 +202,14 @@ handle_call(stop, _From, State) ->
   {stop, normal, ok, State}.
 
 % Casts:
+handle_cast(perform_neighborhood_expansion, State) ->
+  perform_neighborhood_set_expansion(State),
+  {noreply, State};
+
+handle_cast(perform_neighborhood_watch, State) ->
+  perform_neighborhood_watch(State),
+  {noreply, State};
+
 handle_cast({welcome, Node}, #pastry_state{leaf_set = {LSS, LSG}} = State) ->
   spawn(fun() ->
     % We send the node our leafset
@@ -241,7 +258,8 @@ handle_info(Info, State) ->
   {noreply, State}.
 
 % Terminate:
-terminate(_Reason, _State) ->
+terminate(_Reason, #pastry_state{neighborhood_watch_ref = NWR}) ->
+  timer:cancel(NWR),
   ok.
 
 code_change(_OldVsn, State, _Extra) ->
@@ -250,6 +268,18 @@ code_change(_OldVsn, State, _Extra) ->
 %% ------------------------------------------------------------------
 %% Internal Function Definitions
 %% ------------------------------------------------------------------
+
+perform_neighborhood_watch(#pastry_state{neighborhood_set = NHS}) ->
+  [discard_dead_node(Node) || Node <- NHS, not pastry_tcp:is_node_alive(Node)].
+
+perform_neighborhood_set_expansion(#pastry_state{neighborhood_set = []}) -> ok; % can't expand from non-existant neighbor.
+perform_neighborhood_set_expansion(#pastry_state{b = B, neighborhood_set = NHS}) ->
+  case length(NHS) < (1 bsl B) of
+    true ->
+      {ok, Nodes} = pastry_tcp:request_neighborhood_set(hd(NHS)),
+      add_nodes(Nodes);
+    false -> ok % We are fine
+  end.
 
 create_routing_table(Key) ->
   [#routing_table_entry{value = none} | [#routing_table_entry{value = V} || V <- Key]].
@@ -1058,5 +1088,28 @@ discard_dead_node_test() ->
   ?assertNot(member(DeadNode1, all_known_nodes(UpdatedState))),
   ?assertNot(member(DeadNode2, all_known_nodes(UpdatedState))),
   ?assertNot(member(DeadNode3, all_known_nodes(UpdatedState))).
+
+perform_neighborhood_watch_test() ->
+  State = test_state(),
+  N1 = #node{key = [1,2,3,4]},
+  N2 = #node{key = [2,3,4,5]},
+  erlymock:start(),
+  erlymock:o_o(pastry_tcp, is_node_alive, [N1], [{return, true}]),
+  erlymock:o_o(pastry_tcp, is_node_alive, [N2], [{return, false}]),
+  % The should remove the node... can't easily test for this... dang.
+  erlymock:replay(), 
+  perform_neighborhood_watch(State#pastry_state{neighborhood_set = [N1, N2]}),
+  erlymock:verify().
+
+perform_neighborhood_set_expansion_test() ->
+  % B = 3, so it won't be happy unless there are 2^b neihgbors (8)
+  N = #node{key = [1,2,3,4]},
+  State = (test_state())#pastry_state{neighborhood_set = [N]},
+  NHS = [#node{key = [2,3,4,5]}],
+  erlymock:start(),
+  erlymock:o_o(pastry_tcp, request_neighborhood_set, [N], [{return, {ok, NHS}}]),
+  erlymock:replay(), 
+  perform_neighborhood_set_expansion(State),
+  erlymock:verify().
 
 -endif.

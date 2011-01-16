@@ -27,5 +27,8 @@
     leaf_set = {[], []} :: {[#node{}], [#node{}]},
 
     % Information about the current node
-    self = #node{}
+    self = #node{},
+
+    % Timer that ensures neighborhoodset nodes are alive
+    neighborhood_watch_ref
   }).

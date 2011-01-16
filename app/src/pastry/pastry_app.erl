@@ -103,10 +103,11 @@ deliver({join, Node}, _Key) ->
   pastry:welcome(Node);
 
 deliver({lookup_key, Key, Node, Ref}, _Key) ->
-  pastry_tcp:send_msg({data, Ref, datastore:lookup(Key)}, Node);
+  pastry_tcp:send_msg({data, Ref, datastore_srv:lookup(Key)}, Node);
 
 deliver({set, Key, Entry}, _Key) ->
-  datastore:set(Key, Entry);
+  gen_server:cast(?SERVER, {replicate, Entry}),
+  datastore_srv:set(Key, Entry);
 
 deliver(Msg, _Key) ->
   error_logger:error_msg("Unknown message delivered: ~p~n", [Msg]),
@@ -129,7 +130,7 @@ new_leaves(LeafSet) ->
 % Used by pastry_tcp ------------------------------------------------
 
 bulk_delivery(Entries) ->
-  [datastore:set(Entry#entry.key, Entry) || Entry <- Entries].
+  [datastore_srv:set(Entry#entry.key, Entry) || Entry <- Entries].
 
 %% ------------------------------------------------------------------
 %% gen_server Function Definitions
@@ -168,9 +169,13 @@ handle_call(Msg, _From, State) ->
   {reply, unknown_message, State}.
 
 % Casts:
-handle_cast({new_leaves, _LeafSet}, State) ->
-  io:format("pastry_app received new leaves~n"),
+handle_cast({replicate, Entry}, State) ->
+  replicate_entry(Entry, State),
   {noreply, State};
+
+handle_cast({new_leaves, NewLeafSet}, State) ->
+  replicate_to_changed_leaf_set(NewLeafSet, State),
+  {noreply, State#pastry_app_state{leaf_set = NewLeafSet}};
 
 handle_cast(Msg, State) ->
   error_logger:error_msg("received unknown cast: ~p", [Msg]),
@@ -192,7 +197,7 @@ code_change(_OldVsn, State, _Extra) ->
 %% Private functions
 %% ------------------------------------------------------------------
 
-ownership_range(#pastry_app_state{leaf_set = {[], []}}) -> all;
+ownership_range(#pastry_app_state{self = #node{key = Key}, b = B, leaf_set = {[], []}}) -> {0, max_for_keylength(Key,B)};
 ownership_range(#pastry_app_state{b = B, self = #node{key = SelfKey}, leaf_set = {LSS, []}}) -> 
   LSSKey = (hd(reverse(LSS)))#node.key,
   {half_between_keys(LSSKey, SelfKey, B), half_between_keys(SelfKey, LSSKey, B)};
@@ -220,6 +225,23 @@ half_between_keys(Key1, Key2, B) ->
 deliver_in_bulk(Entries, Node) ->
   pastry_tcp:deliver_in_bulk(Entries, Node).
 
+replicate_to_changed_leaf_set(NewLeafSet, #pastry_app_state{leaf_set = OldLeafSet} = State) ->
+  case new_nodes_in_leafset(NewLeafSet, OldLeafSet) of
+    [] -> ok; % No new nodes to replicate data to
+    Nodes ->
+      {StartRange, EndRange} = ownership_range(State),
+      Data = datastore_srv:get_entries_in_range(StartRange, EndRange),
+      io:format("pastry_app replicating ~p entries to nodes: ~p~n", [length(Data), Nodes]),
+      [deliver_in_bulk(Data, Node) || Node <- Nodes]
+  end.
+
+new_nodes_in_leafset({NewLSS, NewLSG}, {OldLSS, OldLSG}) ->
+  (NewLSS -- OldLSS) ++ (NewLSG -- OldLSG).
+
+replicate_entry(Entry, #pastry_app_state{leaf_set = {LSS, LSG}}) ->
+  Leaves = LSS ++ LSG,
+  [deliver_in_bulk([Entry], Leaf) || Leaf <- Leaves].
+
 %% ------------------------------------------------------------------
 %% Tests
 %% ------------------------------------------------------------------
@@ -235,18 +257,65 @@ test_state() ->
 ownership_range_test() ->
   State = test_state(),
   {2,6} = ownership_range(State),
-  all = ownership_range(State#pastry_app_state{leaf_set = {[],[]}}),
   {LSS, LSG} = State#pastry_app_state.leaf_set,
   {14, 6} = ownership_range(State#pastry_app_state{leaf_set = {[], LSG}}),
   {2, 10} = ownership_range(State#pastry_app_state{leaf_set = {LSS, []}}),
   NewLesser = #node{key = [3,0]},
-  {0, 6} = ownership_range(State#pastry_app_state{leaf_set = {[NewLesser], LSG}}).
+  {0, 6} = ownership_range(State#pastry_app_state{leaf_set = {[NewLesser], LSG}}),
+  % When there are no leaves
+  SelfKey = (State#pastry_app_state.self)#node.key,
+  Max = max_for_keylength(SelfKey, State#pastry_app_state.b),
+  {0, Max} = ownership_range(State#pastry_app_state{leaf_set = {[],[]}}).
 
+replicate_to_changed_leaf_set_test() ->
+  SL1 = #node{key = [1,2]},
+  State = test_state(),
+  {LSS, LSG} = State#pastry_app_state.leaf_set,
+  % Original range is {2,6}
+  Data = [#entry{}],
+  erlymock:start(),
+  % Should be result of first call
+  erlymock:strict(datastore_srv, get_entries_in_range, [2, 6], [{return, Data}]),
+  erlymock:strict(pastry_tcp, deliver_in_bulk, [Data, SL1], [{return, {ok,ok}}]),
 
-%   erlymock:start(),
-%   erlymock:strict(chord_tcp, rpc_get_closest_preceding_finger_and_succ, [Key, get_successor(State)], [{return, RpcReturn}]),
-%   erlymock:replay(), 
-%   % Methods invoking whatever.
-%   erlymock:verify().
+  % Second call shouldn't replicate any data as there has been noe change to the leafset
+  erlymock:replay(), 
+  replicate_to_changed_leaf_set({LSS,[SL1|LSG]}, State),
+  replicate_to_changed_leaf_set({LSS,LSG}, State),
+  erlymock:verify().
+replicate_to_changed_leaf_set_no_previous_nodes_test() ->
+  SL1 = #node{key = [1,2]},
+  State = test_state(),
+  SelfKey = (State#pastry_app_state.self)#node.key,
+  B = State#pastry_app_state.b,
+  % Original range is all
+  Data = [#entry{}],
+  erlymock:start(),
+  erlymock:strict(datastore_srv, get_entries_in_range, [0, max_for_keylength(SelfKey, B)], [{return, Data}]),
+  erlymock:strict(pastry_tcp, deliver_in_bulk, [Data, SL1], [{return, {ok,ok}}]),
+  erlymock:replay(), 
+  replicate_to_changed_leaf_set({[],[SL1]}, State#pastry_app_state{leaf_set = {[],[]}}),
+  erlymock:verify().
+
+new_nodes_in_leafset_test() ->
+  Node1 = #node{key=[1]},
+  Node2 = #node{key=[2]},
+  Node3 = #node{key=[3]},
+  ?assertEqual([], new_nodes_in_leafset({[],[]},{[],[]})),
+  ?assertEqual([Node1, Node2, Node3], new_nodes_in_leafset({[Node1, Node2],[Node3]},{[],[]})),
+  ?assertEqual([], new_nodes_in_leafset({[Node1],[Node3]},{[Node1],[Node3]})),
+  ?assertEqual([Node1], new_nodes_in_leafset({[Node1],[Node3]},{[],[Node3]})).
+
+replicate_entry_test() ->
+  Entry = #entry{},
+  Data = [Entry],
+  State = test_state(),
+  {LSS, LSG} = State#pastry_app_state.leaf_set,
+  Leaves = LSS ++ LSG,
+  erlymock:start(),
+  [erlymock:strict(pastry_tcp, deliver_in_bulk, [Data, Leaf], [{return, {ok,ok}}]) || Leaf <- Leaves],
+  erlymock:replay(), 
+  replicate_entry(Entry, State),
+  erlymock:verify().
 
 -endif.
