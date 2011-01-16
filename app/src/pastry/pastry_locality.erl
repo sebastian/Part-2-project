@@ -14,7 +14,7 @@
 %% Public API
 %% ------------------------------------------------------------------
 
--export([start_link/0, start/0, stop/0]).
+-export([start_link/1, start/0, stop/0]).
 -export([distance/1]).
 
 %% ------------------------------------------------------------------
@@ -41,8 +41,8 @@
 start() ->
   gen_server:start({local, ?SERVER}, ?MODULE, [], []).
 
-start_link() ->
-  gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
+start_link(Args) ->
+  gen_server:start_link({local, ?SERVER}, ?MODULE, Args, []).
 
 stop() ->
   gen_server:call(?MODULE, stop).

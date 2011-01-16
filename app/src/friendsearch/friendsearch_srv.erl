@@ -30,8 +30,8 @@
 %% API Function Definitions
 %% ------------------------------------------------------------------
 
-start(Dht) ->
-  gen_server:start({local, ?SERVER}, ?MODULE, [Dht], []).
+start(Args) ->
+  gen_server:start({local, ?SERVER}, ?MODULE, Args, []).
 
 start_link(Dht) ->
   gen_server:start_link({local, ?SERVER}, ?MODULE, [Dht], []).
@@ -75,7 +75,8 @@ keep_alive() ->
 %% gen_server Function Definitions
 %% ------------------------------------------------------------------
 
-init([Dht]) -> 
+init(Args) -> 
+  Dht = proplists:get_value(dht, Args),
   State = friendsearch:init(Dht),
   {ok, TimerRef} = 
       timer:apply_interval(?KEEP_ALIVE_INTERVAL, ?MODULE, keep_alive, []),

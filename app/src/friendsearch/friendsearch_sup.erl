@@ -9,15 +9,15 @@
 -behaviour(supervisor).
 
 %% External exports
--export([start_link/0, upgrade/0]).
+-export([start_link/1, upgrade/0]).
 
 %% supervisor callbacks
 -export([init/1]).
 
 %% @spec start_link() -> ServerRet
 %% @doc API for starting the supervisor.
-start_link() ->
-    supervisor:start_link({local, ?MODULE}, ?MODULE, []).
+start_link(Args) ->
+    supervisor:start_link({local, ?MODULE}, ?MODULE, Args).
 
 %% @spec upgrade() -> ok
 %% @doc Add processes if necessary.
@@ -40,8 +40,8 @@ upgrade() ->
 
 %% @spec init([]) -> SupervisorTree
 %% @doc supervisor callback.
-init([]) ->
-  CreateSrv = fun(Name) -> {Name, {Name, start_link, [chord]},
+init(Args) ->
+  CreateSrv = fun(Name) -> {Name, {Name, start_link, Args},
       permanent, 2000, worker, [Name]}
   end,
 

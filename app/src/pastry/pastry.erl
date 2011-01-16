@@ -374,7 +374,8 @@ prepare_nodes_for_adding(Nodes) when is_list(Nodes) ->
   spawn(fun() ->
     gen_server:cast(?SERVER, {
       update_local_state_with_nodes, 
-      [N#node{distance = pastry_locality:distance(N#node.ip)} || N <- Nodes]
+      [N#node{distance = pastry_locality:distance(N#node.ip)} || N <- 
+        rpc:pmap({pastry_utils, node_if_alive}, [], Nodes), not N =:= dead]
     })
   end);
 prepare_nodes_for_adding(Node) -> prepare_nodes_for_adding([Node]).
@@ -516,12 +517,31 @@ all_known_nodes(#pastry_state{routing_table = RT, leaf_set = {LSS, LSG}, neighbo
   
 discard_dead_node_from_leafset(Node, #pastry_state{leaf_set = LS} = State) ->
   {LSS, LSG} = LS,
-  NewLS = {LSS -- [Node], LSG -- [Node]},
+  NewLSS = LSS -- [Node],
+  NewLSG = LSG -- [Node],
+  NewLS = {NewLSS, NewLSG},
   case NewLS =/= LS of
-    true -> pastry_app:new_leaves(NewLS);
+    true -> 
+      pastry_app:new_leaves(NewLS),
+      % We should also ask the largest / smallest leaf
+      % for their leaf set so we can expand our own leaf
+      % set again
+      case NewLSS =/= LSS of
+        true -> request_new_leaves(NewLSS);
+        false -> request_new_leaves(reverse(NewLSG))
+      end;
     false -> ok
   end,
   State#pastry_state{leaf_set = NewLS}.
+request_new_leaves([]) -> ok;
+request_new_leaves(LeafList) ->
+  spawn(fun() ->
+    Node = hd(LeafList),
+    case pastry_tcp:request_leaf_set(Node) of
+      {ok, {LSS, LSG}} -> add_nodes(LSS ++ LSG);
+      {error, _} -> discard_dead_node(Node)
+    end
+  end).
 
 discard_dead_node_from_neighborhoodset(Node, #pastry_state{neighborhood_set = NS} = State) ->
   State#pastry_state{neighborhood_set = NS -- [Node]}.
@@ -1038,13 +1058,15 @@ merge_node_in_nhs_test() ->
   ?assert(member(Node3, NewNHS3)).
 
 discard_dead_node_from_leafset_test() ->
-  DeadNode = #node{
-    key = [1,2,3,4]
-  },
-  State = (test_state())#pastry_state{leaf_set = {[DeadNode], [DeadNode]}},
+  DeadNode = #node{key = [1,2,3,4]},
+  OtherNode = #node{key = [1,2,2,2]},
+  RequestNode = #node{key = [1,2,2,0]},
+
+  State = (test_state())#pastry_state{leaf_set = {[DeadNode, RequestNode], [OtherNode]}},
   ?assert(member(DeadNode, all_known_nodes(State))),
   erlymock:start(),
-  erlymock:o_o(pastry_app, new_leaves, [{[],[]}], [{return, ok}]),
+  erlymock:o_o(pastry_app, new_leaves, [{[RequestNode],[OtherNode]}], [{return, ok}]),
+  erlymock:o_o(pastry_tcp, request_leaf_set, [RequestNode], [{return, {ok,{[#node{}],[#node{}]}}}]),
   erlymock:replay(), 
   UpdatedState = discard_dead_node_from_leafset(DeadNode, State),
   % This second time it should not call out to pastry_app again.
@@ -1108,8 +1130,10 @@ perform_neighborhood_set_expansion_test() ->
   NHS = [#node{key = [2,3,4,5]}],
   erlymock:start(),
   erlymock:o_o(pastry_tcp, request_neighborhood_set, [N], [{return, {ok, NHS}}]),
+  % Second call does not, because the set is already big enough
   erlymock:replay(), 
   perform_neighborhood_set_expansion(State),
+  perform_neighborhood_set_expansion(State#pastry_state{neighborhood_set = [N, N, N, N, N, N, N, N]}),
   erlymock:verify().
 
 -endif.

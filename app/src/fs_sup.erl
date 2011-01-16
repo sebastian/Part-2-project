@@ -55,16 +55,21 @@ init([]) ->
     Processes = 
     % General things we want to start
     [
-      CreateSup(datastore_sup),
-      CreateSup(friendsearch_sup)
+      CreateSup(datastore_sup)
     ] ++
     case utilities:get_pastry_port() of
       none -> [];
-      Port -> [CreateSupWithArgs(pastry_sup, [{port, Port}])]
+      Port -> [
+          CreateSupWithArgs(pastry_sup, [{port, Port}]),
+          CreateSupWithArgs(friendsearch_sup, [{dht, pastry}])
+        ]
     end ++
     case utilities:get_chord_port() of
       none -> [];
-      Port -> [CreateSupWithArgs(chord_sup, [{port, Port}])]
+      Port -> [
+          CreateSupWithArgs(chord_sup, [{port, Port}]),
+          CreateSupWithArgs(friendsearch_sup, [{dht, chord}])
+        ]
     end ++
     % Check if the webmachine should be launched too:
     % Only launch webmachine if it is explicitly asked for.

@@ -11,3 +11,8 @@ traceroute({A,B,C,D}) ->
   Cmd = flatten(io_lib:format("traceroute -I -m 30 ~p.~p.~p.~p", [A,B,C,D])),
   os:cmd(Cmd).
 
+node_if_alive(Node) ->
+  case pastry_tcp:is_node_alive(Node) of
+    true -> Node;
+    false -> dead
+  end.
