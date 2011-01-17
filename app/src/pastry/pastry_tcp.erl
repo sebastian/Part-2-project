@@ -108,7 +108,7 @@ receive_data(Socket, SoFar) ->
     {tcp, Socket, Bin} ->
       receive_data(Socket, [Bin | SoFar]);
     {tcp_closed, Socket} ->
-      try {ok, binary_to_term(list_to_binary(lists:reverse(SoFar)), [safe])}
+      try {ok, binary_to_term(list_to_binary(lists:reverse(SoFar)))}
       catch error:badarg ->
         error_logger:error_msg("Response returned by other part couldn't be parsed"),
         {error, badarg}
@@ -142,7 +142,7 @@ receive_incoming(Socket, SoFar) ->
     {tcp, Socket, Bin} ->
       try
         FinalBin = lists:reverse([Bin | SoFar]),
-        Message = binary_to_term(list_to_binary(FinalBin), [safe]),
+        Message = binary_to_term(list_to_binary(FinalBin)),
         RetValue = handle_msg(Message),
         ok = gen_tcp:send(Socket, term_to_binary(RetValue)),
         gen_tcp:close(Socket)
