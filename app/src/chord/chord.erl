@@ -849,39 +849,29 @@ join_test() ->
   % Initial state
   OwnIp = {1,2,3,4},
   OwnPort = 88,
-  Key = 1234,
+  Key = utilities:key_for_node(OwnIp, OwnPort),
   Predecessor = #node{key = 1234567890},
-  Self = #node{
-    key = Key,
-    ip = OwnIp,
-    port = OwnPort
-  }, 
-  State = #chord_state{
-    predecessor = Predecessor, 
-    self = Self,
-    fingers = create_finger_table(Key)
-  },
 
   % The nodes to join
   FailingJoinIp = {1,2,3,4},
   FailingJoinPort = 4321,
-  JoinIp = {1,2,3,4},
-  JoinPort = 4321,
+  JoinIp = {2,3,4,5},
+  JoinPort = 9999,
   HubNodes = [{FailingJoinIp, FailingJoinPort}, {JoinIp, JoinPort}],
 
   % Our successor node as given by the system
   SuccessorNode = #node{key = 20},
 
-  RendevouzIp = {0,0,0,0},
+  RendevouzAddr = "hub.probsteide.com",
   RendevouzPort = 6001,
 
   erlymock:start(),
-  erlymock:strict(chord_tcp, rendevouz, [Self, RendevouzIp, RendevouzPort], [{return, HubNodes}]),
+  erlymock:strict(chord_tcp, rendevouz, [OwnPort, RendevouzAddr, RendevouzPort], [{return, {OwnIp, HubNodes}}]),
   erlymock:strict(chord_tcp, rpc_find_successor, [Key, FailingJoinIp, FailingJoinPort], [{return, {error, timeout}}]),
   erlymock:strict(chord_tcp, rpc_find_successor, [Key, JoinIp, JoinPort], [{return, {ok, SuccessorNode}}]),
   erlymock:replay(),
 
-  {ok, NewState} = join(State),
+  {ok, NewState} = join([{port,OwnPort}]),
   % Ensure the precesseccor has been removed
   ?assert(NewState#chord_state.predecessor =/= Predecessor),
   % Make sure that it has set the right successor
