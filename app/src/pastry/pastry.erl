@@ -12,6 +12,8 @@
 -include("pastry.hrl").
 
 -import(lists, [reverse/1, foldl/3, member/2, flatten/1, filter/2, sort/2, sublist/2]).
+% Some erlang installs don't know where to find min/max
+-import(erlang, [min/2, max/2]).
 
 %% ------------------------------------------------------------------
 %% Public API
