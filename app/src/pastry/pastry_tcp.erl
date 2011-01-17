@@ -108,11 +108,12 @@ receive_data(Socket, SoFar) ->
     {tcp, Socket, Bin} ->
       receive_data(Socket, [Bin | SoFar]);
     {tcp_closed, Socket} ->
-      try {ok, binary_to_term(list_to_binary(lists:reverse(SoFar)))}
-      catch error:badarg ->
-        io:format("Couldn't parse: ~p~n", [list_to_binary(lists:reverse(SoFar))]),
-        error_logger:error_msg("Response returned by other part couldn't be parsed"),
-        {error, badarg}
+      case Bin =:= <<>> of
+        true -> {ok, ok};
+        false ->
+          try {ok, binary_to_term(list_to_binary(lists:reverse(SoFar)))}
+          catch error:badarg -> {error, badarg}
+          end
       end
   after 2 * ?TIMEOUT ->
     error_logger:info_msg("PerformRPC times out~n"),
