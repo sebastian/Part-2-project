@@ -21,21 +21,25 @@ init() ->
   dict:new().
 
 %% @doc Adds a value for a key. A key can contain several entries
--spec(set/3::(Key::key(), Value::#entry{}, State::#datastore_state{}) 
+-spec(set/3::(Key::key(), Entry::#entry{}, State::#datastore_state{}) 
     -> #datastore_state{}).
-set(Key, Value, State) ->
+set(Key, Entry, State) ->
   Data = State#datastore_state.data,
-  Timeout = Value#entry.timeout,
+  Timeout = Entry#entry.timeout,
   CurrTime = utilities:get_time(),
   case (Timeout > CurrTime andalso Timeout =< (CurrTime + ?ENTRY_TIMEOUT)) of
     true ->
       NewData = case dict:find(Key, Data) of
-        {ok, Record} ->
-          case member(Value, Record) of
-            true -> Data;
-            false -> dict:store(Key, [Value | Record], Data)
-          end;
-        error -> dict:store(Key, [Value], Data) 
+        {ok, EntriesForKey} ->
+          PrevEntry = [R || #entry{data = EntryData} = R <- EntriesForKey, EntryData =:= Entry#entry.data],
+          {RecToInsert, NewEntriesForKey} = case PrevEntry of 
+            [] -> {Entry, EntriesForKey};
+            [DuplicateEntry] when DuplicateEntry#entry.timeout > Entry#entry.timeout -> 
+              {DuplicateEntry, EntriesForKey -- [DuplicateEntry]};
+            [DuplicateEntry] -> {Entry, EntriesForKey -- [DuplicateEntry]}
+          end,
+          dict:store(Key, [RecToInsert | NewEntriesForKey], Data);
+        error -> dict:store(Key, [Entry], Data) 
       end,
       State#datastore_state{data = NewData};
     _ ->
@@ -193,7 +197,7 @@ get_entries_in_range_test() ->
 
 set_should_not_add_duplicates_test() ->
   State = test_state(),
-  TimeInFarFuture = utilities:get_time() + ?ENTRY_TIMEOUT, 
+  TimeInFarFuture = utilities:get_time() + ?ENTRY_TIMEOUT - 1000,
   Record = (test_utils:test_person_entry_1a())#entry{timeout = TimeInFarFuture},
   NewState = set(<<"Key">>, Record, State),
   {ok, Data} = dict:find(<<"Key">>, NewState#datastore_state.data),
@@ -201,7 +205,30 @@ set_should_not_add_duplicates_test() ->
   NewState2 = set(<<"Key">>, Record, NewState),
   {ok, Data2} = dict:find(<<"Key">>, NewState2#datastore_state.data),
   % Should not have added the duplicate record
-  ?assertEqual(1, length(Data2)).
+  ?assertEqual(1, length(Data2)),
+  % It shouldn't be confused by the same record with
+  % different timeouts either!
+  DifferentTimeoutRecord = Record#entry{timeout = TimeInFarFuture + 100}, 
+  NewState3 = set(<<"Key">>, DifferentTimeoutRecord, NewState2),
+  {ok, Data3} = dict:find(<<"Key">>, NewState3#datastore_state.data),
+  % Should not have added the duplicate record
+  ?assertEqual(1, length(Data3)).
 
+set_should_replace_entry_with_entry_with_longer_timeout_test() ->
+  State = test_state(),
+  TimeInFarFuture1 = utilities:get_time() + ?ENTRY_TIMEOUT - 1000,
+  TimeInFarFuture2 = utilities:get_time() + ?ENTRY_TIMEOUT - 1,
+  Record1 = (test_utils:test_person_entry_1a())#entry{timeout = TimeInFarFuture1},
+  Record2 = (test_utils:test_person_entry_1a())#entry{timeout = TimeInFarFuture2},
+  NewState = set(<<"Key">>, Record1, State),
+  {ok, [#entry{timeout = TimeInFarFuture1}]} = dict:find(<<"Key">>, NewState#datastore_state.data),
+  % Now replace with a record with fresher timeout
+  NewState2 = set(<<"Key">>, Record2, NewState),
+  % Should have the newer timeout
+  {ok, [#entry{timeout = TimeInFarFuture2}]} = dict:find(<<"Key">>, NewState2#datastore_state.data),
+  % Now try adding the old record again,
+  NewState3 = set(<<"Key">>, Record1, NewState2),
+  % But it should have kept the entry with the newest timeout
+  {ok, [#entry{timeout = TimeInFarFuture2}]} = dict:find(<<"Key">>, NewState3#datastore_state.data).
 
 -endif.

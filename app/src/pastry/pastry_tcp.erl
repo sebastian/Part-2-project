@@ -108,7 +108,7 @@ receive_data(Socket, SoFar) ->
     {tcp, Socket, Bin} ->
       receive_data(Socket, [Bin | SoFar]);
     {tcp_closed, Socket} ->
-      case Bin =:= <<>> of
+      case SoFar =:= <<>> of
         true -> {ok, ok};
         false ->
           try {ok, binary_to_term(list_to_binary(lists:reverse(SoFar)))}
