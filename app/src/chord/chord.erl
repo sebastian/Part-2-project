@@ -859,13 +859,14 @@ join_test() ->
   OwnPort = 88,
   Key = 1234,
   Predecessor = #node{key = 1234567890},
+  Self = #node{
+    key = Key,
+    ip = OwnIp,
+    port = OwnPort
+  }, 
   State = #chord_state{
     predecessor = Predecessor, 
-    self = #node{
-      key = Key,
-      ip = OwnIp,
-      port = OwnPort
-    }, 
+    self = Self,
     fingers = create_finger_table(Key)
   },
 
@@ -879,8 +880,11 @@ join_test() ->
   % Our successor node as given by the system
   SuccessorNode = #node{key = 20},
 
+  RendevouzIp = {0,0,0,0},
+  RendevouzPort = 6001,
+
   erlymock:start(),
-  erlymock:strict(utilities, get_join_nodes, [OwnIp, OwnPort], [{return, HubNodes}]),
+  erlymock:strict(chord_tcp, rendevouz, [Self, RendevouzIp, RendevouzPort], [{return, HubNodes}]),
   erlymock:strict(chord_tcp, rpc_find_successor, [Key, FailingJoinIp, FailingJoinPort], [{return, {error, timeout}}]),
   erlymock:strict(chord_tcp, rpc_find_successor, [Key, JoinIp, JoinPort], [{return, {ok, SuccessorNode}}]),
   erlymock:replay(),
