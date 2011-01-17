@@ -4,6 +4,8 @@
 
 -include("../fs.hrl").
 
+-import(lists, [member/2, flatten/1, seq/2, foldl/3, sublist/3]).
+
 %% ------------------------------------------------------------------
 %% API Function Exports
 %% ------------------------------------------------------------------
@@ -29,9 +31,11 @@ set(Key, Value, State) ->
     true ->
       NewData = case dict:find(Key, Data) of
         {ok, Record} ->
-          dict:store(Key, [Value | Record], Data);
-        error -> 
-          dict:store(Key, [Value], Data) 
+          case member(Value, Record) of
+            true -> Data;
+            false -> dict:store(Key, [Value | Record], Data)
+          end;
+        error -> dict:store(Key, [Value], Data) 
       end,
       State#datastore_state{data = NewData};
     _ ->
@@ -70,7 +74,7 @@ spring_cleaning(State) ->
 -spec(get_entries_in_range/3::(Start::key(), End::key(), State::#datastore_state{}) -> [#entry{}]).
 get_entries_in_range(Start, End, State) ->
   Entries = dict:to_list(State#datastore_state.data),
-  apply_range(Start, End, lists:flatten([E || {_Key, E} <- Entries])).
+  apply_range(Start, End, flatten([E || {_Key, E} <- Entries])).
 apply_range(Start, End, Entries) when Start < End ->
   [Entry || Entry <- Entries, Entry#entry.key > Start, Entry#entry.key =< End];
 apply_range(Start, End, Entries) ->
@@ -139,7 +143,7 @@ set_should_accept_records_with_timeout_starting_at_the_current_time_test() ->
   erlymock:verify(),
 
   % It should have accepted the record
-  ?assert(lists:member(Record, lookup(<<"Key">>, NewState))).
+  ?assert(member(Record, lookup(<<"Key">>, NewState))).
 
 spring_cleaning_test() ->
   OldTime = utilities:get_time() - 10,
@@ -167,24 +171,37 @@ entry_with_valid_timeout_and_key(Key) ->
   #entry{timeout = utilities:get_time() + 10, key = Key}.
 
 assert_exclusively_contains_entries(Entries, Test) ->
-  [?assert(lists:member(E, Test)) || E <- Entries],
+  [?assert(member(E, Test)) || E <- Entries],
   ?assertEqual(Test -- Entries, Entries -- Test).
 
 get_entries_in_range_test() ->
   % State with entries with keys from 1 through 10
-  Entries = [entry_with_valid_timeout_and_key(K) || K <- lists:seq(1,10)],
-  State = lists:foldl(fun(E,A) -> datastore:set(E#entry.key, E, A) end, #datastore_state{data=datastore:init()}, Entries),
+  Entries = [entry_with_valid_timeout_and_key(K) || K <- seq(1,10)],
+  State = foldl(fun(E,A) -> datastore:set(E#entry.key, E, A) end, #datastore_state{data=datastore:init()}, Entries),
   
   % Out of range
   assert_exclusively_contains_entries([], get_entries_in_range(100, 9999, State)),
   % Normal direction
   assert_exclusively_contains_entries(Entries, get_entries_in_range(0, 100, State)),
   assert_exclusively_contains_entries(Entries, get_entries_in_range(0, 10, State)),
-  assert_exclusively_contains_entries(lists:sublist(Entries, 2, 9), get_entries_in_range(1, 10, State)),
-  assert_exclusively_contains_entries(lists:sublist(Entries, 1, 1), get_entries_in_range(0, 1, State)),
+  assert_exclusively_contains_entries(sublist(Entries, 2, 9), get_entries_in_range(1, 10, State)),
+  assert_exclusively_contains_entries(sublist(Entries, 1, 1), get_entries_in_range(0, 1, State)),
   % When start is after end (remember chord's keyspace is on a circle so this will happen!)
   assert_exclusively_contains_entries(Entries, get_entries_in_range(100000, 100, State)),
-  assert_exclusively_contains_entries(lists:sublist(Entries, 1, 1) ++ lists:sublist(Entries, 10, 1), 
+  assert_exclusively_contains_entries(sublist(Entries, 1, 1) ++ sublist(Entries, 10, 1), 
     get_entries_in_range(9, 1, State)).
+
+set_should_not_add_duplicates_test() ->
+  State = test_state(),
+  TimeInFarFuture = utilities:get_time() + ?ENTRY_TIMEOUT, 
+  Record = (test_utils:test_person_entry_1a())#entry{timeout = TimeInFarFuture},
+  NewState = set(<<"Key">>, Record, State),
+  {ok, Data} = dict:find(<<"Key">>, NewState#datastore_state.data),
+  ?assertEqual(1, length(Data)),
+  NewState2 = set(<<"Key">>, Record, NewState),
+  {ok, Data2} = dict:find(<<"Key">>, NewState2#datastore_state.data),
+  % Should not have added the duplicate record
+  ?assertEqual(1, length(Data2)).
+
 
 -endif.
