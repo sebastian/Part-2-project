@@ -110,6 +110,7 @@ receive_data(Socket, SoFar) ->
     {tcp_closed, Socket} ->
       try {ok, binary_to_term(list_to_binary(lists:reverse(SoFar)))}
       catch error:badarg ->
+        io:format("Couldn't parse: ~p~n", [list_to_binary(lists:reverse(SoFar))]),
         error_logger:error_msg("Response returned by other part couldn't be parsed"),
         {error, badarg}
       end
