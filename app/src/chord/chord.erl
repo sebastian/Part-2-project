@@ -156,6 +156,7 @@ init(Args) ->
     error ->
       {stop, couldnt_join_chord_network}
   end.
+
 %% @doc: joins another chord node and returns the updated chord state
 -spec(join/1::(State::#chord_state{}) -> 
     {ok, #chord_state{}} | error).
@@ -163,13 +164,14 @@ join(State) ->
   % We are joining the network, so we don't yet have a predecessor
   PredState = State#chord_state{predecessor = undefined},
 
-  JoinIp = {0,0,0,0},
+  JoinAddr = "hub.probsteide.com",
   JoinPort = 6001,
   Self = State#chord_state.self,
-  case chord_tcp:rendevouz(Self, JoinIp, JoinPort) of
+  case chord_tcp:rendevouz(Self, JoinAddr, JoinPort) of
     first -> 
       error_logger:info_msg("First and only node in the Chord network (Ip: ~p, Port: ~p)", [Self#node.ip, Self#node.port]),
       {ok, PredState};
+    {error, Reason} -> {stop, {couldnt_rendevouz, Reason}};
     Nodes -> perform_join(Nodes, PredState)
   end.
 

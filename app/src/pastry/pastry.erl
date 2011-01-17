@@ -184,6 +184,7 @@ join(State) ->
     first -> 
       error_logger:info_msg("First and only node in Pastry network. (Ip: ~p, Port: ~p)", [Self#node.ip, Self#node.port]),
       {ok, State};
+    {error, Reason} -> {stop, {couldnt_rendevouz, Reason}};
     Nodes -> perform_join(Nodes, State)
   end.
 
