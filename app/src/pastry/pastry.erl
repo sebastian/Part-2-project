@@ -1,6 +1,6 @@
 -module(pastry).
 -behaviour(gen_server).
--compile([export_all]).
+-compile({no_auto_import,[min/2, max/2]}).
 -define(SERVER, ?MODULE).
 -define(NEIGHBORHOODWATCH_TIMER, 30000).
 
@@ -179,10 +179,10 @@ init(Args) ->
   end.
 
 join(State) -> 
-  JoinIp = {0,0,0,0},
+  JoinAddr = "hub.probsteide.com",
   JoinPort = 6001,
   Self = State#pastry_state.self,
-  case pastry_tcp:rendevouz(Self, JoinIp, JoinPort) of
+  case pastry_tcp:rendevouz(Self, JoinAddr, JoinPort) of
     first -> 
       error_logger:info_msg("First and only node in Pastry network. (Ip: ~p, Port: ~p)", [Self#node.ip, Self#node.port]),
       {ok, State};
