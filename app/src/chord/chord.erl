@@ -6,8 +6,8 @@
 -define(MAX_NUM_OF_SUCCESSORS, 5).
 
 %% @doc: the interval in miliseconds at which the routine tasks are performed
--define(FIX_FINGER_INTERVAL, 200).
--define(STABILIZER_INTERVAL, 500).
+-define(FIX_FINGER_INTERVAL, 2000).
+-define(STABILIZER_INTERVAL, 5000).
 
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
