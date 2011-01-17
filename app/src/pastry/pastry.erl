@@ -156,41 +156,33 @@ discard_dead_node(Node) ->
 % Sample args:
 % pastry:start([{b,10},{port,3001},{joinNode,{{172,21,229,189},3000}}]).
 init(Args) -> 
-  B = proplists:get_value(b, Args, 20),
   Port = proplists:get_value(port, Args, 3000),
-  Ip = utilities:get_ip(),
+
+  % Node we are connecting to
+  JoinAddr = "hub.probsteide.com",
+  JoinPort = 6001,
+
+  case pastry_tcp:rendevouz(Port, JoinAddr, JoinPort) of
+    {MyIp, first} -> {ok, post_rendevouz_state_update(MyIp, Port, Args)};
+    {error, Reason} -> {stop, {couldnt_rendevouz, Reason}};
+    {MyIp, Nodes} -> perform_join(Nodes, post_rendevouz_state_update(MyIp, Port, Args))
+  end.
+
+post_rendevouz_state_update(Ip, Port, Args) ->
+  io:format("Setting up node with Ip: ~p, Port: ~p~n", [Ip, Port]),
+  B = proplists:get_value(b, Args, 20),
   Key = utilities:key_for_node_with_b(Ip, Port, B),
   Self = #node{key = Key, port = Port, ip = Ip},
-
   pastry_app:pastry_init(Self, B),
-
-  {ok, TimerRefNeighborhoodsetRevitalization} = 
-    timer:apply_interval(?NEIGHBORHOODWATCH_TIMER, ?MODULE, neighborhood_watch, []),
-  State = #pastry_state{
+  {ok, TimerRefNR} = timer:apply_interval(?NEIGHBORHOODWATCH_TIMER, ?MODULE, neighborhood_watch, []),
+  #pastry_state{
     b = B,
     self = Self,
     routing_table = create_routing_table(Key),
-    neighborhood_watch_ref = TimerRefNeighborhoodsetRevitalization
-  },
+    neighborhood_watch_ref = TimerRefNR
+  }.
 
-  case join(State) of
-    error -> {stop, couldnt_join_pastry_network};
-    Msg -> Msg
-  end.
-
-join(State) -> 
-  JoinAddr = "hub.probsteide.com",
-  JoinPort = 6001,
-  Self = State#pastry_state.self,
-  case pastry_tcp:rendevouz(Self, JoinAddr, JoinPort) of
-    first -> 
-      error_logger:info_msg("First and only node in Pastry network. (Ip: ~p, Port: ~p)", [Self#node.ip, Self#node.port]),
-      {ok, State};
-    {error, Reason} -> {stop, {couldnt_rendevouz, Reason}};
-    Nodes -> perform_join(Nodes, State)
-  end.
-
-perform_join([], _State) -> error;
+perform_join([], _State) -> {stop, couldnt_join_pastry_network};
 perform_join([{JoinIp, JoinPort}|Ps], #pastry_state{self = Self} = State) ->
   case pastry_tcp:perform_join(Self, #node{ip = JoinIp, port = JoinPort}) of
     {error, _} -> perform_join(Ps, State);

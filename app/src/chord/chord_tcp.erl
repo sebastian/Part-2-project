@@ -44,8 +44,8 @@
 
 % Performs a randevouz with the hub_app which returns nodes to
 % connect to
-rendevouz(#node{ip = SelfIp, port = SelfPort}, Ip, Port) ->
-  case perform_rpc({rendevouz, chord, SelfIp, SelfPort}, #node{ip = Ip, port = Port}) of
+rendevouz(SelfPort, Ip, Port) ->
+  case perform_rpc({rendevouz, chord, SelfPort}, #node{ip = Ip, port = Port}) of
     {ok, Reply} -> Reply;
     Other -> Other
   end.

@@ -120,24 +120,7 @@ fix_fingers() -> gen_server:cast(chord, fix_fingers).
 %% ------------------------------------------------------------------
 
 init(Args) -> 
-  Port = proplists:get_value(port, Args),
-  Ip = utilities:get_ip(),
-  NodeId = utilities:key_for_node(Ip, Port),
-
-  % We initialize the finger table with 160 records since
-  % we have 160-bit keys.
-  FingerTable = create_finger_table(NodeId),
-  
-  State = #chord_state{self =
-    #node{
-      ip = Ip,
-      port = Port, 
-      key = NodeId 
-    },
-    fingers = FingerTable
-  },
-
-  case join(State) of
+  case join(Args) of
     {ok, JoinedState} ->
       % Create the tasks that run routinely
       {ok, TimerRefStabilizer} = 
@@ -145,35 +128,42 @@ init(Args) ->
       {ok, TimerRefFixFingers} = 
           timer:apply_interval(?FIX_FINGER_INTERVAL, ?MODULE, fix_fingers, []),
 
-      State3 = JoinedState#chord_state{
+      State = JoinedState#chord_state{
         % Admin stuff
         timerRefStabilizer = TimerRefStabilizer,
         timerRefFixFingers = TimerRefFixFingers
       },
       
-      {ok, State3};
+      {ok, State};
 
     error ->
       {stop, couldnt_join_chord_network}
   end.
 
 %% @doc: joins another chord node and returns the updated chord state
--spec(join/1::(State::#chord_state{}) -> 
-    {ok, #chord_state{}} | error).
-join(State) -> 
-  % We are joining the network, so we don't yet have a predecessor
-  PredState = State#chord_state{predecessor = undefined},
+-spec(join/1::(Args::[any()]) -> {ok, #chord_state{}} | error).
+join(Args) -> 
+  Port = proplists:get_value(port, Args),
 
   JoinAddr = "hub.probsteide.com",
   JoinPort = 6001,
-  Self = State#chord_state.self,
-  case chord_tcp:rendevouz(Self, JoinAddr, JoinPort) of
-    first -> 
-      error_logger:info_msg("First and only node in the Chord network (Ip: ~p, Port: ~p)", [Self#node.ip, Self#node.port]),
-      {ok, PredState};
+  case chord_tcp:rendevouz(Port, JoinAddr, JoinPort) of
+    {MyIp, first} -> {ok, post_rendevouz_state_update(MyIp, Port)};
     {error, Reason} -> {stop, {couldnt_rendevouz, Reason}};
-    Nodes -> perform_join(Nodes, PredState)
+    {MyIp, Nodes} -> perform_join(Nodes, post_rendevouz_state_update(MyIp, Port))
   end.
+
+post_rendevouz_state_update(Ip, Port) ->
+  io:format("Setting up node with Ip: ~p, Port: ~p~n", [Ip, Port]),
+  Self = #node{
+    ip = Ip,
+    port = Port,
+    key = utilities:key_for_node(Ip, Port)
+  },
+  #chord_state{
+    self = Self,
+    fingers = create_finger_table(Self#node.key)
+  }.
 
 perform_join([], _State) -> error;
 perform_join([{JoinIp, JoinPort}|Ps], #chord_state{self = #node{key = OwnKey}} = State) ->

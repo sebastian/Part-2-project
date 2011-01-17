@@ -94,7 +94,8 @@ receive_incoming(Socket, SoFar) ->
       try
         FinalBin = lists:reverse([Bin | SoFar]),
         Message = binary_to_term(list_to_binary(FinalBin)),
-        RetValue = handle_msg(Message),
+        {ok, {RemoteIp, _RemotePort}} = inet:peername(Socket),
+        RetValue = handle_msg(Message, RemoteIp),
         ok = gen_tcp:send(Socket, term_to_binary(RetValue)),
         gen_tcp:close(Socket)
       catch
@@ -145,13 +146,14 @@ code_change(_OldVsn, State, _Extra) ->
 %% Internal Function Definitions
 %% ------------------------------------------------------------------
 
-handle_msg({rendevouz, pastry, Ip, Port}) ->
+handle_msg({rendevouz, pastry, Port}, Ip) ->
   Node = #node{ip = Ip, port = Port},
-  node:rendevouz_pastry(Node);
+  {Ip, node:rendevouz_pastry(Node)};
 
-handle_msg({rendevouz, chord, Ip, Port}) ->
+handle_msg({rendevouz, chord, Port}, Ip) ->
   Node = #node{ip = Ip, port = Port},
-  node:rendevouz_chord(Node);
+  {Ip, node:rendevouz_chord(Node)};
 
-handle_msg(_) ->
-  error_logger:error_msg("Unimplemented message type").
+handle_msg(_, _) ->
+  error_logger:error_msg("Unimplemented message type"),
+  404.
