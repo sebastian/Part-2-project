@@ -9,44 +9,53 @@
 -behaviour(supervisor).
 
 %% External exports
--export([start_link/1, upgrade/0]).
+-export([start_link/0, upgrade/0, start_node/0]).
 
 %% supervisor callbacks
 -export([init/1]).
 
 %% @spec start_link() -> ServerRet
 %% @doc API for starting the supervisor.
-start_link(Args) ->
-    supervisor:start_link({local, ?MODULE}, ?MODULE, Args).
+start_link() -> supervisor:start_link(?MODULE, []).
 
 %% @spec upgrade() -> ok
 %% @doc Add processes if necessary.
 upgrade() ->
-    {ok, {_, Specs}} = init([]),
+  {ok, {_, Specs}} = init([]),
 
-    Old = sets:from_list(
-            [Name || {Name, _, _, _} <- supervisor:which_children(?MODULE)]),
-    New = sets:from_list([Name || {Name, _, _, _, _, _} <- Specs]),
-    Kill = sets:subtract(Old, New),
+  Old = sets:from_list([Name || {Name, _, _, _} <- supervisor:which_children(?MODULE)]),
+  New = sets:from_list([Name || {Name, _, _, _, _, _} <- Specs]),
+  Kill = sets:subtract(Old, New),
 
-    sets:fold(fun (Id, ok) ->
-                      supervisor:terminate_child(?MODULE, Id),
-                      supervisor:delete_child(?MODULE, Id),
-                      ok
-              end, ok, Kill),
+  sets:fold(fun (Id, ok) ->
+                    supervisor:terminate_child(?MODULE, Id),
+                    supervisor:delete_child(?MODULE, Id),
+                    ok
+            end, ok, Kill),
 
-    [supervisor:start_child(?MODULE, Spec) || Spec <- Specs],
-    ok.
+  [supervisor:start_child(?MODULE, Spec) || Spec <- Specs],
+  ok.
 
 %% @spec init([]) -> SupervisorTree
 %% @doc supervisor callback.
-init(Args) ->
-    Chord = {chord, {chord, start_link, [Args]},
-        permanent, 2000, worker, [chord]},
+init(_Args) ->
+  % The controller process that interlinks the processes
+  ControllingProcess = controller:get_controlling_process(),
+  ControllingProcessArg = [{controllingProcess, ControllingProcess}],
+  PortArg = [{port, 10000}],
 
-    ChordTcp = {chord_tcp, {chord_tcp, start_link, [Args]},
-        permanent, 2000, worker, [chord_tcp]},
+  CreateChild = fun(Name,ChildArgs) -> {Name,
+      {Name, start_link, [ChildArgs]},
+      transient, 2000, worker,
+      [Name]}
+    end,
 
-    Processes = [ChordTcp, Chord],
+  Processes = [
+    CreateChild(chord_tcp, ControllingProcessArg ++ PortArg),
+    CreateChild(chord, ControllingProcessArg)
+  ],
 
-    {ok, { {one_for_one, 10, 10}, Processes} }.
+  {ok, { {one_for_all, 10, 10}, Processes} }.
+
+start_node() ->
+  supervisor:start_child(chord_sofo, []).

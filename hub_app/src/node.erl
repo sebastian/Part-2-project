@@ -8,7 +8,6 @@
 -endif.
 
 -define(SERVER, ?MODULE).
--define(CHECK_LIVENESS, 10000).
 
 %% ------------------------------------------------------------------
 %% API Function Exports
@@ -20,7 +19,6 @@
 -export([
     rendevouz_chord/1,
     rendevouz_pastry/1,
-    check_liveness/0,
     remove_node/1
   ]).
 % For front end
@@ -53,10 +51,6 @@ stop() ->
 clear() ->
   gen_server:call(?MODULE, clear).
 
-check_liveness() ->
-  io:format("Check liveness method called. Calling server~n"),
-  gen_server:cast(?MODULE, check_liveness).
-
 remove_node(Node) ->
   gen_server:cast(?MODULE, {remove_node, Node}).
 
@@ -83,8 +77,7 @@ live_nodes() ->
 %% ------------------------------------------------------------------
 
 init(_Args) -> 
-  {ok, TimerRef} = timer:apply_interval(?CHECK_LIVENESS, ?MODULE, check_liveness, []),
-  {ok, #state{timerRef = TimerRef}}.
+  {ok, #state{}}.
 
 %% Call:
 handle_call(live_nodes, _From, #state{chord_nodes = CN, pastry_nodes = PN} = State) ->
@@ -108,12 +101,6 @@ handle_call(clear, _From, _State) ->
 handle_cast({remove_node, Node}, State) ->
   {noreply, node_core:remove_node(Node, State)};
 
-handle_cast(check_liveness, #state{chord_nodes = CN, pastry_nodes = PN} = State) ->
-  io:format("checking liveness of ~p nodes~n", [length(CN ++ PN)]),
-  node_core:check_liveness(CN ++ PN),
-  io:format("returned from checking liveness~n"),
-  {noreply, State};
-
 handle_cast(_Msg, State) ->
   {noreply, State}.
 
@@ -121,8 +108,7 @@ handle_cast(_Msg, State) ->
 handle_info(_Info, State) ->
   {noreply, State}.
 
-terminate(_Reason, #state{timerRef = TimerRef}) ->
-  timer:cancel(TimerRef),
+terminate(_Reason, _State) ->
   ok.
 
 code_change(_OldVsn, State, _Extra) ->

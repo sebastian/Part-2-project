@@ -41,43 +41,32 @@ upgrade() ->
 %% @spec init([]) -> SupervisorTree
 %% @doc supervisor callback.
 init([]) ->
-    CreateSup = fun(Name) -> {Name,
-        {Name, start_link, []},
-        permanent, infinity, supervisor,
-        []}
-      end,
-    CreateSupWithArgs = fun(Name,Args) -> {Name,
-        {Name, start_link, [Args]},
-        permanent, infinity, supervisor,
-        []}
-      end,
+  CreateSup = fun(Name) -> {Name,
+      {Name, start_link, []},
+      permanent, infinity, supervisor,
+      []}
+    end,
 
-    Processes = 
-    % General things we want to start
-    [
-      CreateSup(datastore_sup)
-    ] ++
-    case utilities:get_pastry_port() of
-      none -> [];
-      Port -> [
-          CreateSupWithArgs(pastry_sup, [{port, Port}]),
-          CreateSupWithArgs(friendsearch_sup, [{dht, pastry_app}])
-        ]
-    end ++
-    case utilities:get_chord_port() of
-      none -> [];
-      Port -> [
-          CreateSupWithArgs(chord_sup, [{port, Port}]),
-          CreateSupWithArgs(friendsearch_sup, [{dht, chord}])
-        ]
-    end ++
-    % Check if the webmachine should be launched too:
-    % Only launch webmachine if it is explicitly asked for.
-    case utilities:get_webmachine_port() of 
-      none ->
-        % It shouldn't launch webmachine
-        [];
-      Port -> [CreateSupWithArgs(fs_web_sup, Port)]
-    end, 
+  CreateChild = fun(Name,ChildArgs) -> {Name,
+      {Name, start_link, [ChildArgs]},
+      permanent, 2000, worker,
+      [Name]}
+    end,
 
-    {ok, { {one_for_one, 10, 10}, Processes} }.
+  CreateSupWithArgs = fun(Name,Args) -> {Name,
+      {Name, start_link, [Args]},
+      permanent, infinity, supervisor,
+      []}
+    end,
+  
+  Processes = [
+    CreateChild(pastry_locality, []),
+    CreateSupWithArgs(fs_web_sup, 11385),
+    CreateSup(datastore_sup),
+    CreateSup(friendsearch_sup),
+    CreateSup(controller_sup),
+    CreateSup(chord_sofo),
+    CreateSup(pastry_sofo)
+  ],
+
+  {ok, { {one_for_one, 10, 10}, Processes} }.

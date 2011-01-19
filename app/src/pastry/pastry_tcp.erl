@@ -22,7 +22,6 @@
 
 -export([
     start_link/1,
-    start_link_unnamed/1,
     start/1, 
     stop/0,
     stop/1
@@ -138,10 +137,7 @@ stop() -> gen_listener_tcp:call(?MODULE, stop).
 stop(Pid) -> gen_listener_tcp:call(Pid, stop).
 
 %% @doc Start the server.
-start_link_unnamed(Args) -> gen_listener_tcp:start_link(?MODULE, Args, []).
-
-%% @doc Start the server.
-start_link(Args) -> gen_listener_tcp:start_link({local, ?MODULE}, ?MODULE, Args, []).
+start_link(Args) -> gen_listener_tcp:start_link(?MODULE, Args, []).
 
 %% @doc The echo client process.
 pastry_tcp_client(Socket, Pid) -> receive_incoming(Socket, [], Pid).

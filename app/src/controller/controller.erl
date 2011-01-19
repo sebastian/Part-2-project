@@ -17,17 +17,20 @@
 %% Public API
 %% ------------------------------------------------------------------
 
--export([start_link/1, start/1, stop/0]).
+-export([start_link/1, start/0, stop/0]).
 -export([
     register_tcp/4,
     register_dht/3,
     register_started_node/3,
-    dht_failed_start/1
+    dht_failed_start/1,
+    dht_successfully_started/1,
+    register_pastry_app/2
   ]).
 -export([
     start_node/0,
     stop_node/0,
-    switch_mode_to/1
+    switch_mode_to/1,
+    get_controlling_process/0
   ]).
 
 %% ------------------------------------------------------------------
@@ -44,8 +47,8 @@
 %% API Function Definitions
 %% ------------------------------------------------------------------
 
-start(Args) ->
-  gen_server:start({local, ?SERVER}, ?MODULE, Args, []).
+start() ->
+  gen_server:start({local, ?SERVER}, ?MODULE, [], []).
 
 start_link(Args) ->
   gen_server:start_link({local, ?SERVER}, ?MODULE, Args, []).
@@ -65,6 +68,9 @@ stop_node() ->
 switch_mode_to(Mode) ->
   gen_server:cast(?MODULE, {new_mode, Mode}).
 
+get_controlling_process() ->
+  gen_server:call(?MODULE, get_new_controlling_process).
+
 %% ------------------------------------------------------------------
 %% gen_server Function Definitions
 %% ------------------------------------------------------------------
@@ -73,12 +79,20 @@ init(_Args) ->
   {ok, #controller_state{}}.
 
 %% Call:
+handle_call(get_new_controlling_process, _From, #controller_state{mode = Mode} = State) ->
+  {reply, start_node(Mode), State};
+
 handle_call(stop, _From, State) ->
   {stop, normal, ok, State}.
 
 %% Casts:
 handle_cast(start_node, #controller_state{mode = Mode} = State) ->
-  start_node(Mode),
+  spawn(fun() ->
+    case Mode of
+      chord -> chord_sup:start_node();
+      pastry -> pastry_sup:start_node()
+    end
+  end),
   {noreply, State};
 
 handle_cast(stop_node, State) ->
@@ -90,10 +104,20 @@ handle_cast({new_mode, Mode}, #controller_state{mode = Mode} = State) -> {norepl
 handle_cast({new_mode, NewMode}, State) ->
   % Stop all nodes
   NoNodeState = stop_nodes(State),
+  datastore_srv:clear(),
   {noreply, NoNodeState#controller_state{mode = NewMode}};
 
-handle_cast({register_node, Data}, #controller_state{nodes = Nodes} = State) ->
-  io:format("Registered node with data: ~p~n", [Data]),
+handle_cast({register_node, {DhtPid, _, DhtAppPid} = Data}, #controller_state{mode = Mode, nodes = Nodes} = State) ->
+  case length(Nodes) of
+    0 ->
+      % There were previously no node, but now there is, so tell friend search
+      {Type, Pid} = case Mode of
+        pastry -> {pastry_app, DhtAppPid};
+        OtherDht -> {OtherDht, DhtPid}
+      end,
+      friendsearch_srv:set_dht({Type, Pid});
+    _ -> ok % okidoki
+  end,
   {noreply, State#controller_state{nodes = [Data|Nodes]}};
 
 handle_cast(Msg, State) ->
@@ -127,40 +151,46 @@ register_dht(ControllingProcess, DhtPid, DhtCallbackPid) ->
 dht_failed_start(ControllingProcess) ->
   ControllingProcess ! dht_failed_start.
 
+dht_successfully_started(ControllingProcess) ->
+  ControllingProcess ! dht_success.
+
+register_pastry_app(ControllingProcess, AppPid) ->
+  ControllingProcess ! {reg_app, AppPid}.
+
 start_node(Mode) ->
   spawn(fun() -> start_tcp(Mode) end).
 
 start_tcp(Mode) ->
-  case Mode of
-    chord ->
-      chord_tcp:start_link_unnamed([{port,4000}, {controllingProcess, self()}]);
-    pastry ->
-      io:format("Pastry TCP not implemented yet~n")
-  end,
   receive 
     {reg_tcp, TcpPid, TcpCallbackPid, Port} ->
-      start_dht(Mode, TcpPid, TcpCallbackPid, Port)
+      init_dht(Mode, TcpPid, TcpCallbackPid, Port)
   end.
 
-start_dht(Mode, TcpPid, TcpCallbackPid, Port) ->
-  case Mode of
-    chord ->
-      chord:start_link([{port,Port}, {controllingProcess, self()}]);
-    pastry ->
-      io:format("Pastry not implemented yet~n")
-  end,
+init_dht(Mode, TcpPid, TcpCallbackPid, Port) ->
   receive
     {reg_dht, DhtPid, DhtCallbackPid} ->
+      DhtPid ! {port, Port},
       TcpCallbackPid ! {dht_pid, DhtPid},
+      end_init_dht(Mode, TcpPid, DhtPid, DhtCallbackPid)
+  end.
+
+end_init_dht(Mode, TcpPid, DhtPid, DhtCallbackPid) ->
+  receive 
+    dht_success ->
       start_app(Mode, TcpPid, DhtPid, DhtCallbackPid);
     dht_failed_start ->
       io:format("Failed to start dht. Should stop TCP!?~n")
   end.
 
 start_app(chord, TcpPid, DhtPid, _DhtCallbackPid) ->
-  controller:register_started_node(TcpPid, DhtPid, undefined);
-start_app(pastry, _TcpPid, _DhtPid, _DhtCallbackPid) ->
-  io:format("Pastry start app not yet implemented~n").
+  controller:register_started_node(DhtPid, TcpPid, undefined);
+start_app(pastry, TcpPid, DhtPid, DhtCallbackPid) ->
+  receive 
+    {reg_app, AppPid} ->
+      AppPid ! {dht_pid, DhtPid},
+      DhtCallbackPid ! {pastry_app_pid, AppPid}
+  end,
+  controller:register_started_node(DhtPid, TcpPid, AppPid).
 
 
 stop_nodes(#controller_state{nodes = Nodes} = State) -> foldl(fun(_N,S) -> stop_node(S) end, State, Nodes).

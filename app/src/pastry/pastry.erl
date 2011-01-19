@@ -145,58 +145,59 @@ discard_dead_node(Pid, Node) ->
 % Sample args:
 % pastry:start([{b,10},{port,3001},{joinNode,{{172,21,229,189},3000}}]).
 init(Args) -> 
-  get_pastry_app_pid(),
   SelfPid = self(),
-  controller:register_dht_pid(SelfPid),
-  Port = receive {port, ListenPort} -> ListenPort end,
+  ControllingProcess = proplists:get_value(controllingProcess, Args),
 
-  % Node we are connecting to
+  spawn(fun() ->
+    controller:register_dht(ControllingProcess, SelfPid, self()),
+    receive {pastry_app_pid, PastryAppPid} -> 
+      % register the pid with the tcp_listener so we can contact the Dht
+      gen_server:call(SelfPid, {set_pastry_app_pid, PastryAppPid}) 
+    end
+  end),
+
+  Port = receive {port, TcpPort} -> TcpPort end,
+
   JoinAddr = "hub.probsteide.com",
   JoinPort = 6001,
 
   case pastry_tcp:rendevouz(Port, JoinAddr, JoinPort) of
-    {MyIp, first} -> {ok, post_rendevouz_state_update(MyIp, Port, Args)};
-    {error, Reason} -> {stop, {couldnt_rendevouz, Reason}};
-    {MyIp, Nodes} -> perform_join(Nodes, post_rendevouz_state_update(MyIp, Port, Args))
+    {MyIp, first} -> 
+      controller:dht_successfully_started(ControllingProcess),
+      {ok, post_rendevouz_state_update(MyIp, Port, Args)};
+    {error, Reason} -> 
+      controller:dht_failed_start(ControllingProcess),
+      {stop, {couldnt_rendevouz, Reason}};
+    {MyIp, Nodes} -> perform_join(Nodes, post_rendevouz_state_update(MyIp, Port, Args), ControllingProcess)
   end.
 
 post_rendevouz_state_update(Ip, Port, Args) ->
-  io:format("Setting up node with Ip: ~p, Port: ~p~n", [Ip, Port]),
   B = proplists:get_value(b, Args, 20),
   Key = utilities:key_for_node_with_b(Ip, Port, B),
   Self = #node{key = Key, port = Port, ip = Ip},
-  PastryAppPid = receive {app, AppPid} -> AppPid end,
-  pastry_app:pastry_init(PastryAppPid, Self, B),
   {ok, TimerRefNR} = timer:apply_interval(?NEIGHBORHOODWATCH_TIMER, ?MODULE, neighborhood_watch, [self()]),
   #pastry_state{
     b = B,
     self = Self,
     routing_table = create_routing_table(Key),
     neighborhood_watch_ref = TimerRefNR,
-    pastry_pid = self(),
-    pastry_app_pid = PastryAppPid
+    pastry_pid = self()
   }.
 
-perform_join([], _State) -> {stop, couldnt_join_pastry_network};
-perform_join([{JoinIp, JoinPort}|Ps], #pastry_state{self = Self} = State) ->
+perform_join([], _State, ControllingProcess) -> 
+  controller:dht_failed_start(ControllingProcess),
+  {stop, couldnt_join_pastry_network};
+perform_join([{JoinIp, JoinPort}|Ps], #pastry_state{self = Self} = State, ControllingProcess) ->
   case pastry_tcp:perform_join(Self, #node{ip = JoinIp, port = JoinPort}) of
-    {error, _} -> perform_join(Ps, State);
-    {ok, _} -> {ok, State}
+    {error, _} -> perform_join(Ps, State, ControllingProcess);
+    {ok, _} -> 
+      controller:dht_successfully_started(ControllingProcess),
+      {ok, State}
   end.
 
-get_pastry_app_pid() ->
-  SelfPid = self(),
-  spawn(fun() ->
-    error_logger:info_msg("Waiting for pastry app pid"),
-    receive {pastry_app_pid, PastryAppPid} -> 
-      % register the pid with the tcp_listener so we can contact the Dht
-      gen_server:call(SelfPid, {set_pastry_app_pid, PastryAppPid}) 
-    end
-  end).
-
 % Call:
-handle_call({set_pastry_app_pid, PastryAppPid}, _From, State) ->
-  io:format("Received pastry app pid!~n"),
+handle_call({set_pastry_app_pid, PastryAppPid}, _From, #pastry_state{self = Self, b = B} = State) ->
+  pastry_app:pastry_init(PastryAppPid, Self, B),
   {reply, thanks, State#pastry_state{pastry_app_pid = PastryAppPid}};
 
 handle_call(get_leafset, _From, State) ->
@@ -459,7 +460,6 @@ do_forward_msg(Msg, Key, Node, PastryPid) ->
   case pastry_app:forward(Msg, Key, Node) of
     {_, null} -> true; % Message shouldn't be forwarded.
     {NewMsg, NewNode} ->
-      io:format("PastryApp approved of forwarding message. Route to ~p~n", [NewNode]),
       case pastry_tcp:route_msg(NewMsg, Key, NewNode) of
         {ok, _} -> true;
         {error, _Reason} ->

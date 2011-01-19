@@ -122,10 +122,12 @@ fix_fingers(Pid) -> gen_server:cast(Pid, fix_fingers).
 init(Args) -> 
   SelfPid = self(),
   ControllingProcess = proplists:get_value(controllingProcess, Args),
+  controller:register_dht(ControllingProcess, SelfPid, undefined),
+  Port = receive {port, TcpPort} -> TcpPort end,
 
-  case join(Args) of
+  case join(Port, ControllingProcess) of
     {ok, JoinedState} ->
-      controller:register_dht(ControllingProcess, SelfPid, undefined),
+      controller:dht_successfully_started(ControllingProcess),
 
       % Create the tasks that run routinely
       {ok, TimerRefStabilizer} = 
@@ -147,11 +149,8 @@ init(Args) ->
   end.
 
 %% @doc: joins another chord node and returns the updated chord state
--spec(join/1::(_) -> {ok, #chord_state{}} | error).
-join(Args) -> 
-  Port = proplists:get_value(controllingProcess, Args),
-  ControllingProcess = proplists:get_value(controllingProcess, Args),
-
+-spec(join/2::(number(), pid()) -> {ok, #chord_state{}} | error).
+join(Port, ControllingProcess) -> 
   JoinAddr = "hub.probsteide.com",
   JoinPort = 6001,
   case chord_tcp:rendevouz(Port, JoinAddr, JoinPort) of
@@ -881,7 +880,7 @@ join_test() ->
 
   % Send message with port num from chord_tcp
   self() ! {port, OwnPort},
-  {ok, NewState} = join(),
+  {ok, NewState} = join(OwnPort, self()),
 
   % Ensure the precesseccor has been removed
   ?assert(NewState#chord_state.predecessor =/= Predecessor),

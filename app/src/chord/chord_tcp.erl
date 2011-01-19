@@ -23,8 +23,7 @@
     start_link/1, 
     start/0, 
     stop/0,
-    stop/1,
-    start_link_unnamed/1
+    stop/1
   ]).
 -export([rpc_get_closest_preceding_finger_and_succ/2, 
          rpc_find_successor/3,
@@ -137,10 +136,7 @@ stop() -> gen_listener_tcp:call(?MODULE, stop).
 stop(Pid) -> gen_listener_tcp:call(Pid, stop).
 
 %% @doc Start the server.
-start_link_unnamed(Args) -> gen_listener_tcp:start_link(?MODULE, Args, []).
-
-%% @doc Start the server.
-start_link(Args) -> gen_listener_tcp:start_link({local, ?MODULE}, ?MODULE, Args, []).
+start_link(Args) -> gen_listener_tcp:start_link(?MODULE, Args, []).
 
 %% @doc The echo client process.
 chord_tcp_client(Socket, State) -> receive_incoming(Socket, [], State).
@@ -184,13 +180,13 @@ handle_call(stop, _From, State) ->
   {stop, normal, ok, State};
 
 handle_call({set_dht_pid, Pid}, _From, _State) ->
-  io:format("received the dht pid~n"),
   {reply, ok, Pid};
 
 handle_call(Request, _From, State) ->
   {reply, {illegal_request, Request}, State}.
 
-handle_cast(_Request, State) ->
+handle_cast(Request, State) ->
+  error_logger:error_msg("Unhandled request in chord_tcp: ~p", [Request]),
   {noreply, State}.
 
 handle_info(_Info, State) ->

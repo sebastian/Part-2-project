@@ -139,8 +139,10 @@ bulk_delivery(Entries) ->
 %% gen_server Function Definitions
 %% ------------------------------------------------------------------
 
-init(_Args) -> 
-  DhtPid = controller:register_pastry_app_pid(self()),
+init(Args) -> 
+  ControllingProcess = proplists:get_value(controllingProcess, Args),
+  controller:register_pastry_app(ControllingProcess, self()),
+  DhtPid = receive {dht_pid, PastryPid} -> PastryPid end,
   {ok, #pastry_app_state{pastry_pid = DhtPid}}.
 
 % Call:

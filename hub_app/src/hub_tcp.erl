@@ -43,7 +43,8 @@ is_node_alive(Node) ->
 -spec(perform_rpc/2::(Message::term(), #node{}) ->
     {ok, _} | {error, _}).
 perform_rpc(Message, #node{ip = Ip, port = Port}) ->
-  case gen_tcp:connect(Ip, Port, [binary, {packet, 0}, {active, true}]) of
+  Timeout = 400,
+  case gen_tcp:connect(Ip, Port, [binary, {packet, 0}, {active, true}], Timeout) of
     {ok, Socket} ->
       ok = gen_tcp:send(Socket, term_to_binary(Message)),
       receive_data(Socket, []);

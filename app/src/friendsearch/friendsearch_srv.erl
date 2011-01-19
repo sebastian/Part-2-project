@@ -18,8 +18,8 @@
 %% ------------------------------------------------------------------
 
 -export([list/0, add/1, delete/1, find/1, keep_alive/0]).
--export([start_link/1, start/1, stop/0]).
--export([set_dht_pid/1]).
+-export([start_link/0, start/1, stop/0]).
+-export([set_dht/1]).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Exports
@@ -34,8 +34,8 @@
 start(Args) ->
   gen_server:start({local, ?SERVER}, ?MODULE, Args, []).
 
-start_link(Dht) ->
-  gen_server:start_link({local, ?SERVER}, ?MODULE, [Dht], []).
+start_link() ->
+  gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
 stop() ->
   gen_server:call(?SERVER, stop).
@@ -72,16 +72,15 @@ find(Query) ->
 keep_alive() ->
   gen_server:cast(?MODULE, keep_alive).
 
-set_dht_pid(Pid) ->
-  gen_server:call(?MODULE, {set_dht_pid, Pid}).
+set_dht(Dht) ->
+  gen_server:call(?MODULE, {set_dht, Dht}).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Definitions
 %% ------------------------------------------------------------------
 
-init(Args) -> 
-  Dht = proplists:get_value(dht, Args),
-  State = friendsearch:init(Dht),
+init(_Args) -> 
+  State = friendsearch:init(),
   {ok, TimerRef} = 
       timer:apply_interval(?KEEP_ALIVE_INTERVAL, ?MODULE, keep_alive, []),
   {ok, State#friendsearch_state{timerRefKeepAlive = TimerRef}}.
@@ -96,8 +95,9 @@ handle_call({delete, Key}, _From, State) ->
 handle_call({find, Query}, _From, State) ->
   {reply, friendsearch:find(Query, State), State};
 
-handle_call({set_dht_pid, Pid}, _From, State) ->
-  {reply, ok, State#friendsearch_state{dht_pid = Pid}};
+handle_call({set_dht, {Mode,Pid}}, _From, State) ->
+  io:format("Setting Dht: ~p with pid: ~p~n", [Mode, Pid]),
+  {reply, ok, State#friendsearch_state{dht_pid = Pid, dht = Mode}};
 
 handle_call(stop, _From, State) ->
   {stop, normal, ok, State}.
@@ -127,7 +127,7 @@ code_change(_OldVsn, State, _Extra) ->
 add_list_test() ->
   {ok, Pid} = test_dht:start(),
   start([{dht, test_dht}]),
-  set_dht_pid(Pid),
+  set_dht({test_dht, Pid}),
   Person = test_utils:test_person_sebastianA(),
   ?assertNot(lists:member(Person, list())),
   add(Person),
@@ -138,7 +138,7 @@ add_list_test() ->
 find_test() ->
   {ok, Pid} = test_dht:start(),
   start([{dht, test_dht}]),
-  set_dht_pid(Pid),
+  set_dht({test_dht, Pid}),
   Person = test_utils:test_person_sebastianA(),
   PersonName = Person#person.name,
   ?assertEqual([], find(PersonName)),
@@ -150,7 +150,7 @@ find_test() ->
 find_by_surname_test() ->
   {ok, Pid} = test_dht:start(),
   start([{dht, test_dht}]),
-  set_dht_pid(Pid),
+  set_dht({test_dht, Pid}),
   Person = test_utils:test_person_sebastianA(),
   Surname = <<"Eide">>,
   ?assertEqual([], find(Surname)),
@@ -162,7 +162,7 @@ find_by_surname_test() ->
 find_multiple_test() ->
   {ok, Pid} = test_dht:start(),
   start([{dht, test_dht}]),
-  set_dht_pid(Pid),
+  set_dht({test_dht, Pid}),
 
   % Name: Sebastian Probst Eide
   Sebastian = test_utils:test_person_sebastianA(),

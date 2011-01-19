@@ -16,18 +16,14 @@
 
 -export([list/1, add/2, delete/2, find/2, keep_alive/1]).
 -export([lookup_link/3, get_item/3]).
--export([init/1]).
+-export([init/0]).
 
 %% ------------------------------------------------------------------
 %% Public API
 %% ------------------------------------------------------------------
 
-init(Dht) -> 
-  #friendsearch_state{
-    dht = Dht,
-    entries = [],
-    link_entries = []
-  }.
+init() -> 
+  #friendsearch_state{}.
 
 -spec(list/1::(State::#friendsearch_state{}) -> [#entry{}]).
 list(State) -> 
@@ -197,10 +193,6 @@ generate_link_items_test() ->
     fun(E) -> ?assert((E#entry.data)#link.profile_key =:= Entry#entry.key) end,
     Entries).
 
-init_test() ->
-  Dht = the_dht,
-  ?assertEqual(Dht, (init(Dht))#friendsearch_state.dht).
-
 assumptions_for_add(Person) ->
   Entry = utilities:entry_for_record(Person),
   Link = #link{
@@ -217,7 +209,7 @@ assumptions_for_add(Person) ->
     end, generate_link_items(Entry)).
 
 add_test() ->
-  State = (init(chord))#friendsearch_state{dht_pid = self()},
+  State = (init())#friendsearch_state{dht = chord, dht_pid = self()},
 
   Person = test_utils:test_person_sebastianA(),
 
@@ -233,7 +225,7 @@ add_test() ->
 
 list_test() ->
   % Should return all entries currently in the store
-  State = (init(chord))#friendsearch_state{dht_pid = self()},
+  State = (init())#friendsearch_state{dht = chord, dht_pid = self()},
   PersonA = test_utils:test_person_sebastianA(),
   PersonB = test_utils:test_person_sebastianB(),
 
@@ -249,7 +241,7 @@ list_test() ->
   erlymock:verify().
 
 delete_test() ->
-  State = (init(chord))#friendsearch_state{dht_pid = self()},
+  State = (init())#friendsearch_state{dht_pid = self(), dht=chord},
 
   PersonA = test_utils:test_person_sebastianA(),
   PersonB = test_utils:test_person_sebastianB(),
@@ -277,7 +269,8 @@ keep_alive_test() ->
   EntryA = (utilities:entry_for_record(PersonA))#entry{timeout = TimeNow + 5},
   EntryB = (utilities:entry_for_record(PersonB))#entry{timeout = TimeNow + ?ENTRY_TIMEOUT},
   DhtPid = self(),
-  State = (init(chord))#friendsearch_state{dht_pid = DhtPid, entries = [EntryA, EntryB]},
+  Dht = chord,
+  State = (init())#friendsearch_state{dht=Dht, dht_pid = DhtPid, entries = [EntryA, EntryB]},
 
   UpdatedEntryA = EntryA#entry{timeout = TimeNow + ?ENTRY_TIMEOUT},
 
@@ -301,7 +294,7 @@ profile_list_by_priority_test() ->
 
 find_test() ->
   {ok, Pid} = test_dht:start(),
-  State = (init(test_dht))#friendsearch_state{dht_pid = Pid},
+  State = (init())#friendsearch_state{dht=test_dht, dht_pid = Pid},
 
   Person = test_utils:test_person_sebastianA(),
   UpdatedState = add(Person, State),

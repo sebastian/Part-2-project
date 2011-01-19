@@ -9,44 +9,36 @@
 -behaviour(supervisor).
 
 %% External exports
--export([start_link/1, upgrade/0]).
+-export([start_link/0, upgrade/0]).
 
 %% supervisor callbacks
 -export([init/1]).
 
 %% @spec start_link() -> ServerRet
 %% @doc API for starting the supervisor.
-start_link(Args) ->
-    supervisor:start_link(?MODULE, Args).
+start_link() -> supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
 %% @spec upgrade() -> ok
 %% @doc Add processes if necessary.
 upgrade() ->
-    {ok, {_, Specs}} = init([]),
+  {ok, {_, Specs}} = init([]),
 
-    Old = sets:from_list(
-            [Name || {Name, _, _, _} <- supervisor:which_children(?MODULE)]),
-    New = sets:from_list([Name || {Name, _, _, _, _, _} <- Specs]),
-    Kill = sets:subtract(Old, New),
+  Old = sets:from_list(
+          [Name || {Name, _, _, _} <- supervisor:which_children(?MODULE)]),
+  New = sets:from_list([Name || {Name, _, _, _, _, _} <- Specs]),
+  Kill = sets:subtract(Old, New),
 
-    sets:fold(fun (Id, ok) ->
-                      supervisor:terminate_child(?MODULE, Id),
-                      supervisor:delete_child(?MODULE, Id),
-                      ok
-              end, ok, Kill),
+  sets:fold(fun (Id, ok) ->
+                    supervisor:terminate_child(?MODULE, Id),
+                    supervisor:delete_child(?MODULE, Id),
+                    ok
+            end, ok, Kill),
 
-    [supervisor:start_child(?MODULE, Spec) || Spec <- Specs],
-    ok.
+  [supervisor:start_child(?MODULE, Spec) || Spec <- Specs],
+  ok.
 
-init(Args) ->
-  CreateSupWithArgs = fun(Name,SupArgs) -> {Name,
-      {Name, start_link, [SupArgs]},
-      permanent, infinity, supervisor,
-      []}
-    end,
-
-  Chord = CreateSupWithArgs(chord_sup, Args),
-
-  StartSpecs = {{simple_one_for_one, 0, 1}, [Chord]},
+init(_Args) ->
+  ChordSup = {chord_sup, {chord_sup, start_link, []}, transient, infinity, supervisor, []},
+  StartSpecs = {{simple_one_for_one, 10, 10}, [ChordSup]},
   {ok, StartSpecs}.
 

@@ -17,7 +17,7 @@
 %% PUBLIC API Function Exports
 %% ------------------------------------------------------------------
 
--export([set/2, lookup/1, spring_cleaning/0, get_entries_in_range/2]).
+-export([set/2, lookup/1, spring_cleaning/0, get_entries_in_range/2, clear/0]).
 -export([start_link/0, start/0, stop/0]).
 
 %% ------------------------------------------------------------------
@@ -65,6 +65,9 @@ spring_cleaning() ->
 get_entries_in_range(Start, End) ->
   gen_server:call(?MODULE, {get_entries_in_range, Start, End}).
 
+clear() ->
+  gen_server:call(?SERVER, clear).
+
 %% ------------------------------------------------------------------
 %% gen_server Function Definitions
 %% ------------------------------------------------------------------
@@ -84,6 +87,9 @@ handle_call({set, Key, Value}, _From, State) ->
 
 handle_call(get_state, _From, State) ->
   {reply, State, State};
+
+handle_call(clear, _From, State) ->
+  {reply, ok, State#datastore_state{data = datastore:init()}};
 
 handle_call(stop, _From, State) ->
   {stop, normal, ok, State}.
