@@ -112,12 +112,8 @@ receive_data(Socket, SoFar) ->
     {tcp, Socket, Bin} ->
       receive_data(Socket, [Bin | SoFar]);
     {tcp_closed, Socket} ->
-      case SoFar =:= <<>> of
-        true -> {ok, ok};
-        false ->
-          try {ok, binary_to_term(list_to_binary(lists:reverse(SoFar)))}
-          catch error:badarg -> {error, badarg}
-          end
+      try {ok, binary_to_term(list_to_binary(lists:reverse(SoFar)))}
+      catch error:badarg -> {error, badarg}
       end
   after 5000 ->
     error_logger:info_msg("PerformRPC times out~n"),
