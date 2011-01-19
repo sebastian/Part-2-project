@@ -18,21 +18,21 @@
 %% ------------------------------------------------------------------
 
 -export([
-    set/2,
-    lookup/1
+    set/3,
+    lookup/2
   ]).
 % For pastry
 -export([
-    deliver/2,
+    deliver/3,
     forward/3,
-    new_leaves/1,
-    pastry_init/2
+    new_leaves/2,
+    pastry_init/3
   ]).
 % For gen_server
 -export([
     start/1,
     start_link/1,
-    stop/0
+    stop/1
   ]).
 % For pastry_tcp
 -export([bulk_delivery/1]).
@@ -57,7 +57,8 @@
 -record(pastry_app_state, {
     leaf_set = {[],[]},
     self,
-    b
+    b,
+    pastry_pid
   }).
 
 %% ------------------------------------------------------------------
@@ -67,51 +68,51 @@
 % Used by 3rd party apps --------------------------------------------
 
 %% @doc: gets a value from the chord network
--spec(lookup/1::(Key::key()) -> [#entry{}]).
-lookup(Key) ->
-  gen_server:call(?SERVER, {lookup, Key}).
+-spec(lookup/2::(pid(), Key::key()) -> [#entry{}]).
+lookup(Pid, Key) ->
+  gen_server:call(Pid, {lookup, Key}).
 
 %% @doc: stores a value in the chord network
--spec(set/2::(Key::key(), Entry::#entry{}) -> ok).
-set(Key, Entry) ->
-  gen_server:call(?SERVER, {set, Key, Entry}).
+-spec(set/3::(pid(), Key::key(), Entry::#entry{}) -> ok).
+set(Pid, Key, Entry) ->
+  gen_server:call(Pid, {set, Key, Entry}).
 
 % Used by supervisor ------------------------------------------------
 
 start(Args) ->
-  gen_server:start({local, ?SERVER}, ?MODULE, Args, []).
+  gen_server:start(?MODULE, Args, []).
 
 start_link(Args) ->
-  gen_server:start_link({local, ?SERVER}, ?MODULE, Args, []).
+  gen_server:start_link(?MODULE, Args, []).
 
-stop() ->
-  gen_server:call(?MODULE, stop).
+stop(Pid) ->
+  gen_server:call(Pid, stop).
 
-pastry_init(Node, B) ->
-  gen_server:call(?SERVER, {init_with_data, Node, B}).
+pastry_init(Pid, Node, B) ->
+  gen_server:call(Pid, {init_with_data, Node, B}).
 
 % Used by pastry_core -----------------------------------------------
 
 % @doc: Called by pastry when the current node is the numerically
 % closest to the key among all live nodes.
--spec(deliver/2::(_, pastry_key()) -> ok).
-deliver({join, Node}, _Key) ->
+-spec(deliver/3::(pid(), _, pastry_key()) -> ok).
+deliver(Pid, {join, Node}, _Key) ->
   io:format("Received a join message. Welcome stranger~n"),
   % Hurrah, there is a new node in the network.
   % We have to send it our leaf set, and 
   % wholeheartedly welcome it!
-  pastry:welcome(Node);
+  gen_server:call(Pid, {welcome, Node});
 
-deliver({lookup_key, Key, Node, Ref}, _Key) ->
+deliver(_, {lookup_key, Key, Node, Ref}, _Key) ->
   io:format("Received lookup message for ~p~n", [Key]),
   pastry_tcp:send_msg({data, Ref, datastore_srv:lookup(Key)}, Node);
 
-deliver({set, Key, Entry}, _PastryKey) ->
-  gen_server:cast(?SERVER, {replicate, Entry}),
+deliver(Pid, {set, Key, Entry}, _PastryKey) ->
+  gen_server:cast(Pid, {replicate, Entry}),
   io:format("Storing entry for ~p~n", [Key]),
   datastore_srv:set(Key, Entry);
 
-deliver(Msg, _Key) ->
+deliver(_, Msg, _Key) ->
   error_logger:error_msg("Unknown message delivered: ~p~n", [Msg]),
   ok.
 
@@ -124,9 +125,9 @@ forward(Msg, _Key, NextNode) ->
   {Msg, NextNode}.
 
 % @doc: Called by pastry whenever there is a change in the local node's leaf set.
--spec(new_leaves/1::({[#node{}], [#node{}]}) -> ok).
-new_leaves(LeafSet) ->
-  gen_server:cast(?SERVER, {new_leaves, LeafSet}),
+-spec(new_leaves/2::(pid(), {[#node{}], [#node{}]}) -> ok).
+new_leaves(Pid, LeafSet) ->
+  gen_server:cast(Pid, {new_leaves, LeafSet}),
   ok.
 
 % Used by pastry_tcp ------------------------------------------------
@@ -139,19 +140,20 @@ bulk_delivery(Entries) ->
 %% ------------------------------------------------------------------
 
 init(_Args) -> 
-  {ok, #pastry_app_state{}}.
+  DhtPid = controller:register_pastry_app_pid(self()),
+  {ok, #pastry_app_state{pastry_pid = DhtPid}}.
 
 % Call:
-handle_call({set, Key, Entry}, _From, #pastry_app_state{b = B} = State) ->
+handle_call({set, Key, Entry}, _From, #pastry_app_state{b = B, pastry_pid = PastryPid} = State) ->
   PastryKey = utilities:number_to_pastry_key_with_b(Key, B),
-  pastry:route({set, Key, Entry}, PastryKey),
+  pastry:route(PastryPid, {set, Key, Entry}, PastryKey),
   {reply, ok, State};
 
-handle_call({lookup, Key}, From, #pastry_app_state{b = B} = State) ->
+handle_call({lookup, Key}, From, #pastry_app_state{b = B, pastry_pid = PastryPid} = State) ->
   spawn(fun() ->
     PastryKey = utilities:number_to_pastry_key_with_b(Key, B),
     Ref = make_ref(),
-    pastry:route({lookup_key, Key, pastry:get_self(), {self(), Ref}}, PastryKey),
+    pastry:route(PastryPid, {lookup_key, Key, pastry:get_self(PastryPid), {self(), Ref}}, PastryKey),
     ReturnValue = receive
       {data, Ref, Data} -> Data
     after ?TIMEOUT -> {error, timeout}
@@ -162,6 +164,10 @@ handle_call({lookup, Key}, From, #pastry_app_state{b = B} = State) ->
 
 handle_call({init_with_data, Self, B}, _From, State) ->
   {reply, ok, State#pastry_app_state{self = Self, b = B}};
+
+handle_call({welcome, Node}, _From, #pastry_app_state{pastry_pid = PastryPid} = State) ->
+  pastry:welcome(PastryPid, Node),
+  {reply, ok, State};
 
 handle_call(stop, _From, State) ->
   {stop, normal, ok, State};

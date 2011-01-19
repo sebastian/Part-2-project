@@ -1,9 +1,9 @@
 %% @author Sebastian Probst Eide <sebastian.probst.eide@gmail.com>
 %% @copyright 2010 Sebastian Probst Eide
 
-%% @doc Supervisor for the chord application.
+%% @doc Supervisor for the pastry application.
 
--module(pastry_sup).
+-module(pastry_sofo).
 -author('Sebastian Probst Eide sebastian.probst.eide@gmail.com').
 
 -behaviour(supervisor).
@@ -17,7 +17,7 @@
 %% @spec start_link() -> ServerRet
 %% @doc API for starting the supervisor.
 start_link(Args) ->
-    supervisor:start_link({local, ?MODULE}, ?MODULE, Args).
+    supervisor:start_link(?MODULE, Args).
 
 %% @spec upgrade() -> ok
 %% @doc Add processes if necessary.
@@ -38,20 +38,14 @@ upgrade() ->
     [supervisor:start_child(?MODULE, Spec) || Spec <- Specs],
     ok.
 
-%% @spec init([]) -> SupervisorTree
-%% @doc supervisor callback.
 init(Args) ->
-  CreateChild = fun(Name,ChildArgs) -> {Name,
+  CreateSupWithArgs = fun(Name,ChildArgs) -> {Name,
       {Name, start_link, [ChildArgs]},
-      permanent, 2000, worker,
-      [Name]}
+      permanent, infinity, supervisor,
+      []}
     end,
 
-  Processes = [
-    CreateChild(pastry_locality, []),
-    CreateChild(pastry_tcp, Args),
-    CreateChild(pastry_app, []),
-    CreateChild(pastry, Args)
-  ],
+  Pastry = CreateSupWithArgs(pastry_sup, Args),
 
-  {ok, { {one_for_one, 10, 10}, Processes} }.
+  StartSpecs = {{simple_one_for_one, 0, 1}, [Pastry]},
+  {ok, StartSpecs}.

@@ -20,7 +20,13 @@
 %% API Function Exports
 %% ------------------------------------------------------------------
 
--export([start_link/1, start/1, stop/0]).
+-export([
+    start_link/1,
+    start_link_unnamed/1,
+    start/1, 
+    stop/0,
+    stop/1
+  ]).
 -export([
     perform_join/2,
     send_routing_table/2,
@@ -125,33 +131,34 @@ receive_data(Socket, SoFar) ->
 %% gen_listener_tcp Function Definitions
 %% ------------------------------------------------------------------
 
-start(Port) ->
-  gen_listener_tcp:start({local, ?MODULE}, ?MODULE, [Port], []).
+start(Port) -> gen_listener_tcp:start({local, ?MODULE}, ?MODULE, [Port], []).
 
-stop() ->
-  gen_listener_tcp:call(pastry_tcp, stop).
+stop() -> gen_listener_tcp:call(?MODULE, stop).
+
+stop(Pid) -> gen_listener_tcp:call(Pid, stop).
 
 %% @doc Start the server.
-start_link(Args) ->
-  gen_listener_tcp:start_link({local, ?MODULE}, ?MODULE, Args, []).
+start_link_unnamed(Args) -> gen_listener_tcp:start_link(?MODULE, Args, []).
+
+%% @doc Start the server.
+start_link(Args) -> gen_listener_tcp:start_link({local, ?MODULE}, ?MODULE, Args, []).
 
 %% @doc The echo client process.
-pastry_tcp_client(Socket) ->
-  receive_incoming(Socket, []).
+pastry_tcp_client(Socket, Pid) -> receive_incoming(Socket, [], Pid).
 
-receive_incoming(Socket, SoFar) ->
+receive_incoming(Socket, SoFar, Pid) ->
   receive
     {tcp, Socket, Bin} ->
       try
         FinalBin = lists:reverse([Bin | SoFar]),
         Message = binary_to_term(list_to_binary(FinalBin)),
-        RetValue = handle_msg(Message),
+        RetValue = handle_msg(Message, Pid),
         ok = gen_tcp:send(Socket, term_to_binary(RetValue)),
         gen_tcp:close(Socket)
       catch
         error:badarg ->
           % Partial data received? Continue
-          receive_incoming(Socket, [Bin|SoFar])
+          receive_incoming(Socket, [Bin|SoFar], Pid)
       end;
     {tcp_closed, _Socket} ->
       ok;
@@ -166,13 +173,16 @@ receive_incoming(Socket, SoFar) ->
 
 init(Args) ->
   Port = proplists:get_value(port, Args),
-  error_logger:info_msg("Initializing pastry_tcp listening on port: ~p~n", [Port]),
-  {ok, {Port, ?TCP_OPTS}, []}.
+  ControllingProcess = proplists:get_value(controllingProcess, Args),
+  {ok, {Port, ?TCP_OPTS}, ControllingProcess}.
 
 handle_accept(Sock, State) ->
-  Pid = spawn(fun() -> pastry_tcp_client(Sock) end),
+  Pid = spawn(fun() -> pastry_tcp_client(Sock, State) end),
   gen_tcp:controlling_process(Sock, Pid),
   {noreply, State}.
+
+handle_call({set_dht_pid, Pid}, _From, _State) ->
+  {reply, ok, Pid};
 
 handle_call(stop, _From, State) ->
   {stop, normal, ok, State};
@@ -196,53 +206,53 @@ code_change(_OldVsn, State, _Extra) ->
 %% Internal Function Definitions
 %% ------------------------------------------------------------------
 
-handle_msg({send_routing_table, RoutingTable}) ->
-  pastry:augment_routing_table(RoutingTable);
+handle_msg({send_routing_table, RoutingTable}, Pid) ->
+  pastry:augment_routing_table(Pid, RoutingTable);
 
-handle_msg({join, JoinNode}) ->
+handle_msg({join, JoinNode}, Pid) ->
   % This call only happens when a node explicitly asks
   % another node to join the network. As a node nearby
   % the other node, we should sent it our neighborhood list
-  spawn(fun() -> send_nodes(pastry:get_neighborhoodset(), JoinNode) end),
+  spawn(fun() -> send_nodes(pastry:get_neighborhoodset(Pid), JoinNode) end),
   % Now forward the join message
-  pastry:let_join(JoinNode),
+  pastry:let_join(Pid, JoinNode),
   ok;
-handle_msg({route, {join, JoinNode}, _Key}) ->
+handle_msg({route, {join, JoinNode}, _Key}, Pid) ->
   % Nodes forward a join message as any other message, we therefore
   % intercept it here and give it the special join treatment
-  pastry:let_join(JoinNode),
+  pastry:let_join(Pid, JoinNode),
   ok;
 
-handle_msg({route, Msg, Key}) ->
-  pastry:route(Msg, Key),
+handle_msg({route, Msg, Key}, Pid) ->
+  pastry:route(Pid, Msg, Key),
   ok;
 
-handle_msg({welcome, Leafs}) ->
-  pastry:add_nodes(Leafs),
-  pastry:welcomed();
+handle_msg({welcome, Leafs}, Pid) ->
+  pastry:add_nodes(Pid, Leafs),
+  pastry:welcomed(Pid);
 
-handle_msg(request_routing_table) ->
-  pastry:get_routing_table();
+handle_msg(request_routing_table, Pid) ->
+  pastry:get_routing_table(Pid);
 
-handle_msg(request_neighborhood_set) ->
-  pastry:get_neighborhoodset();
+handle_msg(request_neighborhood_set, Pid) ->
+  pastry:get_neighborhoodset(Pid);
 
-handle_msg(request_leaf_set) ->
-  pastry:get_leafset();
+handle_msg(request_leaf_set, Pid) ->
+  pastry:get_leafset(Pid);
 
-handle_msg({add_nodes, Nodes}) ->
-  pastry:add_nodes(Nodes);
+handle_msg({add_nodes, Nodes}, Pid) ->
+  pastry:add_nodes(Pid, Nodes);
 
-handle_msg({data, {Pid, Ref}, Data}) ->
+handle_msg({data, {Pid, Ref}, Data}, Pid) ->
   Pid ! {data, Ref, Data},
   ok;
 
-handle_msg({bulk_delivery, Entries}) ->
+handle_msg({bulk_delivery, Entries}, _Pid) ->
   spawn(fun() -> pastry_app:bulk_delivery(Entries) end),
   ok;
 
-handle_msg(ping) ->
+handle_msg(ping, _Pid) ->
   pong;
 
-handle_msg(_) ->
+handle_msg(_, _Pid) ->
   ?NYI.

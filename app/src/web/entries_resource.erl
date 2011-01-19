@@ -18,7 +18,7 @@ allowed_methods(R, S) ->
   %% @todo: Should check if the path is /entries, then accept POST and GET,
   %% and only accept GET for /entries/KEY.
   {['POST', 'HEAD', 'GET'], R, S}.
-  
+
 process_post(ReqData, State) ->
   {struct, Data} = mochijson2:decode(wrq:req_body(ReqData)),
   NewPerson = #person{

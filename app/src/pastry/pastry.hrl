@@ -30,5 +30,9 @@
     self = #node{},
 
     % Timer that ensures neighborhoodset nodes are alive
-    neighborhood_watch_ref
+    neighborhood_watch_ref,
+
+    % The Pid of the currently running pastry instance
+    pastry_pid :: pid(),
+    pastry_app_pid :: pid()
   }).

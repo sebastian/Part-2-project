@@ -19,7 +19,13 @@
 %% API Function Exports
 %% ------------------------------------------------------------------
 
--export([start_link/1, start/0, stop/0]).
+-export([
+    start_link/1, 
+    start/0, 
+    stop/0,
+    stop/1,
+    start_link_unnamed/1
+  ]).
 -export([rpc_get_closest_preceding_finger_and_succ/2, 
          rpc_find_successor/3,
          rpc_lookup_key/2, 
@@ -124,33 +130,34 @@ receive_data(Socket, SoFar) ->
 %% gen_listener_tcp Function Definitions
 %% ------------------------------------------------------------------
 
-start() ->
-  gen_listener_tcp:start({local, ?MODULE}, ?MODULE, [], []).
+start() -> gen_listener_tcp:start({local, ?MODULE}, ?MODULE, [], []).
 
-stop() ->
-  gen_listener_tcp:call(chord_tcp, stop).
+stop() -> gen_listener_tcp:call(?MODULE, stop).
+
+stop(Pid) -> gen_listener_tcp:call(Pid, stop).
 
 %% @doc Start the server.
-start_link(Args) ->
-  gen_listener_tcp:start_link({local, ?MODULE}, ?MODULE, Args, []).
+start_link_unnamed(Args) -> gen_listener_tcp:start_link(?MODULE, Args, []).
+
+%% @doc Start the server.
+start_link(Args) -> gen_listener_tcp:start_link({local, ?MODULE}, ?MODULE, Args, []).
 
 %% @doc The echo client process.
-chord_tcp_client(Socket) ->
-  receive_incoming(Socket, []).
+chord_tcp_client(Socket, State) -> receive_incoming(Socket, [], State).
 
-receive_incoming(Socket, SoFar) ->
+receive_incoming(Socket, SoFar, State) ->
   receive
     {tcp, Socket, Bin} ->
       try
         FinalBin = lists:reverse([Bin | SoFar]),
         Message = binary_to_term(list_to_binary(FinalBin)),
-        RetValue = handle_msg(Message),
+        RetValue = handle_msg(Message, State),
         ok = gen_tcp:send(Socket, term_to_binary(RetValue)),
         gen_tcp:close(Socket)
       catch
         error:badarg ->
           % The packet got fragmented somehow...
-          receive_incoming(Socket, [Bin|SoFar])
+          receive_incoming(Socket, [Bin|SoFar], State)
       end;
     {tcp_closed, _Socket} ->
       ok;
@@ -165,16 +172,20 @@ receive_incoming(Socket, SoFar) ->
 
 init(Args) ->
   Port = proplists:get_value(port, Args),
-  error_logger:info_msg("Initializing chord_tcp listening on port: ~p~n", [Port]),
-  {ok, {Port, ?TCP_OPTS}, []}.
+  ControllingProcess = proplists:get_value(controllingProcess, Args),
+  {ok, {Port, ?TCP_OPTS}, ControllingProcess}.
 
 handle_accept(Sock, State) ->
-  Pid = spawn(fun() -> chord_tcp_client(Sock) end),
+  Pid = spawn(fun() -> chord_tcp_client(Sock, State) end),
   gen_tcp:controlling_process(Sock, Pid),
   {noreply, State}.
 
 handle_call(stop, _From, State) ->
   {stop, normal, ok, State};
+
+handle_call({set_dht_pid, Pid}, _From, _State) ->
+  io:format("received the dht pid~n"),
+  {reply, ok, Pid};
 
 handle_call(Request, _From, State) ->
   {reply, {illegal_request, Request}, State}.
@@ -195,32 +206,32 @@ code_change(_OldVsn, State, _Extra) ->
 %% Internal Function Definitions
 %% ------------------------------------------------------------------
 
-handle_msg({preceding_finger, Key}) ->
-  chord:preceding_finger(Key);
+handle_msg({preceding_finger, Key}, Pid) ->
+  chord:preceding_finger(Pid, Key);
 
-handle_msg({find_successor, Key}) ->
-  chord:find_successor(Key);
+handle_msg({find_successor, Key}, Pid) ->
+  chord:find_successor(Pid, Key);
 
-handle_msg(get_predecessor) ->
-  chord:get_predecessor();
+handle_msg(get_predecessor, Pid) ->
+  chord:get_predecessor(Pid);
 
-handle_msg({notify_about_predecessor, CurrentNode}) ->
-  chord:notified(CurrentNode);
+handle_msg({notify_about_predecessor, CurrentNode}, Pid) ->
+  chord:notified(Pid, CurrentNode);
 
-handle_msg({set_key, Key, Value}) ->
-  chord:local_set(Key, Value);
+handle_msg({set_key, Key, Value}, Pid) ->
+  chord:local_set(Pid, Key, Value);
 
-handle_msg({lookup_key, Key}) ->
-  chord:local_lookup(Key);
+handle_msg({lookup_key, Key}, Pid) ->
+  chord:local_lookup(Pid, Key);
 
-handle_msg(get_successor) ->
-  chord:get_successor();
+handle_msg(get_successor, Pid) ->
+  chord:get_successor(Pid);
 
-handle_msg({send_entries, Entries}) ->
-  chord:receive_entries(Entries);
+handle_msg({send_entries, Entries}, Pid) ->
+  chord:receive_entries(Pid, Entries);
 
-handle_msg(ping) ->
+handle_msg(ping, _Pid) ->
   pong;
 
-handle_msg(_) ->
+handle_msg(_, _Pid) ->
   ?NYI.

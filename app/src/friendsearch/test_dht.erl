@@ -1,6 +1,6 @@
 -module(test_dht).
 -compile([export_all]).
--export([set/2, lookup/1, start/0, stop/0, init/1]).
+-export([set/3, lookup/2, start/0, stop/1, init/1]).
 -behaviour(gen_server).
 
 -ifdef(TEST).
@@ -18,21 +18,21 @@
 %% ------------------------------------------------------------------
 
 start() ->
-  gen_server:start({local, ?MODULE}, ?MODULE, [], []).
+  gen_server:start(?MODULE, [], []).
 
-stop() ->
-  gen_server:call(?MODULE, stop).
+stop(Pid) ->
+  gen_server:call(Pid, stop).
 
 %% ------------------------------------------------------------------
 %% API Function Definitions
 %% ------------------------------------------------------------------
 
-set(Key, Entry) ->
-  gen_server:call(?MODULE, {set, Key, Entry}),
+set(Pid, Key, Entry) ->
+  gen_server:call(Pid, {set, Key, Entry}),
   ok.
 
-lookup(Key) ->
-  gen_server:call(?MODULE, {lookup, Key}).
+lookup(Pid, Key) ->
+  gen_server:call(Pid, {lookup, Key}).
 
 init(_Args) -> 
   {ok, []}.

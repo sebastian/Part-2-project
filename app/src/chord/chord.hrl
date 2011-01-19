@@ -21,5 +21,8 @@
 
     % Administrative information
     timerRefStabilizer :: timer:tref(),
-    timerRefFixFingers :: timer:tref()
+    timerRefFixFingers :: timer:tref(),
+
+    % The pid of the chord instance
+    chord_pid :: pid()
   }).

@@ -97,10 +97,13 @@ init([{'__gen_listener_tcp_mod', Module} | InitArgs]) ->
     process_flag(trap_exit, true),
 
     case Module:init(InitArgs) of
-        {ok, {Port, Options}, ModState} ->
-            {ok, ListenSocket} = gen_tcp:listen(Port, Options),
+        {ok, {Port, Options}, ControllingProcess} ->
+            {ok, ListenSocket} = get_listen_socket(Port, Options, ControllingProcess),
 
-            {ok, create_acceptor(ListenSocket, Module, ModState)};
+            % This method used to be passed the ModState as its last parameter,
+            % but since the mod state up until this point has been the ControllingProcess
+            % which is no longer needed, we discard the state.
+            {ok, create_acceptor(ListenSocket, Module, undefined)};
         ignore ->
             ignore;
         {stop, Reason} ->
@@ -108,6 +111,26 @@ init([{'__gen_listener_tcp_mod', Module} | InitArgs]) ->
         Other ->
             {stop, Other}
     end.
+
+get_listen_socket(Port, Options, ControllingProcess) ->
+  case gen_tcp:listen(Port, Options) of
+    {error, eaddrinuse} -> get_listen_socket(Port+1, Options, ControllingProcess);
+    OkSocket -> 
+      SelfPid = self(),
+      % Step 1, register tcp
+      spawn(fun() ->
+        controller:register_tcp(ControllingProcess, SelfPid, self(), Port),
+        error_logger:info_msg("Listening on port ~p. Waiting for DhtPid~n", [Port]),
+        receive 
+          {dht_pid, DhtPid} -> 
+            io:format("received the DHT pid inside gen_listener~n"),
+            % register the pid with the tcp_listener so we can contact the Dht
+            gen_server:call(SelfPid, {set_dht_pid, DhtPid});
+          Msg -> io:format("Received unexpected message in gen_listener_tcp: ~p~n", [Msg])
+        end
+      end),
+      OkSocket
+  end.
 
 
 handle_call(Request, From, #listener_state{mod=Module, mod_state=ModState}=St) ->

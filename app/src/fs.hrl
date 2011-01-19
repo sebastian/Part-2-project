@@ -61,6 +61,7 @@
   }).
 -record(friendsearch_state, {
     dht, 
+    dht_pid,
     entries,
     link_entries,
     timerRefKeepAlive

@@ -19,10 +19,9 @@
 %% Public API
 %% ------------------------------------------------------------------
 
--export([start_link/1, start/1, stop/0]).
--export([lookup/1, set/2]).
+-export([start_link/1, start/1, stop/1]).
 -export([
-    route/2
+    route/3
   ]).
 
 %% ------------------------------------------------------------------
@@ -31,27 +30,27 @@
 
 % For joining
 -export([
-    augment_routing_table/1,
-    let_join/1,
-    welcomed/0,
-    welcome/1
+    augment_routing_table/2,
+    let_join/2,
+    welcomed/1,
+    welcome/2
   ]).
 
 % For exchanging nodes
 -export([
-    get_leafset/0,
-    get_routing_table/0,
-    get_neighborhoodset/0,
-    get_self/0,
-    add_nodes/1,
-    discard_dead_node/1
+    get_leafset/1,
+    get_routing_table/1,
+    get_neighborhoodset/1,
+    get_self/1,
+    add_nodes/2,
+    discard_dead_node/2
   ]).
 
 % For use by other modules
 -export([
     value_of_key/2,
     max_for_keylength/2,
-    neighborhood_watch/0
+    neighborhood_watch/1
   ]).
 
 %% ------------------------------------------------------------------
@@ -72,49 +71,39 @@
 %% ------------------------------------------------------------------
 
 start(Args) ->
-  gen_server:start({local, ?SERVER}, ?MODULE, Args, []).
+  supervisor:start_child(pastry_sofo, Args).
 
 start_link(Args) ->
-  gen_server:start_link({local, ?SERVER}, ?MODULE, Args, []).
+  gen_server:start_link(?MODULE, Args, []).
 
-stop() ->
-  gen_server:call(?MODULE, stop).
+stop(Pid) ->
+  gen_server:call(Pid, stop).
 
-%% @doc: gets a value from the chord network
--spec(lookup/1::(Key::key()) -> [#entry{}]).
-lookup(_Key) ->
-  ok.
-
-%% @doc: stores a value in the chord network
--spec(set/2::(Key::key(), Entry::#entry{}) -> ok).
-set(_Key, _Entry) ->
-  ok.
-
-route(Msg, Key) ->
-  gen_server:cast(?SERVER, {route, Msg, Key}),
+route(Pid, Msg, Key) ->
+  gen_server:cast(Pid, {route, Msg, Key}),
   ok.
 
 %% ------------------------------------------------------------------
 %% PRIVATE API Function Definitions
 %% ------------------------------------------------------------------
 
-neighborhood_watch() ->
-  gen_server:cast(?SERVER, perform_neighborhood_watch),
-  gen_server:cast(?SERVER, perform_neighborhood_expansion).
+neighborhood_watch(Pid) ->
+  gen_server:cast(Pid, perform_neighborhood_watch),
+  gen_server:cast(Pid, perform_neighborhood_expansion).
 
-augment_routing_table(RoutingTable) ->
-  gen_server:cast(?SERVER, {augment_routing_table, RoutingTable}),
+augment_routing_table(Pid, RoutingTable) ->
+  gen_server:cast(Pid, {augment_routing_table, RoutingTable}),
   ok.
 
-let_join(Node) ->
+let_join(Pid, Node) ->
   % Send the newcomer our routing table
   spawn(fun() ->
-    pastry_tcp:send_routing_table(gen_server:call(?SERVER, get_routing_table), Node),
-    pastry_tcp:send_nodes(gen_server:call(?SERVER, get_self), Node),
+    pastry_tcp:send_routing_table(gen_server:call(Pid, get_routing_table), Node),
+    pastry_tcp:send_nodes(gen_server:call(Pid, get_self), Node),
     % Forward the routing message to the next node
-    route({join, Node}, Node#node.key),
+    route(Pid, {join, Node}, Node#node.key),
     % We add the node to our routing table so we can route to it later.
-    add_nodes(Node)
+    add_nodes(Pid, Node)
   end),
   ok.
 
@@ -123,31 +112,31 @@ let_join(Node) ->
 % welcomes the newcomer. Following the welcoming message
 % the node broadcasts its routing table to all the nodes
 % it knows about.
-welcomed() ->
-  gen_server:cast(?SERVER, welcomed),
+welcomed(Pid) ->
+  gen_server:cast(Pid, welcomed),
   ok.
 
-add_nodes(Nodes) ->
-  gen_server:cast(?SERVER, {add_nodes, Nodes}),
+add_nodes(Pid, Nodes) ->
+  gen_server:cast(Pid, {add_nodes, Nodes}),
   ok.
 
-welcome(Node) ->
-  gen_server:cast(?SERVER, {welcome, Node}).
+welcome(Pid, Node) ->
+  gen_server:cast(Pid, {welcome, Node}).
 
-get_leafset() ->
-  gen_server:call(?SERVER, get_leafset).
+get_leafset(Pid) ->
+  gen_server:call(Pid, get_leafset).
 
-get_routing_table() ->
-  gen_server:call(?SERVER, get_routing_table).
+get_routing_table(Pid) ->
+  gen_server:call(Pid, get_routing_table).
 
-get_neighborhoodset() ->
-  gen_server:call(?SERVER, get_neighborhoodset).
+get_neighborhoodset(Pid) ->
+  gen_server:call(Pid, get_neighborhoodset).
 
-get_self() ->
-  gen_server:call(?SERVER, get_self).
+get_self(Pid) ->
+  gen_server:call(Pid, get_self).
 
-discard_dead_node(Node) ->
-  gen_server:cast(?SERVER, {discard_dead_node, Node}).
+discard_dead_node(Pid, Node) ->
+  gen_server:cast(Pid, {discard_dead_node, Node}).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Definitions
@@ -156,7 +145,10 @@ discard_dead_node(Node) ->
 % Sample args:
 % pastry:start([{b,10},{port,3001},{joinNode,{{172,21,229,189},3000}}]).
 init(Args) -> 
-  Port = proplists:get_value(port, Args, 3000),
+  get_pastry_app_pid(),
+  SelfPid = self(),
+  controller:register_dht_pid(SelfPid),
+  Port = receive {port, ListenPort} -> ListenPort end,
 
   % Node we are connecting to
   JoinAddr = "hub.probsteide.com",
@@ -173,13 +165,16 @@ post_rendevouz_state_update(Ip, Port, Args) ->
   B = proplists:get_value(b, Args, 20),
   Key = utilities:key_for_node_with_b(Ip, Port, B),
   Self = #node{key = Key, port = Port, ip = Ip},
-  pastry_app:pastry_init(Self, B),
-  {ok, TimerRefNR} = timer:apply_interval(?NEIGHBORHOODWATCH_TIMER, ?MODULE, neighborhood_watch, []),
+  PastryAppPid = receive {app, AppPid} -> AppPid end,
+  pastry_app:pastry_init(PastryAppPid, Self, B),
+  {ok, TimerRefNR} = timer:apply_interval(?NEIGHBORHOODWATCH_TIMER, ?MODULE, neighborhood_watch, [self()]),
   #pastry_state{
     b = B,
     self = Self,
     routing_table = create_routing_table(Key),
-    neighborhood_watch_ref = TimerRefNR
+    neighborhood_watch_ref = TimerRefNR,
+    pastry_pid = self(),
+    pastry_app_pid = PastryAppPid
   }.
 
 perform_join([], _State) -> {stop, couldnt_join_pastry_network};
@@ -189,7 +184,21 @@ perform_join([{JoinIp, JoinPort}|Ps], #pastry_state{self = Self} = State) ->
     {ok, _} -> {ok, State}
   end.
 
+get_pastry_app_pid() ->
+  SelfPid = self(),
+  spawn(fun() ->
+    error_logger:info_msg("Waiting for pastry app pid"),
+    receive {pastry_app_pid, PastryAppPid} -> 
+      % register the pid with the tcp_listener so we can contact the Dht
+      gen_server:call(SelfPid, {set_pastry_app_pid, PastryAppPid}) 
+    end
+  end).
+
 % Call:
+handle_call({set_pastry_app_pid, PastryAppPid}, _From, State) ->
+  io:format("Received pastry app pid!~n"),
+  {reply, thanks, State#pastry_state{pastry_app_pid = PastryAppPid}};
+
 handle_call(get_leafset, _From, State) ->
   {reply, State#pastry_state.leaf_set, State};
 
@@ -222,15 +231,15 @@ handle_cast({welcome, Node}, #pastry_state{leaf_set = {LSS, LSG}} = State) ->
   {noreply, State};
 
 handle_cast(welcomed, State) ->
-  welcomed(State),
+  perform_welcomed(State),
   {noreply, State};
 
 handle_cast({route, Msg, Key}, State) ->
   route_msg(Msg, Key, State),
   {noreply, State};
 
-handle_cast({augment_routing_table, RoutingTable}, State) ->
-  add_nodes(nodes_in_routing_table(RoutingTable)),
+handle_cast({augment_routing_table, RoutingTable}, #pastry_state{pastry_pid = PastryPid} = State) ->
+  add_nodes(PastryPid, nodes_in_routing_table(RoutingTable)),
   {noreply, State};
 
 handle_cast({add_nodes, Nodes}, State) ->
@@ -250,7 +259,7 @@ handle_cast({update_local_state_with_nodes, Nodes}, #pastry_state{routing_table 
   {noreply, UpdatedLeafSetState#pastry_state{routing_table = NewRT, neighborhood_set = NewNeighborhoodSet}};
 
 handle_cast({discard_dead_node, Node}, State) ->
-  {noreply, discard_dead_node(Node, State)};
+  {noreply, perform_discard_dead_node(Node, State)};
 
 handle_cast(Msg, State) ->
   error_logger:error_msg("received unknown cast: ~p", [Msg]),
@@ -273,21 +282,21 @@ code_change(_OldVsn, State, _Extra) ->
 %% Internal Function Definitions
 %% ------------------------------------------------------------------
 
-perform_neighborhood_watch(#pastry_state{neighborhood_set = NHS}) ->
+perform_neighborhood_watch(#pastry_state{pastry_pid = Pid, neighborhood_set = NHS}) ->
   [spawn(fun() ->
       case pastry_tcp:is_node_alive(Node) of
         true -> awesome;
-        false -> discard_dead_node(Node)
+        false -> discard_dead_node(Pid, Node)
       end
   end) || Node <- NHS].
 
 perform_neighborhood_set_expansion(#pastry_state{neighborhood_set = []}) -> ok; % can't expand from non-existant neighbor.
-perform_neighborhood_set_expansion(#pastry_state{b = B, neighborhood_set = NHS}) ->
+perform_neighborhood_set_expansion(#pastry_state{pastry_pid = PastryPid, b = B, neighborhood_set = NHS}) ->
   spawn(fun() ->
     case length(NHS) < (1 bsl B) of
       true ->
         case pastry_tcp:request_neighborhood_set(hd(NHS)) of
-          {ok, Nodes} -> add_nodes(Nodes);
+          {ok, Nodes} -> add_nodes(PastryPid, Nodes);
           {error, _} -> ok
         end;
       false -> ok % We are fine
@@ -306,7 +315,7 @@ merge_node_in_nhs(Node, NeighborHoodSet, B, _) ->
   end.
 
 merge_node_in_leaf_set(Node, #pastry_state{self = Self} = State) when Node#node.key =:= Self#node.key -> State;
-merge_node_in_leaf_set(Node, #pastry_state{b = B, self = Self, leaf_set = {LSS, LSG}} = State) ->
+merge_node_in_leaf_set(Node, #pastry_state{b = B, self = Self, leaf_set = {LSS, LSG}, pastry_app_pid = PAPid} = State) ->
   case member(Node, LSS) orelse member(Node, LSG) of
     true -> State;
     false -> 
@@ -316,14 +325,14 @@ merge_node_in_leaf_set(Node, #pastry_state{b = B, self = Self, leaf_set = {LSS, 
           % Wow this is ugly and inefficient, but OK, these lists are short anyway, but still... TODO!
           NewLSS = reverse(sublist(reverse(sort_leaves([Node|LSS], B)), LeafSetSize)),
           case NewLSS =/= LSS of
-            true -> pastry_app:new_leaves({NewLSS, LSG});
+            true -> pastry_app:new_leaves(PAPid, {NewLSS, LSG});
             false -> ok
           end,
           State#pastry_state{leaf_set = {NewLSS, LSG}};
         false ->
           NewLSG = sublist(sort_leaves([Node|LSG], B), LeafSetSize),
           case NewLSG =/= LSG of
-            true -> pastry_app:new_leaves({LSS, NewLSG});
+            true -> pastry_app:new_leaves(PAPid, {LSS, NewLSG});
             false -> ok
           end,
           State#pastry_state{leaf_set = {LSS, NewLSG}}
@@ -402,7 +411,7 @@ route_msg(Msg, Key, State) ->
   route_to_node_in_routing_table(Msg, Key, State) orelse
   route_to_closer_node(Msg, Key, State).
 
-route_to_closer_node(Msg, Key, #pastry_state{self = Self, b = B} = State) ->
+route_to_closer_node(Msg, Key, #pastry_state{self = Self, b = B, pastry_app_pid = PAPid, pastry_pid = PastryPid} = State) ->
   io:format("Routing to node that is closer to key~n"),
   SharedKeySegment = shared_key_segment(Self, Key),
   Nodes = filter(
@@ -410,23 +419,23 @@ route_to_closer_node(Msg, Key, #pastry_state{self = Self, b = B} = State) ->
     all_known_nodes(State)
   ),
   case foldl(fun(N, CurrentClosest) -> closer_node(Key, N, CurrentClosest, B) end, Self, Nodes) of
-    Self -> pastry_app:deliver(Msg, Key);
-    Node -> do_forward_msg(Msg, Key, Node)
+    Self -> pastry_app:deliver(PAPid, Msg, Key);
+    Node -> do_forward_msg(Msg, Key, Node, PastryPid)
   end.
 
 shared_key_segment(#node{key = NodeKey}, Key) -> shared_key_segment(NodeKey, Key, []).
 shared_key_segment([A|As], [A|Bs], Acc) -> shared_key_segment(As, Bs, [A|Acc]);
 shared_key_segment(_, _, Acc) -> reverse(Acc).
 
-route_to_node_in_routing_table(Msg, Key, State) ->
+route_to_node_in_routing_table(Msg, Key, #pastry_state{pastry_pid = PastryPid, pastry_app_pid = PastryAppPid} = State) ->
   io:format("Routing to node in routing table~n"),
   {#routing_table_entry{nodes = Nodes}, [none|PreferredKeyMatch]} = find_corresponding_routing_table(Key, State),
   case filter(fun(Node) -> is_valid_key_path(Node, PreferredKeyMatch) end, Nodes) of
     [] -> false;
     [Node] -> 
       case Node =:= State#pastry_state.self of
-        true -> pastry_app:deliver(Msg, Key);
-        false -> do_forward_msg(Msg, Key, Node)
+        true -> pastry_app:deliver(PastryAppPid, Msg, Key);
+        false -> do_forward_msg(Msg, Key, Node, PastryPid)
       end
   end.
 
@@ -436,17 +445,17 @@ find_corresponding_routing_table([Key|Ks], [#routing_table_entry{value = Key} = 
   find_corresponding_routing_table(Ks, Rs, R, [Key|KeySoFar]);
 find_corresponding_routing_table([Key|_], _, Previous, KeySoFar) -> {Previous, reverse([Key|KeySoFar])}.
 
-route_to_leaf_set(Msg, Key, #pastry_state{self = Self} = State) ->
+route_to_leaf_set(Msg, Key, #pastry_state{self = Self, pastry_pid = PastryPid, pastry_app_pid = PastryAppPid} = State) ->
   io:format("Routing through leaf table set~n"),
   case node_in_leaf_set(Key, State) of
     none -> false;
     Node when Node =:= Self -> 
-      pastry_app:deliver(Msg, Key),
+      pastry_app:deliver(PastryAppPid, Msg, Key),
       true;
-    Node -> do_forward_msg(Msg, Key, Node)
+    Node -> do_forward_msg(Msg, Key, Node, PastryPid)
   end.
 
-do_forward_msg(Msg, Key, Node) ->
+do_forward_msg(Msg, Key, Node, PastryPid) ->
   case pastry_app:forward(Msg, Key, Node) of
     {_, null} -> true; % Message shouldn't be forwarded.
     {NewMsg, NewNode} ->
@@ -455,8 +464,8 @@ do_forward_msg(Msg, Key, Node) ->
         {ok, _} -> true;
         {error, _Reason} ->
           % Remove the node from our routing table, and retry
-          discard_dead_node(NewNode),
-          route(Msg, Key),
+          discard_dead_node(PastryPid, NewNode),
+          route(PastryPid, Msg, Key),
           true
       end
   end.
@@ -526,37 +535,37 @@ max_for_keylength([_|K], Mul, Acc) -> max_for_keylength(K, Mul, Acc * Mul + Mul-
 % When a welcome message is received, the newcomer
 % broadcasts its routing table so other nodes get
 % a chance to update their own.
-welcomed(#pastry_state{routing_table = RT} = State) ->
+perform_welcomed(#pastry_state{routing_table = RT} = State) ->
   [spawn(fun() -> pastry_tcp:send_routing_table(RT, N) end) || N <- all_known_nodes(State)].
 
 all_known_nodes(#pastry_state{routing_table = RT, leaf_set = {LSS, LSG}, neighborhood_set = NS}) ->
   nodes_in_routing_table(RT) ++ LSS ++ LSG ++ NS.
   
-discard_dead_node_from_leafset(Node, #pastry_state{leaf_set = LS} = State) ->
+discard_dead_node_from_leafset(Node, #pastry_state{pastry_app_pid = PAPid, leaf_set = LS, pastry_pid = PastryPid} = State) ->
   {LSS, LSG} = LS,
   NewLSS = LSS -- [Node],
   NewLSG = LSG -- [Node],
   NewLS = {NewLSS, NewLSG},
   case NewLS =/= LS of
     true -> 
-      pastry_app:new_leaves(NewLS),
+      pastry_app:new_leaves(PAPid, NewLS),
       % We should also ask the largest / smallest leaf
       % for their leaf set so we can expand our own leaf
       % set again
       case NewLSS =/= LSS of
-        true -> request_new_leaves(NewLSS);
-        false -> request_new_leaves(reverse(NewLSG))
+        true -> request_new_leaves(NewLSS, PastryPid);
+        false -> request_new_leaves(reverse(NewLSG), PastryPid)
       end;
     false -> ok
   end,
   State#pastry_state{leaf_set = NewLS}.
-request_new_leaves([]) -> ok;
-request_new_leaves(LeafList) ->
+request_new_leaves([], _) -> ok;
+request_new_leaves(LeafList, PastryPid) ->
   spawn(fun() ->
     Node = hd(LeafList),
     case pastry_tcp:request_leaf_set(Node) of
-      {ok, {LSS, LSG}} -> add_nodes(LSS ++ LSG);
-      {error, _} -> discard_dead_node(Node)
+      {ok, {LSS, LSG}} -> add_nodes(PastryPid, LSS ++ LSG);
+      {error, _} -> discard_dead_node(PastryPid, Node)
     end
   end).
 
@@ -572,7 +581,7 @@ routing_table_without(_Node, [], Acc) -> reverse(Acc);
 routing_table_without(Node, [#routing_table_entry{nodes = N} = R|Rt], Acc) ->
   routing_table_without(Node, Rt, [R#routing_table_entry{nodes = N -- [Node]}|Acc]).
 
-discard_dead_node(Node, State) ->
+perform_discard_dead_node(Node, State) ->
   discard_dead_node_from_neighborhoodset(Node,
     discard_dead_node_from_routing_table(Node,
       discard_dead_node_from_leafset(Node, State))).
@@ -593,7 +602,8 @@ test_state() ->
     },
     routing_table = create_routing_table(Key),
     leaf_set = {[#node{key = [6,0,0,0]}, #node{key=[7,0,0,0]}], [#node{key = [1,0,0,0]}, #node{key = [2,0,0,0]}]},
-    b = 3
+    b = 3,
+    pastry_app_pid = self() % not logical... but atleast a pid.
   }.
 
 create_routing_table_test() ->
@@ -735,7 +745,7 @@ route_to_leaf_set_test() ->
   erlymock:strict(pastry_tcp, route_msg, [Msg, GoodKey, RouteToNode], [{return, {ok, ok}}]),
 
   % This is for the message that should be delivered rather than routed
-  erlymock:strict(pastry_app, deliver, [Msg, GoodKeyToSelf], [{return, ok}]),
+  erlymock:strict(pastry_app, deliver, [self(), Msg, GoodKeyToSelf], [{return, ok}]),
   erlymock:replay(), 
 
   ?assertEqual(true, route_to_leaf_set(Msg, GoodKey, State)),
@@ -896,7 +906,7 @@ shared_key_segment_test() ->
   ?assertEqual([1,2,3], shared_key_segment(Node, [1,2,3,0])),
   ?assertEqual([1,2,3,4], shared_key_segment(Node, [1,2,3,4])).
 
-welcomed_test() ->
+perform_welcomed_test() ->
   MyId = [1,0],
   Self = #node{
     key = MyId
@@ -931,7 +941,7 @@ welcomed_test() ->
   erlymock:start(),
   [erlymock:o_o(pastry_tcp, send_routing_table, [RoutingTable, Node], [{return, {ok, ok}}]) || Node <- Nodes],
   erlymock:replay(), 
-  welcomed(State),
+  perform_welcomed(State),
   erlymock:verify().
 
 all_known_nodes_test() ->
@@ -986,7 +996,7 @@ merge_node_in_leaf_set_test() ->
   Self = #node{
     key = MyKey
   },
-  State = #pastry_state{b = 2, self = Self},
+  State = #pastry_state{b = 2, self = Self, pastry_app_pid = papid},
   SmallerNode1 = #node{key = [3,0]},
   SmallerNode2 = #node{key = [0,0]},
   SmallerNode3 = #node{key = [0,3]},
@@ -995,12 +1005,12 @@ merge_node_in_leaf_set_test() ->
   GreaterNode3 = #node{key = [1,1]},
 
   erlymock:start(),
-  erlymock:o_o(pastry_app, new_leaves, [{[SmallerNode1],[]}], [{return, ok}]),
-  erlymock:o_o(pastry_app, new_leaves, [{[SmallerNode1, SmallerNode2],[]}], [{return, ok}]),
-  erlymock:o_o(pastry_app, new_leaves, [{[SmallerNode2, SmallerNode3],[]}], [{return, ok}]),
-  erlymock:o_o(pastry_app, new_leaves, [{[SmallerNode2, SmallerNode3],[GreaterNode1]}], [{return, ok}]),
-  erlymock:o_o(pastry_app, new_leaves, [{[SmallerNode2, SmallerNode3],[GreaterNode2, GreaterNode1]}], [{return, ok}]),
-  erlymock:o_o(pastry_app, new_leaves, [{[SmallerNode2, SmallerNode3],[GreaterNode3, GreaterNode2]}], [{return, ok}]),
+  erlymock:o_o(pastry_app, new_leaves, [papid, {[SmallerNode1],[]}], [{return, ok}]),
+  erlymock:o_o(pastry_app, new_leaves, [papid, {[SmallerNode1, SmallerNode2],[]}], [{return, ok}]),
+  erlymock:o_o(pastry_app, new_leaves, [papid, {[SmallerNode2, SmallerNode3],[]}], [{return, ok}]),
+  erlymock:o_o(pastry_app, new_leaves, [papid, {[SmallerNode2, SmallerNode3],[GreaterNode1]}], [{return, ok}]),
+  erlymock:o_o(pastry_app, new_leaves, [papid, {[SmallerNode2, SmallerNode3],[GreaterNode2, GreaterNode1]}], [{return, ok}]),
+  erlymock:o_o(pastry_app, new_leaves, [papid, {[SmallerNode2, SmallerNode3],[GreaterNode3, GreaterNode2]}], [{return, ok}]),
   erlymock:replay(), 
 
   NewState = merge_node_in_leaf_set(SmallerNode1, State),
@@ -1090,10 +1100,10 @@ discard_dead_node_from_leafset_test() ->
   OtherNode = #node{key = [1,2,2,2]},
   RequestNode = #node{key = [1,2,2,0]},
 
-  State = (test_state())#pastry_state{leaf_set = {[DeadNode, RequestNode], [OtherNode]}},
+  State = (test_state())#pastry_state{pastry_app_pid = papid, leaf_set = {[DeadNode, RequestNode], [OtherNode]}},
   ?assert(member(DeadNode, all_known_nodes(State))),
   erlymock:start(),
-  erlymock:o_o(pastry_app, new_leaves, [{[RequestNode],[OtherNode]}], [{return, ok}]),
+  erlymock:o_o(pastry_app, new_leaves, [papid, {[RequestNode],[OtherNode]}], [{return, ok}]),
   erlymock:o_o(pastry_tcp, request_leaf_set, [RequestNode], [{return, {ok,{[#node{}],[#node{}]}}}]),
   erlymock:replay(), 
   UpdatedState = discard_dead_node_from_leafset(DeadNode, State),
@@ -1123,7 +1133,7 @@ discard_dead_node_from_routing_table_test() ->
   ?assertNot(member(DeadNode, all_known_nodes(UpdatedState))),
   ?assertEqual(OrigRoutingTable, UpdatedState#pastry_state.routing_table).
 
-discard_dead_node_test() ->
+perform_discard_dead_node_test() ->
   DeadNode1 = #node{key = [0,0,1]},
   DeadNode2 = #node{key = [0,0,2]},
   DeadNode3 = #node{key = [0,0,3]},
@@ -1134,7 +1144,9 @@ discard_dead_node_test() ->
   ?assert(member(DeadNode1, all_known_nodes(StateWithNodes))),
   ?assert(member(DeadNode2, all_known_nodes(StateWithNodes))),
   ?assert(member(DeadNode3, all_known_nodes(StateWithNodes))),
-  UpdatedState = discard_dead_node(DeadNode1, discard_dead_node(DeadNode2, discard_dead_node(DeadNode3, StateWithNodes))),
+  UpdatedState = perform_discard_dead_node(DeadNode1, 
+    perform_discard_dead_node(DeadNode2, 
+      perform_discard_dead_node(DeadNode3, StateWithNodes))),
   ?assertNot(member(DeadNode1, all_known_nodes(UpdatedState))),
   ?assertNot(member(DeadNode2, all_known_nodes(UpdatedState))),
   ?assertNot(member(DeadNode3, all_known_nodes(UpdatedState))).

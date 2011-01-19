@@ -111,6 +111,7 @@ handle_cast({remove_node, Node}, State) ->
   {noreply, node_core:remove_node(Node, State)};
 
 handle_cast(check_liveness, #state{chord_nodes = CN, pastry_nodes = PN} = State) ->
+  io:format("checking liveness of ~p nodes~n", [length(CN ++ PN)]),
   node_core:check_liveness(CN ++ PN),
   {noreply, State};
 

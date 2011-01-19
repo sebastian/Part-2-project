@@ -15,7 +15,7 @@
 %% ------------------------------------------------------------------
 
 -export([list/1, add/2, delete/2, find/2, keep_alive/1]).
--export([lookup_link/2, get_item/2]).
+-export([lookup_link/3, get_item/3]).
 -export([init/1]).
 
 %% ------------------------------------------------------------------
@@ -37,6 +37,7 @@ list(State) ->
 add(Person, State) -> 
   AllPersonEntries = State#friendsearch_state.entries,
   AllLinkEntries = State#friendsearch_state.link_entries,
+  DhtPid = State#friendsearch_state.dht_pid,
 
   % Create entry for person record
   Entry = utilities:entry_for_record(Person),
@@ -53,7 +54,7 @@ add(Person, State) ->
   % Add all entries to the Dht
   AllEntries = [Entry | LinkEntries],
   Dht = State#friendsearch_state.dht,
-  [spawn(fun() -> Dht:set(E#entry.key, E) end) || E <- AllEntries],
+  [spawn(fun() -> Dht:set(DhtPid, E#entry.key, E) end) || E <- AllEntries],
 
   % Update state
   State#friendsearch_state{
@@ -74,16 +75,16 @@ find(Query, State) ->
   KeyForQuery = utilities:key_for_normalized_string(Query),
   SearchKeysWithScore = [{KeyForQuery, 10} | 
       [{utilities:key_for_normalized_string(K), 1} || K <-name_subsets(Query)]],
-  Dht = State#friendsearch_state.dht,
+  #friendsearch_state{dht = Dht, dht_pid = DhtPid} = State,
   % Look up keys in Dht
-  Entries = lists:flatten(rpc:pmap({friendsearch, get_item}, [Dht], SearchKeysWithScore)),
+  Entries = lists:flatten(rpc:pmap({friendsearch, get_item}, [Dht, DhtPid], SearchKeysWithScore)),
   EntriesToLookUp = profile_list_by_priority(Entries),
   [E#entry.data || E <- 
-    lists:flatten(rpc:pmap({friendsearch, lookup_link}, [Dht], EntriesToLookUp)),
+    lists:flatten(rpc:pmap({friendsearch, lookup_link}, [Dht, DhtPid], EntriesToLookUp)),
       is_record(E#entry.data, person)].
 
 -spec(keep_alive/1::(State::#friendsearch_state{}) -> #friendsearch_state{}).
-keep_alive(State) ->
+keep_alive(#friendsearch_state{dht_pid = DhtPid} = State) ->
   TimeNow = utilities:get_time(),
   Entries = lists:map(fun(Entry) -> 
       case (Entry#entry.timeout < TimeNow + 60)of
@@ -91,7 +92,7 @@ keep_alive(State) ->
           % Times out within a minute. Update it
           UpdatedEntry = Entry#entry{timeout = TimeNow + ?ENTRY_TIMEOUT},
           Dht = State#friendsearch_state.dht,
-          Dht:set(UpdatedEntry#entry.key, UpdatedEntry),
+          Dht:set(DhtPid, UpdatedEntry#entry.key, UpdatedEntry),
           UpdatedEntry;
         false ->
           Entry
@@ -103,8 +104,8 @@ keep_alive(State) ->
 %% Private methods
 %% ------------------------------------------------------------------
 
-get_item({Key, Score}, Dht) ->
-  [{(E#entry.data)#link.profile_key, Score} || E <- Dht:lookup(Key)].
+get_item({Key, Score}, Dht, DhtPid) ->
+  [{(E#entry.data)#link.profile_key, Score} || E <- Dht:lookup(DhtPid, Key)].
 
 profile_list_by_priority(PropList) ->
   ScoreDict = lists:foldl(
@@ -121,9 +122,9 @@ profile_list_by_priority(PropList) ->
 
 %% @doc: if the element is a link, then the corresponding record is
 %% looked up in the Dht network.
--spec(lookup_link/2::(Key::key(), _) -> #entry{}).
-lookup_link(Key, Dht) -> 
-  Dht:lookup(Key).
+-spec(lookup_link/3::(Key::key(), _, pid()) -> #entry{}).
+lookup_link(Key, Dht, DhtPid) -> 
+  Dht:lookup(DhtPid, Key).
 
 
 -spec(generate_link_items/1::(Person::#person{}) -> [#entry{}]).
@@ -207,15 +208,16 @@ assumptions_for_add(Person) ->
     name = Person#person.name, 
     profile_key = Entry#entry.key
   },
+  DhtPid = self(),
   LinkEntry = utilities:entry_for_record(Link),
-  erlymock:o_o(chord, set, [Entry#entry.key, Entry], [{return, ok}]),
-  erlymock:o_o(chord, set, [LinkEntry#entry.key, LinkEntry], [{return, ok}]),
+  erlymock:o_o(chord, set, [DhtPid, Entry#entry.key, Entry], [{return, ok}]),
+  erlymock:o_o(chord, set, [DhtPid, LinkEntry#entry.key, LinkEntry], [{return, ok}]),
   lists:foreach(fun(E) -> 
-      erlymock:o_o(chord, set, [E#entry.key, E], [{return, ok}])
+      erlymock:o_o(chord, set, [DhtPid, E#entry.key, E], [{return, ok}])
     end, generate_link_items(Entry)).
 
 add_test() ->
-  State = init(chord),
+  State = (init(chord))#friendsearch_state{dht_pid = self()},
 
   Person = test_utils:test_person_sebastianA(),
 
@@ -231,7 +233,7 @@ add_test() ->
 
 list_test() ->
   % Should return all entries currently in the store
-  State = init(chord),
+  State = (init(chord))#friendsearch_state{dht_pid = self()},
   PersonA = test_utils:test_person_sebastianA(),
   PersonB = test_utils:test_person_sebastianB(),
 
@@ -247,7 +249,7 @@ list_test() ->
   erlymock:verify().
 
 delete_test() ->
-  State = init(chord),
+  State = (init(chord))#friendsearch_state{dht_pid = self()},
 
   PersonA = test_utils:test_person_sebastianA(),
   PersonB = test_utils:test_person_sebastianB(),
@@ -274,13 +276,14 @@ keep_alive_test() ->
   % EntryA expires in 5 seconds, EntryB does not
   EntryA = (utilities:entry_for_record(PersonA))#entry{timeout = TimeNow + 5},
   EntryB = (utilities:entry_for_record(PersonB))#entry{timeout = TimeNow + ?ENTRY_TIMEOUT},
-  State = (init(chord))#friendsearch_state{entries = [EntryA, EntryB]},
+  DhtPid = self(),
+  State = (init(chord))#friendsearch_state{dht_pid = DhtPid, entries = [EntryA, EntryB]},
 
   UpdatedEntryA = EntryA#entry{timeout = TimeNow + ?ENTRY_TIMEOUT},
 
   erlymock:start(),
   erlymock:strict(utilities, get_time, [], [{return, TimeNow}]),
-  erlymock:strict(chord, set, [UpdatedEntryA#entry.key, UpdatedEntryA], [{return, ok}]),
+  erlymock:strict(chord, set, [DhtPid, UpdatedEntryA#entry.key, UpdatedEntryA], [{return, ok}]),
   erlymock:replay(), 
   State1 = keep_alive(State),
   erlymock:verify(),
@@ -297,14 +300,14 @@ profile_list_by_priority_test() ->
   ?assertEqual([b, a], profile_list_by_priority(List2)).
 
 find_test() ->
-  test_dht:start(),
-  State = init(test_dht),
+  {ok, Pid} = test_dht:start(),
+  State = (init(test_dht))#friendsearch_state{dht_pid = Pid},
 
   Person = test_utils:test_person_sebastianA(),
   UpdatedState = add(Person, State),
 
   Query = <<"Sebastian">>,
   ?assertEqual([Person], find(Query, UpdatedState)),
-  test_dht:stop().
+  test_dht:stop(Pid).
 
 -endif.

@@ -40,19 +40,18 @@ get_not_me(Node, Nodes) ->
 
 check_liveness(Nodes) ->
   F = fun(N) ->
-    Ref = make_ref(),
-    Self = self(),
     spawn(fun() ->
-      Res = case hub_tcp:is_node_alive(N) of
-        false -> N;
-        _ -> alive
-      end,
-      Self ! {Ref, Res}
-    end),
-    receive {Ref, Result} -> Result
-    end
+      io:format("Checking liveness of node ~p~n", [N]),
+      case hub_tcp:is_node_alive(N) of
+        false -> 
+          io:format("Node is dead: ~p~n", [N]),
+          node:remove_node(N);
+        _ -> 
+          io:format("Node is alive: ~p~n", [N])
+      end
+    end)
   end,
-  [node:remove_node(N) || N <- [F(Node) || Node <- Nodes], is_record(N, node)].
+  [F(Node) || Node <- Nodes].
 
 remove_node(Node, #state{chord_nodes = CN, pastry_nodes = PN} = State) ->
   State#state{chord_nodes = CN -- [Node], pastry_nodes = PN -- [Node]}.
