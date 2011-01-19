@@ -15,7 +15,7 @@
 %% ------------------------------------------------------------------
 
 -export([start_link/1, start/0, stop/0]).
--export([reg_and_get_peer/1, clear/0]).
+-export([clear/0]).
 % For performing rendevouz
 -export([
     rendevouz_chord/1,
@@ -50,13 +50,11 @@ start_link(Args) ->
 stop() ->
   gen_server:call(?MODULE, stop).
 
-reg_and_get_peer(NodeDetails) ->
-  gen_server:call(?MODULE, {register, NodeDetails}).
-
 clear() ->
   gen_server:call(?MODULE, clear).
 
 check_liveness() ->
+  io:format("Check liveness method called. Calling server~n"),
   gen_server:cast(?MODULE, check_liveness).
 
 remove_node(Node) ->
@@ -113,6 +111,7 @@ handle_cast({remove_node, Node}, State) ->
 handle_cast(check_liveness, #state{chord_nodes = CN, pastry_nodes = PN} = State) ->
   io:format("checking liveness of ~p nodes~n", [length(CN ++ PN)]),
   node_core:check_liveness(CN ++ PN),
+  io:format("returned from checking liveness~n"),
   {noreply, State};
 
 handle_cast(_Msg, State) ->
