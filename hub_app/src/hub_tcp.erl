@@ -155,6 +155,11 @@ handle_msg({rendevouz, chord, Port}, Ip) ->
   Node = #node{ip = Ip, port = Port},
   {Ip, node:rendevouz_chord(Node)};
 
+handle_msg({register_controller, Port}, Ip) ->
+  Node = #node{ip = Ip, port = Port},
+  node:register_controller(Node),
+  ok;
+
 handle_msg(_, _) ->
   error_logger:error_msg("Unimplemented message type"),
   404.

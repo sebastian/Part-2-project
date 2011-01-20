@@ -17,7 +17,7 @@
 %% Public API
 %% ------------------------------------------------------------------
 
--export([start_link/1, start/0, stop/0]).
+-export([start_link/1, start/1, stop/0]).
 -export([
     register_tcp/4,
     register_dht/3,
@@ -32,7 +32,8 @@
     start_nodes/1,
     stop_nodes/1,
     switch_mode_to/1,
-    get_controlling_process/0
+    get_controlling_process/0,
+    ping/0
   ]).
 
 %% ------------------------------------------------------------------
@@ -49,8 +50,8 @@
 %% API Function Definitions
 %% ------------------------------------------------------------------
 
-start() ->
-  gen_server:start({local, ?SERVER}, ?MODULE, [], []).
+start(Args) ->
+  gen_server:start({local, ?SERVER}, ?MODULE, Args, []).
 
 start_link(Args) ->
   gen_server:start_link({local, ?SERVER}, ?MODULE, Args, []).
@@ -82,16 +83,28 @@ get_controlling_process() ->
 send_dht_to_friendsearch() ->
   gen_server:cast(?MODULE, send_dht_to_friendsearch).
 
+ping() ->
+  gen_server:call(?MODULE, ping).
+
 %% ------------------------------------------------------------------
 %% gen_server Function Definitions
 %% ------------------------------------------------------------------
 
-init(_Args) -> 
-  {ok, #controller_state{}}.
+init(Args) -> 
+  Port = proplists:get_value(port, Args),
+  RendevouzHost = "hub.probsteide.com",
+  RendevouzPort = "6001",
+  case controller:register_controller(Port, RendevouzHost, RendevouzPort) of
+    {ok, _} -> {ok, #controller_state{}};
+    {error, _} -> {stop, couldnt_register_node}
+  end.
 
 %% Call:
 handle_call(get_new_controlling_process, _From, #controller_state{mode = Mode} = State) ->
   {reply, start_node(Mode), State};
+
+handle_call(ping, _From, #controller_state{nodes = Nodes, mode = Mode} = State) ->
+  {reply, {pong, node_count, length(Nodes), mode, Mode}, State};
 
 handle_call(stop, _From, State) ->
   {stop, normal, ok, State}.

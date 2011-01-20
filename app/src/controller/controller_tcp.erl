@@ -21,6 +21,9 @@
 %% ------------------------------------------------------------------
 
 -export([start_link/1, start/1, stop/0]).
+-export([
+    register_controller/3
+  ]).
 
 %% ------------------------------------------------------------------
 %% gen_listener_tcp Function Exports
@@ -32,6 +35,9 @@
 %% ------------------------------------------------------------------
 %% API Function Definitions
 %% ------------------------------------------------------------------
+
+register_controller(Port, RendevouzHost, RendevouzPort) ->
+  perform_rpc({register_controller, Port}, RendevouzHost, RendevouzPort).
 
 -spec(perform_rpc/3::(Message::term(), _, _) ->
     {ok, _} | {error, _}).
@@ -135,7 +141,7 @@ code_change(_OldVsn, State, _Extra) ->
 %% ------------------------------------------------------------------
 
 handle_msg(ping) ->
-  pong;
+  controller:ping();
 
 handle_msg({start_nodes, N}) ->
   controller:start_nodes(N);

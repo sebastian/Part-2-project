@@ -25,6 +25,9 @@ register_pastry(Node, State = #state{pastry_nodes = PastryNodes}) ->
   keep_while_alive(Node),
   {get_not_me(Node, PastryNodes), State#state{pastry_nodes = update_node_list(Node, PastryNodes)}}.
 
+register_controller(Controller, State) ->
+  State.
+
 update_node_list(Node, Nodes) ->
   case member(Node, Nodes) of
     true -> Nodes;
@@ -95,5 +98,9 @@ remove_node_test() ->
   NewState = remove_node(Node, State),
   ?assertEqual([], NewState#state.chord_nodes),
   ?assertEqual([], NewState#state.pastry_nodes).
+
+register_controller_test() ->
+  State = #state{},
+  ?assert(false).
 
 -endif.

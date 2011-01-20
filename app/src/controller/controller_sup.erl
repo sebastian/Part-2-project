@@ -47,8 +47,10 @@ init(_Args) ->
       [Name]}
     end,
 
+  PortArg = [{port, 15000}],
   Processes = [
-    CreateChild(controller, [])
+    CreateChild(controller_tcp, PortArg),
+    CreateChild(controller, PortArg)
   ],
 
   {ok, { {one_for_one, 10, 10}, Processes} }.

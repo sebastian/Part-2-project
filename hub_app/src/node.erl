@@ -19,6 +19,7 @@
 -export([
     rendevouz_chord/1,
     rendevouz_pastry/1,
+    register_controller/1,
     remove_node/1
   ]).
 % For front end
@@ -53,6 +54,12 @@ clear() ->
 
 remove_node(Node) ->
   gen_server:cast(?MODULE, {remove_node, Node}).
+
+% -------------------------------------------------------------------
+% Controller --------------------------------------------------------
+
+register_controller(Node) ->
+  gen_server:cast(?MODULE, {register_controller, Node}).
 
 % -------------------------------------------------------------------
 % Chord -------------------------------------------------------------
@@ -100,6 +107,9 @@ handle_call(clear, _From, _State) ->
 %% Casts:
 handle_cast({remove_node, Node}, State) ->
   {noreply, node_core:remove_node(Node, State)};
+
+handle_cast({register_controller, Node}, State) ->
+  {noreply, node_core:register_controller(Node, State)};
 
 handle_cast(_Msg, State) ->
   {noreply, State}.
