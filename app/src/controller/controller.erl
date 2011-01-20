@@ -29,6 +29,8 @@
 -export([
     start_node/0,
     stop_node/0,
+    start_nodes/1,
+    stop_nodes/1,
     switch_mode_to/1,
     get_controlling_process/0
   ]).
@@ -62,14 +64,23 @@ register_started_node(DhtPid, TcpPid, AppPid) ->
 start_node() ->
   gen_server:cast(?MODULE, start_node).
 
+start_nodes(N) ->
+  [start_node() || _ <- lists:seq(1, N)].
+
 stop_node() ->
   gen_server:cast(?MODULE, stop_node).
+
+stop_nodes(N) ->
+  [stop_node() || _ <- lists:seq(1, N)].
 
 switch_mode_to(Mode) ->
   gen_server:cast(?MODULE, {new_mode, Mode}).
 
 get_controlling_process() ->
   gen_server:call(?MODULE, get_new_controlling_process).
+
+send_dht_to_friendsearch() ->
+  gen_server:cast(?MODULE, send_dht_to_friendsearch).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Definitions
@@ -101,24 +112,27 @@ handle_cast(stop_node, State) ->
 % When the mode is the same
 handle_cast({new_mode, Mode}, #controller_state{mode = Mode} = State) -> {noreply, State};
 % When actually changing mode
-handle_cast({new_mode, NewMode}, State) ->
+handle_cast({new_mode, NewMode}, State) when NewMode =:= pastry ; NewMode =:= chord ->
   % Stop all nodes
-  NoNodeState = stop_nodes(State),
+  NoNodeState = perform_stop_nodes(State),
   datastore_srv:clear(),
   {noreply, NoNodeState#controller_state{mode = NewMode}};
 
-handle_cast({register_node, {DhtPid, _, DhtAppPid} = Data}, #controller_state{mode = Mode, nodes = Nodes} = State) ->
+handle_cast({register_node, Data}, #controller_state{nodes = Nodes} = State) ->
   case length(Nodes) of
-    0 ->
-      % There were previously no node, but now there is, so tell friend search
-      {Type, Pid} = case Mode of
-        pastry -> {pastry_app, DhtAppPid};
-        OtherDht -> {OtherDht, DhtPid}
-      end,
-      friendsearch_srv:set_dht({Type, Pid});
-    _ -> ok % okidoki
+    0 -> send_dht_to_friendsearch();
+    _ -> ok % Dht should be fine
   end,
   {noreply, State#controller_state{nodes = [Data|Nodes]}};
+
+handle_cast(send_dht_to_friendsearch, #controller_state{nodes = [{DhtPid, _, DhtAppPid}|_], mode = Mode} = State) ->
+  % There were previously no node, but now there is, so tell friend search
+  {Type, Pid} = case Mode of
+    pastry -> {pastry_app, DhtAppPid};
+    OtherDht -> {OtherDht, DhtPid}
+  end,
+  friendsearch_srv:set_dht({Type, Pid}),
+  {noreply, State};
 
 handle_cast(Msg, State) ->
   error_logger:error_msg("received unknown cast: ~p", [Msg]),
@@ -130,7 +144,7 @@ handle_info(_Info, State) ->
 
 terminate(_Reason, State) ->
   % Stop all the nodes
-  stop_nodes(State),
+  perform_stop_nodes(State),
   ok.
 
 code_change(_OldVsn, State, _Extra) ->
@@ -193,7 +207,7 @@ start_app(pastry, TcpPid, DhtPid, DhtCallbackPid) ->
   controller:register_started_node(DhtPid, TcpPid, AppPid).
 
 
-stop_nodes(#controller_state{nodes = Nodes} = State) -> foldl(fun(_N,S) -> stop_node(S) end, State, Nodes).
+perform_stop_nodes(#controller_state{nodes = Nodes} = State) -> foldl(fun(_N,S) -> stop_node(S) end, State, Nodes).
 
 stop_node(#controller_state{mode = chord, nodes = [{ChordPid, ChordTcpPid, _}|Nodes]} = State) ->
   chord:stop(ChordPid), 
@@ -211,7 +225,7 @@ stop_node(#controller_state{mode = pastry, nodes = [{PastryPid, PastryTcpPid, Pa
 
 -ifdef(TEST).
 
-stop_nodes_chord_test() ->
+perform_stop_nodes_chord_test() ->
   State = #controller_state{
     mode = chord,
     nodes = [{node1pid, node1tcp, undefined},{node2pid, node2tcp, undefined}]
@@ -222,11 +236,11 @@ stop_nodes_chord_test() ->
   erlymock:o_o(chord_tcp, stop, [node1tcp], [{return, ok}]),
   erlymock:o_o(chord_tcp, stop, [node2tcp], [{return, ok}]),
   erlymock:replay(), 
-  UpdatedState = stop_nodes(State),
+  UpdatedState = perform_stop_nodes(State),
   erlymock:verify(),
   ?assertEqual([], UpdatedState#controller_state.nodes).
 
-stop_nodes_pastry_test() ->
+perform_stop_nodes_pastry_test() ->
   State = #controller_state{
     mode = pastry,
     nodes = [{node1pid, node1tcp, node1app},{node2pid, node2tcp, node2app}]
@@ -239,7 +253,7 @@ stop_nodes_pastry_test() ->
   erlymock:o_o(pastry_app, stop, [node1app], [{return, ok}]),
   erlymock:o_o(pastry_app, stop, [node2app], [{return, ok}]),
   erlymock:replay(), 
-  UpdatedState = stop_nodes(State),
+  UpdatedState = perform_stop_nodes(State),
   erlymock:verify(),
   ?assertEqual([], UpdatedState#controller_state.nodes).
 

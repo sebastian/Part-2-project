@@ -83,6 +83,8 @@ init(_Args) ->
   State = friendsearch:init(),
   {ok, TimerRef} = 
       timer:apply_interval(?KEEP_ALIVE_INTERVAL, ?MODULE, keep_alive, []),
+  % Get the dht from the controller in case this is a restart
+  controller:send_dht_to_friendsearch(),
   {ok, State#friendsearch_state{timerRefKeepAlive = TimerRef}}.
 
 %% Call:

@@ -50,12 +50,8 @@ receive_data(Socket, SoFar) ->
     {tcp, Socket, Bin} ->
       receive_data(Socket, [Bin | SoFar]);
     {tcp_closed, Socket} ->
-      case SoFar =:= <<>> of
-        true -> {ok, ok};
-        false ->
-          try {ok, binary_to_term(list_to_binary(lists:reverse(SoFar)))}
-          catch error:badarg -> {error, badarg}
-          end
+      try {ok, binary_to_term(list_to_binary(lists:reverse(SoFar)))}
+      catch error:badarg -> {error, badarg}
       end
   after 2 * ?TIMEOUT ->
     error_logger:info_msg("PerformRPC times out~n"),
@@ -140,6 +136,15 @@ code_change(_OldVsn, State, _Extra) ->
 
 handle_msg(ping) ->
   pong;
+
+handle_msg({start_nodes, N}) ->
+  controller:start_nodes(N);
+
+handle_msg({stop_nodes, N}) ->
+  controller:stop_nodes(N);
+
+handle_msg({switch_mode_to, Mode}) ->
+  controller:switch_mode_to(Mode);
 
 handle_msg(Msg) ->
   error_logger:error_msg("Message not handled ~p", [Msg]),
