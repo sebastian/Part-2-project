@@ -5,6 +5,7 @@
 # and that TAB is used after ':' and before unix commands.
 
 DISS = diss.tex refs.bib propbody.tex figs/diagram.eps makefile.txt
+DISSERTATION = dissertation.tex evaluation.tex
 
 PROP = proposal.tex propbody.tex
 
@@ -28,6 +29,18 @@ help:
 prop:	proposal.dvi
 	xdvi proposal.dvi
 
+dissertation.ps:	$(DISSERTATION)
+	latex dissertation
+	bibtex dissertation
+	latex dissertation
+	bibtex dissertation
+	latex dissertation
+	bibtex dissertation
+	dvips -Ppdf -G0 -t a4 -pp 0-200 -o dissertation.ps dissertation.dvi
+
+dissertation.pdf:	dissertation.ps
+	ps2pdf dissertation.ps
+
 diss.ps:	$(DISS)
 	latex diss
 	bibtex diss
@@ -48,7 +61,8 @@ count:
 proposal.dvi: $(PROP)
 	latex proposal
 
-all:	proposal.dvi diss.ps
+%all:	proposal.dvi diss.ps
+all:	dissertation.ps
 
 pub:	diss.pdf
 	cp diss.pdf /homes/mr/public_html/demodiss.pdf
