@@ -3,26 +3,20 @@ var nodesRef = null;
 function compile(){
 	var nodesDirectives = {
     'div':{
-      'set<-datasets':{
-        'h1':'set.title',
+      'controller<-controllers':{
+        'h1':"#{controller.ip} in #{controller.mode} mode",
           'ul li':{
-          'node<-set.nodes':{
-            '.':"Ip: #{node.ip}, port: #{node.port}"
+          'node<-controller.nodes':{
+            '.':'node'
           }
         }
       }
     }
 	};
-	return $p("div#templates div.nodes").compile(nodesDirectives);
+	return $p("div#templates div.controllers").compile(nodesDirectives);
 }
 function renderNodes(json){
-	var data = {
-    datasets: [
-      {title: 'Chord nodes', nodes: json.chord_nodes},
-    	{title: 'Pastry nodes', nodes: json.pastry_nodes}
-    ]
-  };
-  var cont = nodesRef(data);
+  var cont = nodesRef(json);
 	$("div#main-content").html(cont);
 }
 function cbNodes(json) {

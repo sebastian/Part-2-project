@@ -152,8 +152,8 @@ handle_msg({rendevouz, _Type, Port}, Ip) ->
   {Ip, node:rendevouz_node(Node)};
 
 handle_msg({register_controller, Port}, Ip) ->
-  Node = #node{ip = Ip, port = Port},
-  node:register_controller(Node),
+  Controller = #controller{ip = Ip, port = Port},
+  node:register_controller(Controller),
   ok;
 
 handle_msg(_, _) ->

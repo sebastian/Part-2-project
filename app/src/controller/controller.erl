@@ -94,8 +94,7 @@ ping() ->
 init(Args) -> 
   Port = proplists:get_value(port, Args),
   RendevouzHost = "hub.probsteide.com",
-  RendevouzPort = "6001",
-  io:format("Trying to connect to ~p on port ~p~n", [RendevouzHost, RendevouzPort]),
+  RendevouzPort = 6001,
   case controller_tcp:register_controller(Port, RendevouzHost, RendevouzPort) of
     {ok, _} -> {ok, #controller_state{}};
     {error, _} -> {stop, couldnt_register_node}

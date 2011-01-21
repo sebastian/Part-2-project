@@ -47,7 +47,6 @@ perform_rpc(Message, Ip, Port) ->
       ok = gen_tcp:send(Socket, term_to_binary(Message)),
       receive_data(Socket, []);
     {error, Reason} ->
-      io:format("Received error in controller_tcp: ~p~n", [Reason]),
       % Handle error somehow
       {error, Reason}
   end.
