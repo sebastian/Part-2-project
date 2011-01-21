@@ -10,9 +10,9 @@
     pastry, pastry_locality, pastry_utils, pastry_tcp, pastry_app, pastry_sup, pastry_sofo,
     gen_listener_tcp,
     datastore, datastore_srv, datastore_sup,
-    utilities, tcp_utils, test_utils,
+    utilities, tcp_utils, 
     friendsearch, friendsearch_srv, friendsearch_sup,
-    test_dht,
+    test_dht, test_utils,
     controller, controller_tcp, controller_sup
   ]},
   {registered, []},
