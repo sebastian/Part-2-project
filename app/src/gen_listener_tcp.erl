@@ -97,6 +97,9 @@ init([{'__gen_listener_tcp_mod', Module} | InitArgs]) ->
   process_flag(trap_exit, true),
 
   case Module:init(InitArgs) of
+    {ok, {Port, Options}, no_callback} ->
+      {ok, ListenSocket} = get_listen_socket_no_callback(Port, Options),
+      {ok, create_acceptor(ListenSocket, Module, undefined)};
     {ok, {Port, Options}, ControllingProcess} ->
       {ok, ListenSocket} = get_listen_socket(Port, Options, ControllingProcess),
 
@@ -110,6 +113,12 @@ init([{'__gen_listener_tcp_mod', Module} | InitArgs]) ->
       {stop, Reason};
     Other ->
       {stop, Other}
+  end.
+
+get_listen_socket_no_callback(Port, Options) ->
+  case gen_tcp:listen(Port, Options) of
+    {error, eaddrinuse} -> get_listen_socket_no_callback(Port+1, Options);
+    OkSocket -> OkSocket
   end.
 
 get_listen_socket(Port, Options, ControllingProcess) ->

@@ -111,7 +111,7 @@ receive_incoming(Socket, SoFar) ->
 init(Args) ->
   Port = proplists:get_value(port, Args),
   error_logger:info_msg("Initializing controller_tcp listening on port: ~p~n", [Port]),
-  {ok, {Port, ?TCP_OPTS}, []}.
+  {ok, {Port, ?TCP_OPTS}, no_callback}.
 
 handle_accept(Sock, State) ->
   Pid = spawn(fun() -> controller_tcp_client(Sock) end),
