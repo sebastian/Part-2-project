@@ -3,6 +3,8 @@
 
 -include("records.hrl").
 
+-import(lists, [foldl/3]).
+
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
 -endif.
@@ -17,10 +19,10 @@
 -export([clear/0]).
 % For performing rendevouz
 -export([
-    rendevouz_chord/1,
-    rendevouz_pastry/1,
+    rendevouz_node/1,
     register_controller/1,
-    remove_node/1
+    remove_controller/1,
+    set_state_for_controller/2
   ]).
 % For front end
 -export([
@@ -52,8 +54,11 @@ stop() ->
 clear() ->
   gen_server:call(?MODULE, clear).
 
-remove_node(Node) ->
-  gen_server:cast(?MODULE, {remove_node, Node}).
+remove_controller(Node) ->
+  gen_server:cast(?MODULE, {remove_controller, Node}).
+
+set_state_for_controller(Controller, State) ->
+  gen_server:cast(?MODULE, {set_state_for_controller, Controller, State}).
 
 % -------------------------------------------------------------------
 % Controller --------------------------------------------------------
@@ -62,22 +67,16 @@ register_controller(Node) ->
   gen_server:cast(?MODULE, {register_controller, Node}).
 
 % -------------------------------------------------------------------
-% Chord -------------------------------------------------------------
+% Rendevouz nodes (Chord and Pastry) --------------------------------
 
-rendevouz_chord(Node) ->
-  gen_server:call(?MODULE, {rendevouz_chord, Node}).
-
-% -------------------------------------------------------------------
-% Pastry ------------------------------------------------------------
-
-rendevouz_pastry(Node) ->
-  gen_server:call(?MODULE, {rendevouz_pastry, Node}).
+rendevouz_node(Node) ->
+  gen_server:call(?MODULE, {rendevouz_node, Node}).
 
 % -------------------------------------------------------------------
 % Frontend ----------------------------------------------------------
 
 live_nodes() ->
-  nodes_as_struct(gen_server:call(?MODULE, live_nodes)).
+  gen_server:call(?MODULE, live_nodes).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Definitions
@@ -87,26 +86,25 @@ init(_Args) ->
   {ok, #state{}}.
 
 %% Call:
-handle_call(live_nodes, _From, #state{chord_nodes = CN, pastry_nodes = PN} = State) ->
-  {reply, {CN, PN}, State};
+handle_call(live_nodes, _From, #state{controllers = Controllers} = State) ->
+  {reply, controllers_as_struct(Controllers), State};
 
 handle_call(stop, _From, State) ->
   {stop, normal, ok, State};
 
-handle_call({rendevouz_chord, Node}, _From, State) ->
-  {Answer, NewState} = node_core:register_chord(Node, State),
-  {reply, Answer, NewState};
-
-handle_call({rendevouz_pastry, Node}, _From, State) ->
-  {Answer, NewState} = node_core:register_pastry(Node, State),
-  {reply, Answer, NewState};
+handle_call({rendevouz_node, Node}, _From, State) ->
+  {reply, node_core:register_node(Node, State), State};
 
 handle_call(clear, _From, _State) ->
+  % WARNING! NOT GOOD! SHOULD STOP LIVENESS CHECKERS!
   {reply, ok, #state{}}.
 
 %% Casts:
-handle_cast({remove_node, Node}, State) ->
-  {noreply, node_core:remove_node(Node, State)};
+handle_cast({remove_controller, Controller}, State) ->
+  {noreply, node_core:remove_controller(Controller, State)};
+
+handle_cast({set_state_for_controller, Controller, ControllerState}, State) ->
+  {noreply, node_core:update_controller_state(Controller, ControllerState, State)};
 
 handle_cast({register_controller, Node}, State) ->
   {noreply, node_core:register_controller(Node, State)};
@@ -128,12 +126,16 @@ code_change(_OldVsn, State, _Extra) ->
 %% Internal Function Definitions
 %% ------------------------------------------------------------------
 
-nodes_as_struct({Chord, Pastry}) ->
-  ChordNodes = {<<"chord_nodes">>, encode_nodes(Chord)},
-  PastryNodes = {<<"pastry_nodes">>, encode_nodes(Pastry)},
-  {struct,[ChordNodes, PastryNodes]}.
+controllers_as_struct(Controllers) ->
+  {struct,[{<<"controllers">>, encode_controllers(Controllers)}]}.
 
-encode_nodes(Nodes) -> [{struct, [{<<"ip">>, ip_to_binary(N#node.ip)}, {<<"port">>, code_port(N#node.port)}]} || N <- Nodes].
+encode_controllers(Controllers) -> 
+  [{struct, [
+      {<<"ip">>, ip_to_binary(C#controller.ip)}, 
+      {<<"port">>, code_port(C#controller.port)},
+      {<<"mode">>, C#controller.mode},
+      {<<"nodes">>, C#controller.ports}
+    ]} || C <- Controllers].
 ip_to_binary({A,B,C,D}) -> list_to_binary(lists:flatten(io_lib:format("~p.~p.~p.~p", [A,B,C,D]))).
 code_port(Port) -> list_to_bitstring(integer_to_list(Port)).
 

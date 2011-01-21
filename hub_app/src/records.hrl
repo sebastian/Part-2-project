@@ -2,8 +2,13 @@
   ip,
   port
 }).
+-record(controller, {
+    ip,
+    port,
+    mode = chord :: chord | pastry,
+    ports = [] :: [number()]
+  }).
 -record(state, {
-    chord_nodes = [],
-    pastry_nodes = [],
-    timerRef
+    mode,
+    controllers = [] :: [#controller{}]
 }).

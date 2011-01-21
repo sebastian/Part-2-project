@@ -23,8 +23,8 @@ content_types_provided(R, S) ->
   {[{"application/json", to_json}, {"text/plain", to_text}], R, S}.
   
 to_json(R, S) ->
-  NodeStruct = node:live_nodes(),
-  Ret = mochijson2:encode(NodeStruct),
+  HostStruct = node:live_nodes(),
+  Ret = mochijson2:encode(HostStruct),
   {Ret, R, S}.
 
 to_text(R, S) -> to_json(R,S).

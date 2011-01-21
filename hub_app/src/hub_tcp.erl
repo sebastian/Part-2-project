@@ -20,7 +20,7 @@
 
 -export([start_link/1, start/0, stop/0]).
 -export([
-    is_node_alive/1
+    get_update/1
   ]).
 
 %% ------------------------------------------------------------------
@@ -34,15 +34,15 @@
 %% API Function Definitions
 %% ------------------------------------------------------------------
 
-is_node_alive(Node) ->
-  case perform_rpc(ping, Node) of
-    {ok, pong} -> true;
-    _ -> false
+get_update(#controller{ip = Ip, port = Port}) ->
+  case perform_rpc(ping, Ip, Port) of
+    {ok, Msg} -> Msg;
+    {error, _} -> dead
   end.
 
--spec(perform_rpc/2::(Message::term(), #node{}) ->
+-spec(perform_rpc/3::(Message::term(), any(), number()) ->
     {ok, _} | {error, _}).
-perform_rpc(Message, #node{ip = Ip, port = Port}) ->
+perform_rpc(Message, Ip, Port) ->
   Timeout = 400,
   case gen_tcp:connect(Ip, Port, [binary, {packet, 0}, {active, true}], Timeout) of
     {ok, Socket} ->
@@ -147,13 +147,9 @@ code_change(_OldVsn, State, _Extra) ->
 %% Internal Function Definitions
 %% ------------------------------------------------------------------
 
-handle_msg({rendevouz, pastry, Port}, Ip) ->
+handle_msg({rendevouz, _Type, Port}, Ip) ->
   Node = #node{ip = Ip, port = Port},
-  {Ip, node:rendevouz_pastry(Node)};
-
-handle_msg({rendevouz, chord, Port}, Ip) ->
-  Node = #node{ip = Ip, port = Port},
-  {Ip, node:rendevouz_chord(Node)};
+  {Ip, node:rendevouz_node(Node)};
 
 handle_msg({register_controller, Port}, Ip) ->
   Node = #node{ip = Ip, port = Port},

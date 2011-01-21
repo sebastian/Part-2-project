@@ -21,7 +21,7 @@
 -export([
     register_tcp/4,
     register_dht/3,
-    register_started_node/3,
+    register_started_node/4,
     dht_failed_start/1,
     dht_successfully_started/1,
     register_pastry_app/2,
@@ -60,8 +60,8 @@ start_link(Args) ->
 stop() ->
   gen_server:call(?MODULE, stop).
 
-register_started_node(DhtPid, TcpPid, AppPid) ->
-  gen_server:cast(?MODULE, {register_node, {DhtPid, TcpPid, AppPid}}).
+register_started_node(DhtPid, TcpPid, AppPid, Port) ->
+  gen_server:cast(?MODULE, {register_node, {DhtPid, TcpPid, AppPid, Port}}).
 
 start_node() ->
   gen_server:cast(?MODULE, start_node).
@@ -105,7 +105,7 @@ handle_call(get_new_controlling_process, _From, #controller_state{mode = Mode} =
   {reply, start_node(Mode), State};
 
 handle_call(ping, _From, #controller_state{nodes = Nodes, mode = Mode} = State) ->
-  {reply, {pong, node_count, length(Nodes), mode, Mode}, State};
+  {reply, {pong, node_count, length(Nodes), mode, Mode, ports, all_ports(Nodes)}, State};
 
 handle_call(stop, _From, State) ->
   {stop, normal, ok, State}.
@@ -172,7 +172,7 @@ code_change(_OldVsn, State, _Extra) ->
 monitor_node(Node) ->
   spawn(fun() -> perform_monitoring(Node) end).
 
-perform_monitoring({DhtPid, _, _} = Node) ->
+perform_monitoring({DhtPid, _, _, _} = Node) ->
   receive 
     kill -> kill_node(Node)
   after 1000 -> 
@@ -188,15 +188,18 @@ kill_and_restart(Node) ->
   start_node(),
   ok.
 
-kill_node({DhtPid, TcpPid, AppPid}) when is_pid(AppPid) ->
+kill_node({DhtPid, TcpPid, AppPid, _Port}) when is_pid(AppPid) ->
   % Killing a pastry node:
   pastry:stop(DhtPid),
   pastry_tcp:stop(TcpPid),
   pastry_app:stop(AppPid);
-kill_node({DhtPid, TcpPid, _AppPid}) ->
+kill_node({DhtPid, TcpPid, _AppPid, _Port}) ->
   % Killing a chord node:
   chord:stop(DhtPid),
   chord_tcp:stop(TcpPid).
+
+all_ports(Nodes) ->
+  [Port || {_,_,_,Port} <- Nodes].
 
 % -------------------------------------------------------------------
 % Start node statemachine -------------------------------------------
@@ -229,27 +232,26 @@ init_dht(Mode, TcpPid, TcpCallbackPid, Port) ->
     {reg_dht, DhtPid, DhtCallbackPid} ->
       DhtPid ! {port, Port},
       TcpCallbackPid ! {dht_pid, DhtPid},
-      end_init_dht(Mode, TcpPid, DhtPid, DhtCallbackPid)
+      end_init_dht(Mode, TcpPid, DhtPid, DhtCallbackPid, Port)
   end.
 
-end_init_dht(Mode, TcpPid, DhtPid, DhtCallbackPid) ->
+end_init_dht(Mode, TcpPid, DhtPid, DhtCallbackPid, Port) ->
   receive 
     dht_success ->
-      start_app(Mode, TcpPid, DhtPid, DhtCallbackPid);
+      start_app(Mode, TcpPid, DhtPid, DhtCallbackPid, Port);
     dht_failed_start ->
       io:format("Failed to start dht. Should stop TCP!?~n")
   end.
 
-start_app(chord, TcpPid, DhtPid, _DhtCallbackPid) ->
-  controller:register_started_node(DhtPid, TcpPid, undefined);
-start_app(pastry, TcpPid, DhtPid, DhtCallbackPid) ->
+start_app(chord, TcpPid, DhtPid, _DhtCallbackPid, Port) ->
+  controller:register_started_node(DhtPid, TcpPid, undefined, Port);
+start_app(pastry, TcpPid, DhtPid, DhtCallbackPid, Port) ->
   receive 
     {reg_app, AppPid} ->
       AppPid ! {dht_pid, DhtPid},
       DhtCallbackPid ! {pastry_app_pid, AppPid}
   end,
-  controller:register_started_node(DhtPid, TcpPid, AppPid).
-
+  controller:register_started_node(DhtPid, TcpPid, AppPid, Port).
 
 perform_stop_nodes(#controller_state{nodes = Nodes} = State) -> foldl(fun(_N,S) -> stop_node(S) end, State, Nodes).
 
@@ -268,8 +270,8 @@ perform_stop_nodes_chord_test() ->
   Node1Tcp = cp(1.2),
   Node2Pid = cp(2.1),
   Node2Tcp = cp(2.2),
-  Node1 = {Node1Pid, Node1Tcp, undefined},
-  Node2 = {Node2Pid, Node2Tcp, undefined},
+  Node1 = {Node1Pid, Node1Tcp, undefined, port},
+  Node2 = {Node2Pid, Node2Tcp, undefined, port},
   Node1Controller = monitor_node(Node1),
   Node2Controller = monitor_node(Node2),
   State = #controller_state{
@@ -296,8 +298,8 @@ perform_stop_nodes_pastry_test() ->
   Node2Tcp = cp(2.2),
   Node1App = cp(1.3),
   Node2App = cp(2.3),
-  Node1 = {Node1Pid, Node1Tcp, Node1App},
-  Node2 = {Node2Pid, Node2Tcp, Node2App},
+  Node1 = {Node1Pid, Node1Tcp, Node1App, port},
+  Node2 = {Node2Pid, Node2Tcp, Node2App, port},
   Node1Controller = monitor_node(Node1),
   Node2Controller = monitor_node(Node2),
   State = #controller_state{
@@ -323,8 +325,8 @@ stop_node_pastry_test() ->
   Node2Tcp = cp(2.2),
   Node1App = cp(1.3),
   Node2App = cp(2.3),
-  Node1 = {Node1Pid, Node1Tcp, Node1App},
-  Node2 = {Node2Pid, Node2Tcp, Node2App},
+  Node1 = {Node1Pid, Node1Tcp, Node1App, port},
+  Node2 = {Node2Pid, Node2Tcp, Node2App, port},
   Node1Controller = monitor_node(Node1),
   Node2Controller = monitor_node(Node2),
   State = #controller_state{
@@ -347,8 +349,8 @@ stop_node_chord_test() ->
   Node1Tcp = cp(1.2),
   Node2Pid = cp(2.1),
   Node2Tcp = cp(2.2),
-  Node1 = {Node1Pid, Node1Tcp, undefined},
-  Node2 = {Node2Pid, Node2Tcp, undefined},
+  Node1 = {Node1Pid, Node1Tcp, undefined, port},
+  Node2 = {Node2Pid, Node2Tcp, undefined, port},
   Node1Controller = monitor_node(Node1),
   Node2Controller = monitor_node(Node2),
   State = #controller_state{
@@ -364,5 +366,9 @@ stop_node_chord_test() ->
   ?assertEqual([{Node2, Node2Controller}], UpdatedState#controller_state.nodes),
   % For good measure, kill the other monitor as well
   Node2Controller ! kill.
+
+all_ports_test() ->
+  Nodes = [{dhtPid1, tcpPid1, appPid1, port1},{dhtPid2, tcpPid2, appPid2, port2}],
+  ?assertEqual([port1, port2], all_ports(Nodes)).
 
 -endif.
