@@ -137,7 +137,8 @@ handle_cast({register_node, Data}, #controller_state{nodes = Nodes} = State) ->
     0 -> send_dht_to_friendsearch();
     _ -> ok % Dht should be fine
   end,
-  {noreply, State#controller_state{nodes = [Data|Nodes]}};
+  NodeController = monitor_node(Data),
+  {noreply, State#controller_state{nodes = [{Data, NodeController}|Nodes]}};
 
 handle_cast(send_dht_to_friendsearch, #controller_state{nodes = [{DhtPid, _, DhtAppPid}|_], mode = Mode} = State) ->
   % There were previously no node, but now there is, so tell friend search
@@ -167,6 +168,35 @@ code_change(_OldVsn, State, _Extra) ->
 %% ------------------------------------------------------------------
 %% Internal Function Definitions
 %% ------------------------------------------------------------------
+
+monitor_node(Node) ->
+  spawn(fun() -> perform_monitoring(Node) end).
+
+perform_monitoring({DhtPid, _, _} = Node) ->
+  receive 
+    kill -> kill_node(Node)
+  after 1000 -> 
+    time_to_check_liveness 
+  end,
+  case gen_server:call(DhtPid, ping, 200) of
+    pong -> perform_monitoring(Node);
+    {timeout, _} -> kill_and_restart(Node)
+  end.
+
+kill_and_restart(Node) ->
+  kill_node(Node), 
+  start_node(),
+  ok.
+
+kill_node({DhtPid, TcpPid, AppPid}) when is_pid(AppPid) ->
+  % Killing a pastry node:
+  pastry:stop(DhtPid),
+  pastry_tcp:stop(TcpPid),
+  pastry_app:stop(AppPid);
+kill_node({DhtPid, TcpPid, _AppPid}) ->
+  % Killing a chord node:
+  chord:stop(DhtPid),
+  chord_tcp:stop(TcpPid).
 
 % -------------------------------------------------------------------
 % Start node statemachine -------------------------------------------
@@ -223,14 +253,8 @@ start_app(pastry, TcpPid, DhtPid, DhtCallbackPid) ->
 
 perform_stop_nodes(#controller_state{nodes = Nodes} = State) -> foldl(fun(_N,S) -> stop_node(S) end, State, Nodes).
 
-stop_node(#controller_state{mode = chord, nodes = [{ChordPid, ChordTcpPid, _}|Nodes]} = State) ->
-  chord:stop(ChordPid), 
-  chord_tcp:stop(ChordTcpPid),
-  State#controller_state{nodes = Nodes};
-stop_node(#controller_state{mode = pastry, nodes = [{PastryPid, PastryTcpPid, PastryAppPid}|Nodes]} = State) ->
-  pastry:stop(PastryPid), 
-  pastry_tcp:stop(PastryTcpPid),
-  pastry_app:stop(PastryAppPid),
+stop_node(#controller_state{nodes = [{_Node, NodeController}|Nodes]} = State) ->
+  NodeController ! kill,
   State#controller_state{nodes = Nodes}.
 
 %% ------------------------------------------------------------------
@@ -240,62 +264,105 @@ stop_node(#controller_state{mode = pastry, nodes = [{PastryPid, PastryTcpPid, Pa
 -ifdef(TEST).
 
 perform_stop_nodes_chord_test() ->
+  Node1Pid = cp(1.1),
+  Node1Tcp = cp(1.2),
+  Node2Pid = cp(2.1),
+  Node2Tcp = cp(2.2),
+  Node1 = {Node1Pid, Node1Tcp, undefined},
+  Node2 = {Node2Pid, Node2Tcp, undefined},
+  Node1Controller = monitor_node(Node1),
+  Node2Controller = monitor_node(Node2),
   State = #controller_state{
     mode = chord,
-    nodes = [{node1pid, node1tcp, undefined},{node2pid, node2tcp, undefined}]
+    nodes = [{Node1, Node1Controller},{Node2, Node2Controller}]
   },
   erlymock:start(),
-  erlymock:o_o(chord, stop, [node1pid], [{return, ok}]),
-  erlymock:o_o(chord, stop, [node2pid], [{return, ok}]),
-  erlymock:o_o(chord_tcp, stop, [node1tcp], [{return, ok}]),
-  erlymock:o_o(chord_tcp, stop, [node2tcp], [{return, ok}]),
+  erlymock:o_o(chord, stop, [Node1Pid], [{return, ok}]),
+  erlymock:o_o(chord, stop, [Node2Pid], [{return, ok}]),
+  erlymock:o_o(chord_tcp, stop, [Node1Tcp], [{return, ok}]),
+  erlymock:o_o(chord_tcp, stop, [Node2Tcp], [{return, ok}]),
   erlymock:replay(), 
   UpdatedState = perform_stop_nodes(State),
   erlymock:verify(),
   ?assertEqual([], UpdatedState#controller_state.nodes).
 
+cp(PidName) ->
+  list_to_pid(lists:flatten(io_lib:format("<0.~p>", [PidName]))).
+
 perform_stop_nodes_pastry_test() ->
+  Node1Pid = cp(1.1),
+  Node1Tcp = cp(1.2),
+  Node2Pid = cp(2.1),
+  Node2Tcp = cp(2.2),
+  Node1App = cp(1.3),
+  Node2App = cp(2.3),
+  Node1 = {Node1Pid, Node1Tcp, Node1App},
+  Node2 = {Node2Pid, Node2Tcp, Node2App},
+  Node1Controller = monitor_node(Node1),
+  Node2Controller = monitor_node(Node2),
   State = #controller_state{
     mode = pastry,
-    nodes = [{node1pid, node1tcp, node1app},{node2pid, node2tcp, node2app}]
+    nodes = [{Node1, Node1Controller},{Node2, Node2Controller}]
   },
   erlymock:start(),
-  erlymock:o_o(pastry, stop, [node1pid], [{return, ok}]),
-  erlymock:o_o(pastry, stop, [node2pid], [{return, ok}]),
-  erlymock:o_o(pastry_tcp, stop, [node1tcp], [{return, ok}]),
-  erlymock:o_o(pastry_tcp, stop, [node2tcp], [{return, ok}]),
-  erlymock:o_o(pastry_app, stop, [node1app], [{return, ok}]),
-  erlymock:o_o(pastry_app, stop, [node2app], [{return, ok}]),
+  erlymock:o_o(pastry, stop, [Node1Pid], [{return, ok}]),
+  erlymock:o_o(pastry, stop, [Node2Pid], [{return, ok}]),
+  erlymock:o_o(pastry_tcp, stop, [Node1Tcp], [{return, ok}]),
+  erlymock:o_o(pastry_tcp, stop, [Node2Tcp], [{return, ok}]),
+  erlymock:o_o(pastry_app, stop, [Node1App], [{return, ok}]),
+  erlymock:o_o(pastry_app, stop, [Node2App], [{return, ok}]),
   erlymock:replay(), 
   UpdatedState = perform_stop_nodes(State),
   erlymock:verify(),
   ?assertEqual([], UpdatedState#controller_state.nodes).
 
 stop_node_pastry_test() ->
+  Node1Pid = cp(1.1),
+  Node1Tcp = cp(1.2),
+  Node2Pid = cp(2.1),
+  Node2Tcp = cp(2.2),
+  Node1App = cp(1.3),
+  Node2App = cp(2.3),
+  Node1 = {Node1Pid, Node1Tcp, Node1App},
+  Node2 = {Node2Pid, Node2Tcp, Node2App},
+  Node1Controller = monitor_node(Node1),
+  Node2Controller = monitor_node(Node2),
   State = #controller_state{
     mode = pastry,
-    nodes = [{node1pid, node1tcp, node1app},{node2pid, node2tcp, node2app}]
+    nodes = [{Node1, Node1Controller},{Node2, Node2Controller}]
   },
   erlymock:start(),
-  erlymock:o_o(pastry, stop, [node1pid], [{return, ok}]),
-  erlymock:o_o(pastry_tcp, stop, [node1tcp], [{return, ok}]),
-  erlymock:o_o(pastry_app, stop, [node1app], [{return, ok}]),
+  erlymock:o_o(pastry, stop, [Node1Pid], [{return, ok}]),
+  erlymock:o_o(pastry_tcp, stop, [Node1Tcp], [{return, ok}]),
+  erlymock:o_o(pastry_app, stop, [Node1App], [{return, ok}]),
   erlymock:replay(), 
   UpdatedState = stop_node(State),
   erlymock:verify(),
-  ?assertEqual([{node2pid, node2tcp, node2app}], UpdatedState#controller_state.nodes).
+  ?assertEqual([{Node2, Node2Controller}], UpdatedState#controller_state.nodes),
+  % For good measure, kill the other monitor as well
+  Node2Controller ! kill.
 
 stop_node_chord_test() ->
+  Node1Pid = cp(1.1),
+  Node1Tcp = cp(1.2),
+  Node2Pid = cp(2.1),
+  Node2Tcp = cp(2.2),
+  Node1 = {Node1Pid, Node1Tcp, undefined},
+  Node2 = {Node2Pid, Node2Tcp, undefined},
+  Node1Controller = monitor_node(Node1),
+  Node2Controller = monitor_node(Node2),
   State = #controller_state{
     mode = chord,
-    nodes = [{node1pid, node1tcp, undefined},{node2pid, node2tcp, undefined}]
+    nodes = [{Node1, Node1Controller},{Node2, Node2Controller}]
   },
   erlymock:start(),
-  erlymock:o_o(chord, stop, [node1pid], [{return, ok}]),
-  erlymock:o_o(chord_tcp, stop, [node1tcp], [{return, ok}]),
+  erlymock:o_o(chord, stop, [Node1Pid], [{return, ok}]),
+  erlymock:o_o(chord_tcp, stop, [Node1Tcp], [{return, ok}]),
   erlymock:replay(), 
   UpdatedState = stop_node(State),
   erlymock:verify(),
-  ?assertEqual([{node2pid, node2tcp, undefined}], UpdatedState#controller_state.nodes).
+  ?assertEqual([{Node2, Node2Controller}], UpdatedState#controller_state.nodes),
+  % For good measure, kill the other monitor as well
+  Node2Controller ! kill.
 
 -endif.
