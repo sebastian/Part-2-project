@@ -18,7 +18,7 @@
 %% ------------------------------------------------------------------
 
 -export([list/0, add/1, delete/1, find/1, keep_alive/0]).
--export([start_link/0, start/1, stop/0]).
+-export([start_link/0, start/0, stop/0]).
 -export([set_dht/1]).
 
 %% ------------------------------------------------------------------
@@ -31,8 +31,8 @@
 %% API Function Definitions
 %% ------------------------------------------------------------------
 
-start(Args) ->
-  gen_server:start({local, ?SERVER}, ?MODULE, Args, []).
+start() ->
+  gen_server:start({local, ?SERVER}, ?MODULE, [], []).
 
 start_link() ->
   gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
@@ -128,7 +128,7 @@ code_change(_OldVsn, State, _Extra) ->
 
 add_list_test() ->
   {ok, Pid} = test_dht:start(),
-  start([{dht, test_dht}]),
+  start(),
   set_dht({test_dht, Pid}),
   Person = test_utils:test_person_sebastianA(),
   ?assertNot(lists:member(Person, list())),
@@ -139,7 +139,7 @@ add_list_test() ->
 
 find_test() ->
   {ok, Pid} = test_dht:start(),
-  start([{dht, test_dht}]),
+  start(),
   set_dht({test_dht, Pid}),
   Person = test_utils:test_person_sebastianA(),
   PersonName = Person#person.name,
@@ -151,7 +151,7 @@ find_test() ->
 
 find_by_surname_test() ->
   {ok, Pid} = test_dht:start(),
-  start([{dht, test_dht}]),
+  start(),
   set_dht({test_dht, Pid}),
   Person = test_utils:test_person_sebastianA(),
   Surname = <<"Eide">>,
@@ -163,7 +163,7 @@ find_by_surname_test() ->
 
 find_multiple_test() ->
   {ok, Pid} = test_dht:start(),
-  start([{dht, test_dht}]),
+  start(),
   set_dht({test_dht, Pid}),
 
   % Name: Sebastian Probst Eide

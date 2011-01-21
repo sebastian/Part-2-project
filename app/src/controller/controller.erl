@@ -24,7 +24,8 @@
     register_started_node/3,
     dht_failed_start/1,
     dht_successfully_started/1,
-    register_pastry_app/2
+    register_pastry_app/2,
+    send_dht_to_friendsearch/0
   ]).
 -export([
     start_node/0,

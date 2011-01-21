@@ -50,7 +50,8 @@
 -export([
     value_of_key/2,
     max_for_keylength/2,
-    neighborhood_watch/1
+    neighborhood_watch/1,
+    ping/1
   ]).
 
 %% ------------------------------------------------------------------
@@ -138,6 +139,9 @@ get_self(Pid) ->
 discard_dead_node(Pid, Node) ->
   gen_server:cast(Pid, {discard_dead_node, Node}).
 
+ping(Pid) ->
+  gen_server:call(Pid, ping).
+
 %% ------------------------------------------------------------------
 %% gen_server Function Definitions
 %% ------------------------------------------------------------------
@@ -196,6 +200,9 @@ perform_join([{JoinIp, JoinPort}|Ps], #pastry_state{self = Self} = State, Contro
   end.
 
 % Call:
+handle_call(ping, _From, State) ->
+  {reply, pong, State};
+
 handle_call({set_pastry_app_pid, PastryAppPid}, _From, #pastry_state{self = Self, b = B} = State) ->
   pastry_app:pastry_init(PastryAppPid, Self, B),
   {reply, thanks, State#pastry_state{pastry_app_pid = PastryAppPid}};

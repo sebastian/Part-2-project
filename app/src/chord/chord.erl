@@ -31,8 +31,13 @@
 -export([local_set/3, local_lookup/2]).
 -export([notified/2]).
 % Methods that need to be exported to me used by timers and local rpc's. Not for external use.
--export([stabilize/1, fix_fingers/1, check_node_for_predecessor/4]).
--export([receive_entries/2]).
+-export([
+    stabilize/1, 
+    fix_fingers/1, 
+    check_node_for_predecessor/4,
+    receive_entries/2,
+    ping/1
+  ]).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Exports
@@ -96,6 +101,9 @@ get_predecessor(Pid) ->
 receive_entries(Pid, Entries) ->
   gen_server:cast(Pid, {receive_entries, Entries}),
   ok.
+
+ping(Pid) ->
+  gen_server:call(Pid, ping).
 
 %% @doc Notified receives messages from predecessors identifying themselves.
 %% If the node is a closer predecessor than the current one, then
@@ -185,6 +193,9 @@ perform_join([{JoinIp, JoinPort}|Ps], #chord_state{self = #node{key = OwnKey}} =
 
 
 %% Call:
+handle_call(ping, _From, State) ->
+  {reply, pong, State};
+
 handle_call({remove_node, BadNode}, _From, State) ->
   {reply, ok, perform_remove_node(BadNode, State)};
 

@@ -243,8 +243,8 @@ handle_msg({bulk_delivery, Entries}, _Pid) ->
   spawn(fun() -> pastry_app:bulk_delivery(Entries) end),
   ok;
 
-handle_msg(ping, _Pid) ->
-  pong;
+handle_msg(ping, Pid) ->
+  pastry:ping(Pid);
 
 handle_msg(_, _Pid) ->
   ?NYI.

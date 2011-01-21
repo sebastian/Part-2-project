@@ -222,8 +222,8 @@ handle_msg(get_successor, Pid) ->
 handle_msg({send_entries, Entries}, Pid) ->
   chord:receive_entries(Pid, Entries);
 
-handle_msg(ping, _Pid) ->
-  pong;
+handle_msg(ping, Pid) ->
+  chord:ping(Pid);
 
 handle_msg(_, _Pid) ->
   ?NYI.
