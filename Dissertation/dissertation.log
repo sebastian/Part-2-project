@@ -1,4 +1,4 @@
-This is pdfTeXk, Version 3.1415926-1.40.9 (Web2C 7.5.7) (format=pdflatex 2009.3.30)  20 JAN 2011 17:14
+This is pdfTeXk, Version 3.1415926-1.40.9 (Web2C 7.5.7) (format=pdflatex 2009.3.30)  21 JAN 2011 09:12
 entering extended mode
 \write18 enabled.
  %&-line parsing enabled.
@@ -93,14 +93,14 @@ Here is how much of TeX's memory you used:
  3717 multiletter control sequences out of 10000+50000
  9199 words of font info for 32 fonts, out of 3000000 for 5000
  714 hyphenation exceptions out of 8191
- 23i,4n,19p,625b,143s stack positions out of 5000i,500n,10000p,200000b,50000s
+ 23i,5n,19p,614b,143s stack positions out of 5000i,500n,10000p,200000b,50000s
 </usr/local/texlive/2008/texmf-dist/fonts/type1/
 bluesky/cm/cmbx12.pfb></usr/local/texlive/2008/texmf-dist/fonts/type1/bluesky/c
 m/cmmi8.pfb></usr/local/texlive/2008/texmf-dist/fonts/type1/bluesky/cm/cmr12.pf
 b></usr/local/texlive/2008/texmf-dist/fonts/type1/bluesky/cm/cmsl12.pfb></usr/l
 ocal/texlive/2008/texmf-dist/fonts/type1/bluesky/cm/cmsy10.pfb></usr/local/texl
 ive/2008/texmf-dist/fonts/type1/bluesky/cm/cmti12.pfb>
-Output written on dissertation.pdf (3 pages, 40306 bytes).
+Output written on dissertation.pdf (3 pages, 41092 bytes).
 PDF statistics:
  36 PDF objects out of 1000 (max. 8388607)
  0 named destinations out of 1000 (max. 131072)
