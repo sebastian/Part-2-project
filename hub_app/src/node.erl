@@ -26,7 +26,10 @@
   ]).
 % For front end
 -export([
-    live_nodes/0
+    live_nodes/0,
+    switch_mode_to/1,
+    start_nodes/1,
+    stop_nodes/1
   ]).
 
 %% ------------------------------------------------------------------
@@ -78,6 +81,15 @@ rendevouz_node(Node) ->
 live_nodes() ->
   gen_server:call(?MODULE, live_nodes).
 
+switch_mode_to(Mode) ->
+  gen_server:cast(?MODULE, {switch_mode_to, Mode}).
+
+start_nodes(N) ->
+  gen_server:cast(?MODULE, {start_nodes, N}).
+
+stop_nodes(N) ->
+  gen_server:cast(?MODULE, {stop_nodes, N}).
+
 %% ------------------------------------------------------------------
 %% gen_server Function Definitions
 %% ------------------------------------------------------------------
@@ -108,6 +120,18 @@ handle_cast({set_state_for_controller, Controller, ControllerState}, State) ->
 
 handle_cast({register_controller, Node}, State) ->
   {noreply, node_core:register_controller(Node, State)};
+
+handle_cast({start_nodes, Count}, State) ->
+  node_core:start_nodes(Count, State),
+  {noreply, State};
+
+handle_cast({stop_nodes, Count}, State) ->
+  node_core:stop_nodes(Count, State),
+  {noreply, State};
+
+handle_cast({switch_mode_to, Mode}, State) ->
+  node_core:switch_mode_to(Mode, State),
+  {noreply, State};
 
 handle_cast(_Msg, State) ->
   {noreply, State}.

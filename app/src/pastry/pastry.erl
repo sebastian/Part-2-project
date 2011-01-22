@@ -162,10 +162,7 @@ init(Args) ->
 
   Port = receive {port, TcpPort} -> TcpPort end,
 
-  JoinAddr = "hub.probsteide.com",
-  JoinPort = 6001,
-
-  case pastry_tcp:rendevouz(Port, JoinAddr, JoinPort) of
+  case pastry_tcp:rendevouz(Port, ?RENDEVOUZ_HOST, ?RENDEVOUZ_PORT) of
     {MyIp, first} -> 
       controller:dht_successfully_started(ControllingProcess),
       {ok, post_rendevouz_state_update(MyIp, Port, Args)};

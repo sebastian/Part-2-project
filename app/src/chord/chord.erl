@@ -159,9 +159,7 @@ init(Args) ->
 %% @doc: joins another chord node and returns the updated chord state
 -spec(join/2::(number(), pid()) -> {ok, #chord_state{}} | error).
 join(Port, ControllingProcess) -> 
-  JoinAddr = "hub.probsteide.com",
-  JoinPort = 6001,
-  case chord_tcp:rendevouz(Port, JoinAddr, JoinPort) of
+  case chord_tcp:rendevouz(Port, ?RENDEVOUZ_HOST, ?RENDEVOUZ_PORT) of
     {MyIp, first} -> {ok, post_rendevouz_state_update(MyIp, Port)};
     {error, Reason} -> 
       controller:dht_failed_start(ControllingProcess),
@@ -880,11 +878,8 @@ join_test() ->
   % Our successor node as given by the system
   SuccessorNode = #node{key = 20},
 
-  RendevouzAddr = "hub.probsteide.com",
-  RendevouzPort = 6001,
-
   erlymock:start(),
-  erlymock:strict(chord_tcp, rendevouz, [OwnPort, RendevouzAddr, RendevouzPort], [{return, {OwnIp, HubNodes}}]),
+  erlymock:strict(chord_tcp, rendevouz, [OwnPort, ?RENDEVOUZ_HOST, ?RENDEVOUZ_PORT], [{return, {OwnIp, HubNodes}}]),
   erlymock:strict(chord_tcp, rpc_find_successor, [Key, FailingJoinIp, FailingJoinPort], [{return, {error, timeout}}]),
   erlymock:strict(chord_tcp, rpc_find_successor, [Key, JoinIp, JoinPort], [{return, {ok, SuccessorNode}}]),
   erlymock:replay(),

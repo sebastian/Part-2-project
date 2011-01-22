@@ -2,81 +2,60 @@
 	file:///css/master.css
 	http://localhost:3000/css/master.css
 	http://localhost:8000/css/master.css
+	http://localhost:6002/css/master.css
 */
 
-/* @group Search */
+/* @group Main */
 
-#main {
-	padding-top: 1em;
-}
+/* @group Controllers */
 
-/* @group Results */
-
-#search_results div.search_result.yui-gf div.avatar.yui-g.first img {
-	width: 48px;
-	height: 48px;
-	margin-right: auto;
-	margin-left: auto;
-	float: right;
-}
-
-div.name {
-	font-weight: bold;
-}
-
-div.profile_url {
+#main-content div.controllers div.controller ul li {
+	display: block;
+	list-style-type: disc;
+	list-style-position: outside;
+	margin: 3px;
+	float: left;
 	font-size: 77%;
 }
 
-img#avatar_preview {
-	width: 48px;
-	height: 48px;
-	background-color: #efefef;
-	clear: right;
-	margin-top: 6em;
+#main-content div.controllers div.controller span {
+	float: left;
+	background-color: #606060;
+	color: white;
+	padding: 5px;
+	margin: 0 0 0 10px;
 }
 
-#search_results div.search_result.yui-gf div.info.yui-g {
-	margin-bottom: auto;
-	margin-top: 0.8em;
+#main-content div.controllers div.controller ul {
+	clear: left;
+	display: none;
 }
 
-#search_component {
-	background-color: #aabbbb;
-
+div#templates {
+	display: none;
 }
 
-div.search_result:hover {
-	background-color: rgba(255,254,255,0.3);
+#main-content div.controllers div.controller {
+	clear: left;
+	display: table;
+	margin-top: 10px;
 }
 
-div.search_result {
-	background-color: rgba(255,254,255,0.1);
-	border-bottom: 1px solid rgba(255,254,255,0.3);
-	padding-top: 5px;
-	padding-bottom: 5px;
+#main-content div.controllers div.controller a {
+	font-size: 123.1%;
+	float: left;
+	padding: 4px;
 }
 
 
 
 /* @end */
-
-input#searchField {
-	width: 93%;
-	margin: 3%;
-	font-size: 123.1%;
-}
 
 
 
 /* @end */
 
 /* @group Footer and header */
-
-li {
-	float: left;
-	margin-right: 20px;
-}
 
 div#hd {
 	background-color: #334433;
@@ -87,11 +66,6 @@ div#hd {
 	margin-top: 10px;
 }
 
-#hd ul li a, #hd ul li {
-	color: white;
-	text-decoration: underline;
-}
-
 div#ft {
 	clear: both;
 	padding: 10px;
@@ -100,36 +74,6 @@ div#ft {
 	color: #6699aa;
 	margin-top: 50px;
 }
-
-
-
-/* @end */
-
-/* @group Main */
-
-/* @group Nodes */
-
-#main-content div.nodes div.node ul li {
-	display: block;
-	list-style-type: disc;
-	list-style-position: outside;
-	margin: 3px;
-	clear: left;
-}
-
-#main-content div.nodes div.node {
-	clear: left;
-	display: table;
-	margin-top: 10px;
-}
-
-#main-content div.nodes div.node h1 {
-	font-size: 123.1%;
-}
-
-
-
-/* @end */
 
 
 

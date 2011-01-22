@@ -20,7 +20,10 @@
 
 -export([start_link/1, start/0, stop/0]).
 -export([
-    get_update/1
+    get_update/1,
+    switch_mode_to/2,
+    start_nodes/2,
+    stop_nodes/2
   ]).
 
 %% ------------------------------------------------------------------
@@ -33,6 +36,15 @@
 %% ------------------------------------------------------------------
 %% API Function Definitions
 %% ------------------------------------------------------------------
+
+switch_mode_to(Mode, #controller{ip = Ip, port = Port}) ->
+  perform_rpc({switch_mode_to, Mode}, Ip, Port).
+
+start_nodes(Count, #controller{ip = Ip, port = Port}) ->
+  perform_rpc({start_nodes, Count}, Ip, Port).
+
+stop_nodes(Count, #controller{ip = Ip, port = Port}) ->
+  perform_rpc({stop_nodes, Count}, Ip, Port).
 
 get_update(#controller{ip = Ip, port = Port}) ->
   case perform_rpc(ping, Ip, Port) of

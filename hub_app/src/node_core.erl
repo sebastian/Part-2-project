@@ -10,7 +10,10 @@
     register_node/2,
     register_controller/2,
     remove_controller/2,
-    update_controller_state/3
+    update_controller_state/3,
+    switch_mode_to/2,
+    start_nodes/2,
+    stop_nodes/2
   ]).
 
 -import(lists, [member/2]).
@@ -32,7 +35,7 @@ get_not_me(Node, Controllers) ->
   case ControllersNotMyOwn of
     [] ->
       % There is only one controller, our own. So we are first
-      [Controller] = Controllers,
+      [Controller|_] = Controllers,
       Nodes = get_diverse_nodes([{Controller#controller.ip, Controller#controller.ports}], NumToGet),
       case Nodes of
         [] -> first;
@@ -52,18 +55,20 @@ get_diverse_nodes([{Ip, [Port|Ports]}|Nodes], NumToGet, Acc) ->
   get_diverse_nodes(Nodes ++ [{Ip, Ports}], NumToGet - 1, [{Ip, Port}|Acc]).
 
 remove_controller(Controller, #state{controllers = Controllers} = State) ->
-  State#state{controllers = Controllers -- [Controller]}.
+  Match = [C || C <- Controllers, 
+    C#controller.ip =:= Controller#controller.ip, 
+    C#controller.port =:= Controller#controller.port],
+  State#state{controllers = Controllers -- Match}.
 
 keep_while_alive(Node) ->
   spawn(fun() -> liveness_checker(Node, 1000) end).
 
 liveness_checker(Controller, Interval) ->
   receive after Interval -> ok end,
-  NextInterval = case Interval < 30000 of
+  NextInterval = case Interval < 10000 of
     true -> Interval * 2;
     false -> Interval
   end,
-  io:format("Checking liveness of controller ~p~n", [Controller]),
   case hub_tcp:get_update(Controller) of
     dead -> node:remove_controller(Controller);
     Update -> 
@@ -72,9 +77,17 @@ liveness_checker(Controller, Interval) ->
       liveness_checker(Controller, NextInterval)
   end.
 
-update_controller_state(Controller, {Mode, Ports}, #state{controllers = Controllers} = State) ->
-  NewControllers = (Controllers -- [Controller]) ++ [Controller#controller{mode = Mode, ports = Ports}],
+update_controller_state(CC, {Mode, Ports}, #state{controllers = Controllers} = State) ->
+  MatchingControllers = [C || C <- Controllers, C#controller.ip =:= CC#controller.ip, C#controller.port =:= CC#controller.port],
+  NewControllers = (Controllers -- MatchingControllers) ++ [CC#controller{mode = Mode, ports = Ports}],
   State#state{controllers = NewControllers}.
+
+switch_mode_to(Mode, State) -> perform(fun(M, C) -> hub_tcp:switch_mode_to(M, C) end, Mode, State).
+start_nodes(Count, State) -> perform(fun(N, C) -> hub_tcp:start_nodes(N, C) end, Count, State).
+stop_nodes(Count, State) -> perform(fun(N, C) -> hub_tcp:stop_nodes(N, C) end, Count, State).
+
+perform(Fun, Args, #state{controllers = Controllers}) -> [spawn(fun() -> Fun(Args, C) end) || C <- Controllers].
+
 
 %% ------------------------------------------------------------------
 %% Tests
@@ -174,9 +187,10 @@ remove_controller_test() ->
     mode = chord,
     ports = []
   },
-  State = #state{controllers = [Controller]},
+  UpdateController = Controller#controller{mode = pastry, ports = [12,13,14]},
+  State = #state{controllers = [UpdateController]},
   NewState = remove_controller(Controller, State),
-  ?assertNot(member(Controller, NewState#state.controllers)).
+  ?assertNot(member(UpdateController, NewState#state.controllers)).
 
 register_controller_test() ->
   State = #state{},
@@ -196,10 +210,63 @@ update_controller_state_test() ->
     mode = chord,
     ports = [1,2,3]
   },
-  State = #state{controllers = [Controller]},
+  AlreadyUpdatedController = Controller#controller{ports = [1,2,3,4,5,6,7]},
+  State = #state{controllers = [AlreadyUpdatedController]},
   #state{controllers = [C]} =
     update_controller_state(Controller, {pastry, [1,4]}, State),
   ?assertEqual([1,4], C#controller.ports),
   ?assertEqual(pastry, C#controller.mode).
+
+switch_mode_to_test() ->
+  C1 = #controller{
+    ip = {1,2,3,4},
+    port = 1234
+  },
+  C2 = #controller{
+    ip = {2,2,3,4},
+    port = 2234
+  },
+  Mode = chord,
+  State = #state{controllers = [C1, C2]},
+  erlymock:start(),
+  erlymock:strict(hub_tcp, switch_mode_to, [Mode, C1], [{return, {ok, ok}}]),
+  erlymock:strict(hub_tcp, switch_mode_to, [Mode, C2], [{return, {ok, ok}}]),
+  erlymock:replay(), 
+  switch_mode_to(Mode, State),
+  erlymock:verify().
+
+start_node_test() ->
+  C1 = #controller{
+    ip = {1,2,3,4},
+    port = 1234
+  },
+  C2 = #controller{
+    ip = {2,2,3,4},
+    port = 2234
+  },
+  State = #state{controllers = [C1, C2]},
+  erlymock:start(),
+  erlymock:strict(hub_tcp, start_nodes, [1, C1], [{return, {ok, ok}}]),
+  erlymock:strict(hub_tcp, start_nodes, [1, C2], [{return, {ok, ok}}]),
+  erlymock:replay(), 
+  start_nodes(1, State),
+  erlymock:verify().
+
+stop_node_test() ->
+  C1 = #controller{
+    ip = {1,2,3,4},
+    port = 1234
+  },
+  C2 = #controller{
+    ip = {2,2,3,4},
+    port = 2234
+  },
+  State = #state{controllers = [C1, C2]},
+  erlymock:start(),
+  erlymock:strict(hub_tcp, stop_nodes, [1, C1], [{return, {ok, ok}}]),
+  erlymock:strict(hub_tcp, stop_nodes, [1, C2], [{return, {ok, ok}}]),
+  erlymock:replay(), 
+  stop_nodes(1, State),
+  erlymock:verify().
 
 -endif.

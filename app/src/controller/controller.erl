@@ -2,6 +2,7 @@
 -behaviour(gen_server).
 
 -import(lists, [foldl/3]).
+-include("../fs.hrl").
 
 -define(SERVER, ?MODULE).
 
@@ -21,7 +22,7 @@
 -export([
     register_tcp/4,
     register_dht/3,
-    register_started_node/4,
+    register_started_node/1,
     dht_failed_start/1,
     dht_successfully_started/1,
     register_pastry_app/2,
@@ -60,8 +61,8 @@ start_link(Args) ->
 stop() ->
   gen_server:call(?MODULE, stop).
 
-register_started_node(DhtPid, TcpPid, AppPid, Port) ->
-  gen_server:cast(?MODULE, {register_node, {DhtPid, TcpPid, AppPid, Port}}).
+register_started_node(Node) ->
+  gen_server:cast(?MODULE, {register_node, Node}).
 
 start_node() ->
   gen_server:cast(?MODULE, start_node).
@@ -93,9 +94,7 @@ ping() ->
 
 init(Args) -> 
   Port = proplists:get_value(port, Args),
-  RendevouzHost = "hub.probsteide.com",
-  RendevouzPort = 6001,
-  case controller_tcp:register_controller(Port, RendevouzHost, RendevouzPort) of
+  case controller_tcp:register_controller(Port, ?RENDEVOUZ_HOST, ?RENDEVOUZ_PORT) of
     {ok, _} -> {ok, #controller_state{}};
     {error, _} -> {stop, couldnt_register_node}
   end.
@@ -132,21 +131,24 @@ handle_cast({new_mode, NewMode}, State) when NewMode =:= pastry ; NewMode =:= ch
   datastore_srv:clear(),
   {noreply, NoNodeState#controller_state{mode = NewMode}};
 
-handle_cast({register_node, Data}, #controller_state{nodes = Nodes} = State) ->
+handle_cast({register_node, Node}, #controller_state{nodes = Nodes} = State) ->
   case length(Nodes) of
     0 -> send_dht_to_friendsearch();
     _ -> ok % Dht should be fine
   end,
-  NodeController = monitor_node(Data),
-  {noreply, State#controller_state{nodes = [{Data, NodeController}|Nodes]}};
+  NodeController = monitor_node(Node),
+  {noreply, State#controller_state{nodes = [Node#controller_node{controller_pid = NodeController}|Nodes]}};
 
-handle_cast(send_dht_to_friendsearch, #controller_state{nodes = [{DhtPid, _, DhtAppPid}|_], mode = Mode} = State) ->
-  % There were previously no node, but now there is, so tell friend search
-  {Type, Pid} = case Mode of
-    pastry -> {pastry_app, DhtAppPid};
-    OtherDht -> {OtherDht, DhtPid}
+handle_cast(send_dht_to_friendsearch, #controller_state{mode = Mode, nodes = Nodes} = State) ->
+  case Nodes of
+    [] -> ok;
+    [#controller_node{dht_pid = DhtPid, app_pid = DhtAppPid}|_] ->
+      {Type, Pid} = case Mode of
+        pastry -> {pastry_app, DhtAppPid};
+        OtherDht -> {OtherDht, DhtPid}
+      end,
+      friendsearch_srv:set_dht({Type, Pid})
   end,
-  friendsearch_srv:set_dht({Type, Pid}),
   {noreply, State};
 
 handle_cast(Msg, State) ->
@@ -172,7 +174,7 @@ code_change(_OldVsn, State, _Extra) ->
 monitor_node(Node) ->
   spawn(fun() -> perform_monitoring(Node) end).
 
-perform_monitoring({DhtPid, _, _, _} = Node) ->
+perform_monitoring(#controller_node{dht_pid = DhtPid} = Node) ->
   receive 
     kill -> kill_node(Node)
   after 1000 -> 
@@ -188,18 +190,18 @@ kill_and_restart(Node) ->
   start_node(),
   ok.
 
-kill_node({DhtPid, TcpPid, AppPid, _Port}) when is_pid(AppPid) ->
+kill_node(#controller_node{dht_pid = DhtPid, tcp_pid = TcpPid, app_pid = AppPid}) when is_pid(AppPid) ->
   % Killing a pastry node:
   pastry:stop(DhtPid),
   pastry_tcp:stop(TcpPid),
   pastry_app:stop(AppPid);
-kill_node({DhtPid, TcpPid, _AppPid, _Port}) ->
+kill_node(#controller_node{dht_pid = DhtPid, tcp_pid = TcpPid}) ->
   % Killing a chord node:
   chord:stop(DhtPid),
   chord_tcp:stop(TcpPid).
 
 all_ports(Nodes) ->
-  [Port || {_,_,_,Port} <- Nodes].
+  [Node#controller_node.port || Node <- Nodes].
 
 % -------------------------------------------------------------------
 % Start node statemachine -------------------------------------------
@@ -222,40 +224,43 @@ start_node(Mode) ->
   spawn(fun() -> start_tcp(Mode) end).
 
 start_tcp(Mode) ->
+  Node = #controller_node{},
   receive 
     {reg_tcp, TcpPid, TcpCallbackPid, Port} ->
-      init_dht(Mode, TcpPid, TcpCallbackPid, Port)
+      init_dht(Mode, Node#controller_node{tcp_pid = TcpPid, port = Port}, TcpCallbackPid)
   end.
 
-init_dht(Mode, TcpPid, TcpCallbackPid, Port) ->
+init_dht(Mode, Node, TcpCallbackPid) ->
   receive
     {reg_dht, DhtPid, DhtCallbackPid} ->
-      DhtPid ! {port, Port},
+      DhtPid ! {port, Node#controller_node.port},
       TcpCallbackPid ! {dht_pid, DhtPid},
-      end_init_dht(Mode, TcpPid, DhtPid, DhtCallbackPid, Port)
+      end_init_dht(Mode, Node#controller_node{dht_pid = DhtPid}, DhtCallbackPid)
   end.
 
-end_init_dht(Mode, TcpPid, DhtPid, DhtCallbackPid, Port) ->
+end_init_dht(Mode, Node, DhtCallbackPid) ->
   receive 
     dht_success ->
-      start_app(Mode, TcpPid, DhtPid, DhtCallbackPid, Port);
+      start_app(Mode, Node, DhtCallbackPid);
     dht_failed_start ->
       io:format("Failed to start dht. Should stop TCP!?~n")
   end.
 
-start_app(chord, TcpPid, DhtPid, _DhtCallbackPid, Port) ->
-  controller:register_started_node(DhtPid, TcpPid, undefined, Port);
-start_app(pastry, TcpPid, DhtPid, DhtCallbackPid, Port) ->
+start_app(chord, Node, _DhtCallbackPid) ->
+  controller:register_started_node(Node);
+start_app(pastry, Node, DhtCallbackPid) ->
   receive 
     {reg_app, AppPid} ->
-      AppPid ! {dht_pid, DhtPid},
+      AppPid ! {dht_pid, Node#controller_node.dht_pid},
       DhtCallbackPid ! {pastry_app_pid, AppPid}
   end,
-  controller:register_started_node(DhtPid, TcpPid, AppPid, Port).
+  controller:register_started_node(Node#controller_node{app_pid = AppPid}).
 
-perform_stop_nodes(#controller_state{nodes = Nodes} = State) -> foldl(fun(_N,S) -> stop_node(S) end, State, Nodes).
+perform_stop_nodes(#controller_state{nodes = Nodes} = State) -> 
+  [Controller ! kill || #controller_node{controller_pid = Controller} <- Nodes],
+  State#controller_state{nodes = []}.
 
-stop_node(#controller_state{nodes = [{_Node, NodeController}|Nodes]} = State) ->
+stop_node(#controller_state{nodes = [#controller_node{controller_pid = NodeController}|Nodes]} = State) ->
   NodeController ! kill,
   State#controller_state{nodes = Nodes}.
 
@@ -265,110 +270,128 @@ stop_node(#controller_state{nodes = [{_Node, NodeController}|Nodes]} = State) ->
 
 -ifdef(TEST).
 
-perform_stop_nodes_chord_test() ->
+cp(PidName) ->
+  list_to_pid(lists:flatten(io_lib:format("<0.~p>", [PidName]))).
+cn1pastry() ->
   Node1Pid = cp(1.1),
   Node1Tcp = cp(1.2),
+  Node1App = cp(1.3),
+  Node = #controller_node{
+    dht_pid = Node1Pid, 
+    tcp_pid = Node1Tcp,
+    app_pid = Node1App, 
+    port = 1000
+  },
+  Node1Controller = monitor_node(Node),
+  Node#controller_node{controller_pid = Node1Controller}.
+cn2pastry() ->
   Node2Pid = cp(2.1),
   Node2Tcp = cp(2.2),
-  Node1 = {Node1Pid, Node1Tcp, undefined, port},
-  Node2 = {Node2Pid, Node2Tcp, undefined, port},
-  Node1Controller = monitor_node(Node1),
-  Node2Controller = monitor_node(Node2),
+  Node2App = cp(2.3),
+  Node = #controller_node{
+    dht_pid = Node2Pid, 
+    tcp_pid = Node2Tcp,
+    app_pid = Node2App, 
+    port = 2000
+  },
+  Node2Controller = monitor_node(Node),
+  Node#controller_node{controller_pid = Node2Controller}.
+cn1chord() ->
+  Node1Pid = cp(1.1),
+  Node1Tcp = cp(1.2),
+  Node = #controller_node{
+    dht_pid = Node1Pid, 
+    tcp_pid = Node1Tcp,
+    port = 1000
+  },
+  Node1Controller = monitor_node(Node),
+  Node#controller_node{controller_pid = Node1Controller}.
+cn2chord() ->
+  Node2Pid = cp(2.1),
+  Node2Tcp = cp(2.2),
+  Node = #controller_node{
+    dht_pid = Node2Pid, 
+    tcp_pid = Node2Tcp,
+    port = 2000
+  },
+  Node2Controller = monitor_node(Node),
+  Node#controller_node{controller_pid = Node2Controller}.
+
+perform_stop_nodes_chord_test() ->
+  Node1 = cn1chord(),
+  Node2 = cn2chord(),
   State = #controller_state{
     mode = chord,
-    nodes = [{Node1, Node1Controller},{Node2, Node2Controller}]
+    nodes = [Node1, Node2]
   },
   erlymock:start(),
-  erlymock:o_o(chord, stop, [Node1Pid], [{return, ok}]),
-  erlymock:o_o(chord, stop, [Node2Pid], [{return, ok}]),
-  erlymock:o_o(chord_tcp, stop, [Node1Tcp], [{return, ok}]),
-  erlymock:o_o(chord_tcp, stop, [Node2Tcp], [{return, ok}]),
+  erlymock:o_o(chord, stop, [Node1#controller_node.dht_pid], [{return, ok}]),
+  erlymock:o_o(chord, stop, [Node2#controller_node.dht_pid], [{return, ok}]),
+  erlymock:o_o(chord_tcp, stop, [Node1#controller_node.tcp_pid], [{return, ok}]),
+  erlymock:o_o(chord_tcp, stop, [Node2#controller_node.tcp_pid], [{return, ok}]),
   erlymock:replay(), 
   UpdatedState = perform_stop_nodes(State),
   erlymock:verify(),
   ?assertEqual([], UpdatedState#controller_state.nodes).
 
-cp(PidName) ->
-  list_to_pid(lists:flatten(io_lib:format("<0.~p>", [PidName]))).
-
 perform_stop_nodes_pastry_test() ->
-  Node1Pid = cp(1.1),
-  Node1Tcp = cp(1.2),
-  Node2Pid = cp(2.1),
-  Node2Tcp = cp(2.2),
-  Node1App = cp(1.3),
-  Node2App = cp(2.3),
-  Node1 = {Node1Pid, Node1Tcp, Node1App, port},
-  Node2 = {Node2Pid, Node2Tcp, Node2App, port},
-  Node1Controller = monitor_node(Node1),
-  Node2Controller = monitor_node(Node2),
+  Node1 = cn1pastry(),
+  Node2 = cn2pastry(),
   State = #controller_state{
     mode = pastry,
-    nodes = [{Node1, Node1Controller},{Node2, Node2Controller}]
+    nodes = [Node1, Node2]
   },
   erlymock:start(),
-  erlymock:o_o(pastry, stop, [Node1Pid], [{return, ok}]),
-  erlymock:o_o(pastry, stop, [Node2Pid], [{return, ok}]),
-  erlymock:o_o(pastry_tcp, stop, [Node1Tcp], [{return, ok}]),
-  erlymock:o_o(pastry_tcp, stop, [Node2Tcp], [{return, ok}]),
-  erlymock:o_o(pastry_app, stop, [Node1App], [{return, ok}]),
-  erlymock:o_o(pastry_app, stop, [Node2App], [{return, ok}]),
+  erlymock:o_o(pastry, stop, [Node1#controller_node.dht_pid], [{return, ok}]),
+  erlymock:o_o(pastry, stop, [Node2#controller_node.dht_pid], [{return, ok}]),
+  erlymock:o_o(pastry_tcp, stop, [Node1#controller_node.tcp_pid], [{return, ok}]),
+  erlymock:o_o(pastry_tcp, stop, [Node2#controller_node.tcp_pid], [{return, ok}]),
+  erlymock:o_o(pastry_app, stop, [Node1#controller_node.app_pid], [{return, ok}]),
+  erlymock:o_o(pastry_app, stop, [Node2#controller_node.app_pid], [{return, ok}]),
   erlymock:replay(), 
   UpdatedState = perform_stop_nodes(State),
   erlymock:verify(),
   ?assertEqual([], UpdatedState#controller_state.nodes).
 
 stop_node_pastry_test() ->
-  Node1Pid = cp(1.1),
-  Node1Tcp = cp(1.2),
-  Node2Pid = cp(2.1),
-  Node2Tcp = cp(2.2),
-  Node1App = cp(1.3),
-  Node2App = cp(2.3),
-  Node1 = {Node1Pid, Node1Tcp, Node1App, port},
-  Node2 = {Node2Pid, Node2Tcp, Node2App, port},
-  Node1Controller = monitor_node(Node1),
-  Node2Controller = monitor_node(Node2),
+  Node1 = cn1pastry(),
+  Node2 = cn2pastry(),
   State = #controller_state{
     mode = pastry,
-    nodes = [{Node1, Node1Controller},{Node2, Node2Controller}]
+    nodes = [Node1,Node2]
   },
   erlymock:start(),
-  erlymock:o_o(pastry, stop, [Node1Pid], [{return, ok}]),
-  erlymock:o_o(pastry_tcp, stop, [Node1Tcp], [{return, ok}]),
-  erlymock:o_o(pastry_app, stop, [Node1App], [{return, ok}]),
+  erlymock:o_o(pastry, stop, [Node1#controller_node.dht_pid], [{return, ok}]),
+  erlymock:o_o(pastry_tcp, stop, [Node1#controller_node.tcp_pid], [{return, ok}]),
+  erlymock:o_o(pastry_app, stop, [Node1#controller_node.app_pid], [{return, ok}]),
   erlymock:replay(), 
   UpdatedState = stop_node(State),
   erlymock:verify(),
-  ?assertEqual([{Node2, Node2Controller}], UpdatedState#controller_state.nodes),
+  ?assertEqual([Node2], UpdatedState#controller_state.nodes),
   % For good measure, kill the other monitor as well
-  Node2Controller ! kill.
+  Node2#controller_node.controller_pid ! kill.
 
 stop_node_chord_test() ->
-  Node1Pid = cp(1.1),
-  Node1Tcp = cp(1.2),
-  Node2Pid = cp(2.1),
-  Node2Tcp = cp(2.2),
-  Node1 = {Node1Pid, Node1Tcp, undefined, port},
-  Node2 = {Node2Pid, Node2Tcp, undefined, port},
-  Node1Controller = monitor_node(Node1),
-  Node2Controller = monitor_node(Node2),
+  Node1 = cn1chord(),
+  Node2 = cn2chord(),
   State = #controller_state{
     mode = chord,
-    nodes = [{Node1, Node1Controller},{Node2, Node2Controller}]
+    nodes = [Node1,Node2]
   },
   erlymock:start(),
-  erlymock:o_o(chord, stop, [Node1Pid], [{return, ok}]),
-  erlymock:o_o(chord_tcp, stop, [Node1Tcp], [{return, ok}]),
+  erlymock:o_o(chord, stop, [Node1#controller_node.dht_pid], [{return, ok}]),
+  erlymock:o_o(chord_tcp, stop, [Node1#controller_node.tcp_pid], [{return, ok}]),
   erlymock:replay(), 
   UpdatedState = stop_node(State),
   erlymock:verify(),
-  ?assertEqual([{Node2, Node2Controller}], UpdatedState#controller_state.nodes),
+  ?assertEqual([Node2], UpdatedState#controller_state.nodes),
   % For good measure, kill the other monitor as well
-  Node2Controller ! kill.
+  Node2#controller_node.controller_pid ! kill.
 
 all_ports_test() ->
-  Nodes = [{dhtPid1, tcpPid1, appPid1, port1},{dhtPid2, tcpPid2, appPid2, port2}],
-  ?assertEqual([port1, port2], all_ports(Nodes)).
+  Node1 = cn1pastry(),
+  Node2 = cn2pastry(),
+  Nodes = [Node1, Node2],
+  ?assertEqual([1000, 2000], all_ports(Nodes)).
 
 -endif.

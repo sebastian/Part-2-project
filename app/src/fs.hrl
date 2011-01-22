@@ -1,5 +1,9 @@
 -compile([debug_info]).
 
+-define(RENDEVOUZ_HOST, "localhost").
+%-define(RENDEVOUZ_HOST, "hub.probsteide.com").
+-define(RENDEVOUZ_PORT, 6001).
+
 -type(key() :: number()).
 -type(binary_string() :: bitstring()).
 -type(port_number() :: integer()).
@@ -66,5 +70,11 @@
     link_entries = [],
     timerRefKeepAlive
   }).
-
+-record(controller_node, {
+    dht_pid = undefined :: pid(),
+    tcp_pid = undefined :: pid(),
+    app_pid = undefined :: pid(),
+    controller_pid = undefined :: pid(),
+    port = undefined :: port_number()
+  }).
 -define(NYI, exit({not_yet_implemented, ?MODULE, ?LINE})).

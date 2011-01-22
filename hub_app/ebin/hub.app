@@ -14,6 +14,8 @@
              node, node_core,
              struct,
              static_resource,
+             mode_resource,
+             ignition_resource,
              auth
             ]},
   {registered, []},
