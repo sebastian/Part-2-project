@@ -16,7 +16,7 @@
     stop_nodes/2
   ]).
 
--import(lists, [member/2]).
+-import(lists, [member/2, sort/1, sort/2]).
 
 %% ------------------------------------------------------------------
 %% Implementation
@@ -36,7 +36,8 @@ register_node_in_controllers(Node, Controllers) ->
 
 register_controller(Controller, #state{controllers = Controllers} = State) ->
   keep_while_alive(Controller),
-  State#state{controllers = [Controller | Controllers]}.
+  UpdatedControllers = sort(fun(A,B) -> A#controller.ip =< B#controller.ip end, [Controller | Controllers]),
+  State#state{controllers = UpdatedControllers}.
 
 get_not_me(Node, Controllers) ->
   ControllersNotMyOwn = [Cntrl || Cntrl <- Controllers, Cntrl#controller.ip =/= Node#node.ip],
@@ -92,7 +93,7 @@ liveness_checker(Controller, Interval) ->
 
 update_controller_state(CC, {Mode, Ports}, #state{controllers = Controllers} = State) ->
   MatchingControllers = [C || C <- Controllers, C#controller.ip =:= CC#controller.ip, C#controller.port =:= CC#controller.port],
-  NewControllers = (Controllers -- MatchingControllers) ++ [CC#controller{mode = Mode, ports = Ports}],
+  NewControllers = (Controllers -- MatchingControllers) ++ [CC#controller{mode = Mode, ports = sort(Ports)}],
   State#state{controllers = NewControllers}.
 
 switch_mode_to(Mode, State) -> perform(fun(M, C) -> hub_tcp:switch_mode_to(M, C) end, Mode, State).
