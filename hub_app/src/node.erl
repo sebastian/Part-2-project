@@ -105,7 +105,8 @@ handle_call(stop, _From, State) ->
   {stop, normal, ok, State};
 
 handle_call({rendevouz_node, Node}, _From, State) ->
-  {reply, node_core:register_node(Node, State), State};
+  {Reply, NewState} = node_core:register_node(Node, State),
+  {reply, Reply, NewState};
 
 handle_call(clear, _From, _State) ->
   % WARNING! NOT GOOD! SHOULD STOP LIVENESS CHECKERS!

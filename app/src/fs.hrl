@@ -1,7 +1,7 @@
 -compile([debug_info]).
 
-%-define(RENDEVOUZ_HOST, "localhost").
--define(RENDEVOUZ_HOST, "hub.probsteide.com").
+-define(RENDEVOUZ_HOST, "localhost").
+%-define(RENDEVOUZ_HOST, "hub.probsteide.com").
 -define(RENDEVOUZ_PORT, 6001).
 
 -type(key() :: number()).

@@ -22,8 +22,14 @@
 %% Implementation
 %% ------------------------------------------------------------------
 
-register_node(Node, #state{controllers = Controllers}) -> 
-  get_not_me(Node, Controllers).
+register_node(Node, #state{controllers = Controllers} = State) ->
+  UpdatedControllersList = register_node_in_controllers(Node, Controllers),
+  {get_not_me(Node, Controllers), State#state{controllers = UpdatedControllersList}}.
+
+register_node_in_controllers(Node, Controllers) ->
+  MatchingControllers = [C || C <- Controllers, C#controller.ip =:= Node#node.ip],
+  #controller{ports = Ports} = MatchingController = hd(MatchingControllers),
+  [MatchingController#controller{ports = [Node#node.port | Ports]} | (Controllers -- [MatchingController])].
 
 register_controller(Controller, #state{controllers = Controllers} = State) ->
   keep_while_alive(Controller),
@@ -268,5 +274,22 @@ stop_node_test() ->
   erlymock:replay(), 
   stop_nodes(1, State),
   erlymock:verify().
+
+register_node_in_controllers_test() ->
+  SharedIp = {1,2,3,4},
+  C1 = #controller{
+    ip = SharedIp,
+    port = 1234,
+    ports = [1]
+  },
+  C2 = #controller{
+    ip = {2,2,3,4},
+    port = 2234,
+    ports = [4,5,6]
+  },
+  ControllerList = [C1, C2],
+  Node = #node{ip = SharedIp, port = 2},
+  [#controller{ports = Ports}, _C2N] = register_node_in_controllers(Node, ControllerList),
+  ?assert(member(2, Ports)).
 
 -endif.
