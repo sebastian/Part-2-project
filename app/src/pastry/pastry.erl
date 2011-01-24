@@ -412,12 +412,13 @@ prepare_nodes_for_adding(Nodes) when is_list(Nodes) ->
 prepare_nodes_for_adding(Node) -> prepare_nodes_for_adding([Node]).
 
 route_msg(Msg, Key, State) ->
-  route_to_leaf_set(Msg, Key, State) orelse
-  route_to_node_in_routing_table(Msg, Key, State) orelse
-  route_to_closer_node(Msg, Key, State).
+  spawn(fun() ->
+    route_to_leaf_set(Msg, Key, State) orelse
+    route_to_node_in_routing_table(Msg, Key, State) orelse
+    route_to_closer_node(Msg, Key, State)
+  end).
 
 route_to_closer_node(Msg, Key, #pastry_state{self = Self, b = B, pastry_app_pid = PAPid, pastry_pid = PastryPid} = State) ->
-  io:format("Routing to node that is closer to key~n"),
   SharedKeySegment = shared_key_segment(Self, Key),
   Nodes = filter(
     fun(N) -> is_valid_key_path(N, SharedKeySegment) end, 
@@ -433,7 +434,6 @@ shared_key_segment([A|As], [A|Bs], Acc) -> shared_key_segment(As, Bs, [A|Acc]);
 shared_key_segment(_, _, Acc) -> reverse(Acc).
 
 route_to_node_in_routing_table(Msg, Key, #pastry_state{pastry_pid = PastryPid, pastry_app_pid = PastryAppPid} = State) ->
-  io:format("Routing to node in routing table~n"),
   {#routing_table_entry{nodes = Nodes}, [none|PreferredKeyMatch]} = find_corresponding_routing_table(Key, State),
   case filter(fun(Node) -> is_valid_key_path(Node, PreferredKeyMatch) end, Nodes) of
     [] -> false;
@@ -451,7 +451,6 @@ find_corresponding_routing_table([Key|Ks], [#routing_table_entry{value = Key} = 
 find_corresponding_routing_table([Key|_], _, Previous, KeySoFar) -> {Previous, reverse([Key|KeySoFar])}.
 
 route_to_leaf_set(Msg, Key, #pastry_state{self = Self, pastry_pid = PastryPid, pastry_app_pid = PastryAppPid} = State) ->
-  io:format("Routing through leaf table set~n"),
   case node_in_leaf_set(Key, State) of
     none -> false;
     Node when Node =:= Self -> 

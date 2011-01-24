@@ -104,12 +104,10 @@ deliver(Pid, {join, Node}, _Key) ->
   gen_server:call(Pid, {welcome, Node});
 
 deliver(_, {lookup_key, Key, Node, Ref}, _Key) ->
-  io:format("Received lookup message for ~p~n", [Key]),
   pastry_tcp:send_msg({data, Ref, datastore_srv:lookup(Key)}, Node);
 
 deliver(Pid, {set, Key, Entry}, _PastryKey) ->
   gen_server:cast(Pid, {replicate, Entry}),
-  io:format("Storing entry for ~p~n", [Key]),
   datastore_srv:set(Key, Entry);
 
 deliver(_, Msg, _Key) ->
@@ -241,7 +239,6 @@ replicate_to_changed_leaf_set(NewLeafSet, #pastry_app_state{leaf_set = OldLeafSe
     Nodes ->
       {StartRange, EndRange} = ownership_range(State),
       Data = datastore_srv:get_entries_in_range(StartRange, EndRange),
-      io:format("pastry_app replicating ~p entries to nodes: ~p~n", [length(Data), Nodes]),
       [deliver_in_bulk(Data, Node) || Node <- Nodes]
   end.
 

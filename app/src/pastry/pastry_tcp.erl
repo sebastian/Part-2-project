@@ -235,7 +235,7 @@ handle_msg(request_leaf_set, Pid) ->
 handle_msg({add_nodes, Nodes}, Pid) ->
   pastry:add_nodes(Pid, Nodes);
 
-handle_msg({data, {Pid, Ref}, Data}, Pid) ->
+handle_msg({data, {Pid, Ref}, Data}, _PastryPid) ->
   Pid ! {data, Ref, Data},
   ok;
 
