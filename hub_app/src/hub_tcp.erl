@@ -55,7 +55,7 @@ get_update(#controller{ip = Ip, port = Port}) ->
 -spec(perform_rpc/3::(Message::term(), any(), number()) ->
     {ok, _} | {error, _}).
 perform_rpc(Message, Ip, Port) ->
-  Timeout = 400,
+  Timeout = 2000,
   case gen_tcp:connect(Ip, Port, [binary, {packet, 0}, {active, true}], Timeout) of
     {ok, Socket} ->
       ok = gen_tcp:send(Socket, term_to_binary(Message)),
