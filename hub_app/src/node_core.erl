@@ -29,7 +29,10 @@ register_node(Node, #state{controllers = Controllers} = State) ->
 register_node_in_controllers(Node, Controllers) ->
   MatchingControllers = [C || C <- Controllers, C#controller.ip =:= Node#node.ip],
   #controller{ports = Ports} = MatchingController = hd(MatchingControllers),
-  [MatchingController#controller{ports = [Node#node.port | Ports]} | (Controllers -- [MatchingController])].
+  % Why this inefficient adding of the port to the end of the list? Because we don't want to
+  % rendevouz with new ports which don't have stable routing information unless we don't 
+  % have any other option
+  [MatchingController#controller{ports = Ports ++ [Node#node.port]} | (Controllers -- [MatchingController])].
 
 register_controller(Controller, #state{controllers = Controllers} = State) ->
   keep_while_alive(Controller),
