@@ -39,18 +39,22 @@ register_controller(Controller, #state{controllers = Controllers} = State) ->
   State#state{controllers = [Controller | Controllers]}.
 
 get_not_me(Node, Controllers) ->
-  NumToGet = 5,
   ControllersNotMyOwn = [Cntrl || Cntrl <- Controllers, Cntrl#controller.ip =/= Node#node.ip],
-  case ControllersNotMyOwn of
+  case rendevouz_nodes_from_controllers(ControllersNotMyOwn) of
     [] ->
-      % There is only one controller, our own. So we are first
-      [Controller|_] = Controllers,
-      Nodes = get_diverse_nodes([{Controller#controller.ip, Controller#controller.ports}], NumToGet),
-      case Nodes of
+      % We didn't get a match for match nodes only in other controllers: widen search
+      case rendevouz_nodes_from_controllers(Controllers) of
         [] -> first;
-        Vals -> Vals
+        RendevouzNodes -> RendevouzNodes
       end;
-    Controllers ->
+    RendevouzNodes -> RendevouzNodes
+  end.
+
+rendevouz_nodes_from_controllers(Controllers) ->
+  NumToGet = 5,
+  case Controllers of
+    [] -> [];
+    _ ->
       % Try to return nodes with a good spread. They should not all be hosted on the same machine
       Nodes = [{Ip, Ports} || #controller{ip = Ip, ports = Ports} <- Controllers],
       get_diverse_nodes(Nodes, NumToGet)
@@ -118,6 +122,48 @@ get_not_me_first_test() ->
     ports = []
   },
   ?assertEqual(first, get_not_me(Node, [Controller])).
+
+get_not_me_when_multiple_controllers_but_only_self_controller_has_nodes_test() ->
+  Ip = {1,2,3,4},
+  Port = 1234,
+  Node = #node{
+    ip = Ip,
+    port = Port
+  },
+  Controller1 = #controller{
+    ip = Ip,
+    port = Port,
+    mode = chord,
+    ports = [1234]
+  },
+  Controller2 = #controller{
+    ip = {2,3,4,5},
+    port = Port,
+    mode = chord,
+    ports = []
+  },
+  [{Ip, 1234}] = get_not_me(Node, [Controller1, Controller2]).
+
+get_not_me_when_multiple_controllers_but_no_nodes_test() ->
+  Ip = {1,2,3,4},
+  Port = 1234,
+  Node = #node{
+    ip = Ip,
+    port = Port
+  },
+  Controller1 = #controller{
+    ip = Ip,
+    port = Port,
+    mode = chord,
+    ports = []
+  },
+  Controller2 = #controller{
+    ip = {2,3,4,5},
+    port = Port,
+    mode = chord,
+    ports = []
+  },
+  first = get_not_me(Node, [Controller1, Controller2]).
 
 get_not_me_when_only_one_host_test() ->
   Ip = {1,2,3,4},
