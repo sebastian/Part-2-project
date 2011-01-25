@@ -248,8 +248,8 @@ handle_cast({augment_routing_table, RoutingTable}, #pastry_state{pastry_pid = Pa
   add_nodes(PastryPid, nodes_in_routing_table(RoutingTable)),
   {noreply, State};
 
-handle_cast({add_nodes, Nodes}, State) ->
-  prepare_nodes_for_adding(Nodes),
+handle_cast({add_nodes, Nodes}, #pastry_state{pastry_pid = Pid} = State) ->
+  prepare_nodes_for_adding(Nodes, Pid),
   {noreply, State};
 
 handle_cast({update_local_state_with_nodes, Nodes}, #pastry_state{routing_table = RT, neighborhood_set = NS, b = B} = State) ->
@@ -400,17 +400,17 @@ collect_all_nodes([]) -> [];
 collect_all_nodes([#routing_table_entry{nodes = N}|R]) ->
   [N|collect_all_nodes(R)].
 
-prepare_nodes_for_adding(Nodes) when is_list(Nodes) ->
+prepare_nodes_for_adding(Nodes, Pid) when is_list(Nodes) ->
   % Get the local distance of the nodes before adding them
   % to our own routing table.
   spawn(fun() ->
     LiveNodes = [Node || Node <- Nodes, pastry_tcp:is_node_alive(Node)],
-    gen_server:cast(?SERVER, {
+    gen_server:cast(Pid, {
       update_local_state_with_nodes, 
       [N#node{distance = pastry_locality:distance(N#node.ip)} || N <- LiveNodes]
     })
   end);
-prepare_nodes_for_adding(Node) -> prepare_nodes_for_adding([Node]).
+prepare_nodes_for_adding(Node, Pid) -> prepare_nodes_for_adding([Node], Pid).
 
 route_msg(Msg, Key, State) ->
   spawn(fun() ->

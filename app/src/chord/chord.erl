@@ -250,11 +250,11 @@ handle_cast({set_finger, N, NewFinger},  #chord_state{fingers = Fingers} = State
 handle_cast({set_successor, Succ}, State) ->
   {noreply, set_successor(Succ, State)};
 
-handle_cast(stabilize, #chord_state{self = Us} = State) ->
+handle_cast(stabilize, #chord_state{self = Us, chord_pid = Pid} = State) ->
   Stabilize = fun() ->
     SuccessorsToUpdate = lists:flatten(perform_stabilize(State)),
     % Update our own state with the new successors
-    [gen_server:cast(chord, {set_successor, Succ}) || {add_succ, Succ} <- SuccessorsToUpdate],
+    [gen_server:cast(Pid, {set_successor, Succ}) || {add_succ, Succ} <- SuccessorsToUpdate],
     % For good measure, we also notify the new nodes about our presence.
     [chord_tcp:notify_successor(Succ, Us) || {notify, Succ} <- SuccessorsToUpdate],
     % Extend the successor list so it is as long as we wish it to be
@@ -298,7 +298,7 @@ code_change(_OldVsn, State, _Extra) ->
 % through the notify function.
 -spec(fix_finger/2::(FingerNum::integer(), #chord_state{}) -> none()).
 fix_finger(0, _) -> ok;
-fix_finger(FingerNum, #chord_state{fingers = Fingers} = State) ->
+fix_finger(FingerNum, #chord_state{chord_pid = Pid, fingers = Fingers} = State) ->
   Finger = array:get(FingerNum, Fingers),
   Succ = perform_find_successor(Finger#finger_entry.start, State),
   % If the successor is in the interval for the finger,
@@ -307,7 +307,7 @@ fix_finger(FingerNum, #chord_state{fingers = Fingers} = State) ->
   case (utilities:in_right_inclusive_range(Succ#node.key, Start, End)) of
     true ->
       UpdatedFinger = Finger#finger_entry{node = Succ},
-      gen_server:cast(chord, {set_finger, FingerNum, UpdatedFinger});
+      gen_server:cast(Pid, {set_finger, FingerNum, UpdatedFinger});
     _ -> void
   end.
 
@@ -583,7 +583,7 @@ extend_successor_list(#chord_state{chord_pid = Pid, fingers = Fingers}) ->
     true ->
       LastSuccessorNode = (hd(lists:reverse(Successors)))#finger_entry.node,
       case chord_tcp:rpc_get_successor(LastSuccessorNode) of
-        {ok, NextSucc} -> gen_server:cast(?MODULE, {set_successor, NextSucc});
+        {ok, NextSucc} -> gen_server:cast(Pid, {set_successor, NextSucc});
         {error, _} -> remove_node(Pid, LastSuccessorNode)
       end;
     false ->
