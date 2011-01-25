@@ -17,6 +17,7 @@
              mode_resource,
              ignition_resource,
              logging_resource,
+             system_resource,
              auth
             ]},
   {registered, []},

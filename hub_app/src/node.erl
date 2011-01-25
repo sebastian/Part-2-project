@@ -39,6 +39,10 @@
     get_logs/0,
     logs_gotten/0
   ]).
+% For updating
+-export([
+    upgrade/0
+  ]).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Exports
@@ -102,6 +106,12 @@ logs_gotten() ->
   gen_server:cast(?MODULE, logs_gotten).
 
 % -------------------------------------------------------------------
+% Upgrading software ------------------------------------------------
+
+upgrade() ->
+  gen_server:cast(?MODULE, upgrade).
+
+% -------------------------------------------------------------------
 % Frontend ----------------------------------------------------------
 
 live_nodes() ->
@@ -156,6 +166,10 @@ handle_call(clear, _From, _State) ->
   {reply, ok, #state{}}.
 
 %% Casts:
+handle_cast(upgrade, State) ->
+  node_core:upgrade_systems(State),
+  {noreply, State};
+
 handle_cast(logs_gotten, State) ->
   {noreply, State#state{log_status = logs_aquired}};
 

@@ -155,6 +155,10 @@ handle_msg({switch_mode_to, Mode}) ->
 handle_msg({logger, Action}) ->
   logger:Action();
 
+handle_msg(upgrade_system) ->
+  controller:perform_update(),
+  ok;
+
 handle_msg(Msg) ->
   error_logger:error_msg("Message not handled ~p", [Msg]),
   error.

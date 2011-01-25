@@ -51,6 +51,10 @@ function init(){
     $.post('logging/' + action);
     return false;
   });
+  $("#system_upgrade").click(function() {
+    $.post('upgrade_systems');
+    return false;
+  });
 
 
 }

@@ -35,7 +35,8 @@
     stop_nodes/1,
     switch_mode_to/1,
     get_controlling_process/0,
-    ping/0
+    ping/0,
+    perform_update/0
   ]).
 
 %% ------------------------------------------------------------------
@@ -87,6 +88,17 @@ send_dht_to_friendsearch() ->
 
 ping() ->
   gen_server:call(?MODULE, ping).
+
+perform_update() ->
+  spawn(fun() ->
+    io:format("Upgrading system...~n"),
+    io:format(" Downloading new code~n"),
+    os:cmd("git pull"),
+    io:format(" Compiling code~n"),
+    os:cmd("./rebar compile"),
+    io:format("System upgrade complete!~n")
+  end),
+  ok.
 
 %% ------------------------------------------------------------------
 %% gen_server Function Definitions

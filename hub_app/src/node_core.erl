@@ -17,7 +17,8 @@
     start_logging/1,
     stop_logging/1,
     clear_logs/1,
-    get_logs/1
+    get_logs/1,
+    upgrade_systems/1
   ]).
 
 -import(lists, [member/2, sort/1, sort/2, reverse/1]).
@@ -133,6 +134,7 @@ close_file_after(0, File) ->
   node:logs_gotten();
 close_file_after(N, File) -> receive _Msg -> close_file_after(N-1, File) end.
 
+upgrade_systems(State) -> perform(fun(_, C) -> hub_tcp:upgrade_system(C) end, undefined, State).
 switch_mode_to(Mode, State) -> perform(fun(M, C) -> hub_tcp:switch_mode_to(M, C) end, Mode, State).
 start_nodes(Count, State) -> perform(fun(N, C) -> hub_tcp:start_nodes(N, C) end, Count, State).
 stop_nodes(Count, State) -> perform(fun(N, C) -> hub_tcp:stop_nodes(N, C) end, Count, State).
