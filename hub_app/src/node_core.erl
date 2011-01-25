@@ -20,7 +20,7 @@
     get_logs/1
   ]).
 
--import(lists, [member/2, sort/1, sort/2]).
+-import(lists, [member/2, sort/1, sort/2, reverse/1]).
 
 %% ------------------------------------------------------------------
 %% Implementation
@@ -66,8 +66,8 @@ rendevouz_nodes_from_controllers(Controllers) ->
   end.
 
 get_diverse_nodes(Nodes, NumToGet) -> get_diverse_nodes(Nodes, NumToGet, []).
-get_diverse_nodes(_, 0, Acc) -> Acc;
-get_diverse_nodes([],_, Acc) -> Acc;
+get_diverse_nodes(_, 0, Acc) -> reverse(Acc);
+get_diverse_nodes([],_, Acc) -> reverse(Acc);
 get_diverse_nodes([{_Ip, []}|Nodes], NumToGet, Acc) -> get_diverse_nodes(Nodes, NumToGet, Acc);
 get_diverse_nodes([{Ip, [Port|Ports]}|Nodes], NumToGet, Acc) -> 
   get_diverse_nodes(Nodes ++ [{Ip, Ports}], NumToGet - 1, [{Ip, Port}|Acc]).
@@ -117,7 +117,8 @@ perform_get_logs(Controllers) ->
       case hub_tcp:rpc_logger(get_data, Controller) of
         {ok, Data} -> file:write(IoWriter, Data);
         {error, Reason} -> 
-          error_handler:error_msg("Couldn't receive log data for reason ~p from controller ~p~n", [Reason, Controller])
+          error_handler:error_msg("Couldn't receive log data for reason ~p from controller ~p~n",
+            [Reason, Controller])
       end,
       RetPid ! done
     end)
