@@ -96,8 +96,12 @@ liveness_checker(Controller, Interval) ->
   end.
 
 update_controller_state(CC, {Mode, Ports}, #state{controllers = Controllers} = State) ->
-  MatchingControllers = [C || C <- Controllers, C#controller.ip =:= CC#controller.ip, C#controller.port =:= CC#controller.port],
-  NewControllers = (Controllers -- MatchingControllers) ++ [CC#controller{mode = Mode, ports = sort(Ports)}],
+  UpdateController = 
+    fun(#controller{port = Port, ip = CIp} = C) when Port =:= CC#controller.port, CIp =:= CC#controller.ip ->
+          C#controller{mode = Mode, ports = sort(Ports)};
+       (C) -> C
+    end,
+  NewControllers = [UpdateController(C) || C <- Controllers],
   State#state{controllers = NewControllers}.
 
 logFun(Action, Controller) -> hub_tcp:rpc_logger(Action, Controller).
@@ -123,7 +127,9 @@ perform_get_logs(Controllers) ->
   [F(C, File, self()) || C <- Controllers],
   close_file_after(length(Controllers), File).
 
-close_file_after(0, File) -> file:close(File);
+close_file_after(0, File) -> 
+  file:close(File),
+  node:logs_gotten();
 close_file_after(N, File) -> receive _Msg -> close_file_after(N-1, File) end.
 
 switch_mode_to(Mode, State) -> perform(fun(M, C) -> hub_tcp:switch_mode_to(M, C) end, Mode, State).

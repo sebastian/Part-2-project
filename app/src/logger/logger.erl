@@ -146,7 +146,7 @@ handle_cast({log, NodeId, Key, Action, TimeNow},
         ok -> ok
       end;
     false ->
-      io:format("Entry:~n  Node: ~p~n  Key: ~p~n  Action: ~p~n  Time: ~p~n~n", [Id, Key, Action, TimeNow])
+      io:format("Node: ~p,  Key: ~p,  Action: ~p, Time: ~p~n", [Id, Key, Action, TimeNow])
   end,
   {noreply, State};
   

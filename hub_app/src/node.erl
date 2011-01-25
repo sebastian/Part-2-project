@@ -36,7 +36,8 @@
     start_logging/0,
     stop_logging/0,
     clear_logs/0,
-    get_logs/0
+    get_logs/0,
+    logs_gotten/0
   ]).
 
 %% ------------------------------------------------------------------
@@ -96,6 +97,9 @@ clear_logs() ->
 
 get_logs() ->
   gen_server:call(?MODULE, get_logs).
+
+logs_gotten() ->
+  gen_server:call(?MODULE, logs_gotten).
 
 % -------------------------------------------------------------------
 % Frontend ----------------------------------------------------------
@@ -198,9 +202,6 @@ live_state(Controllers, LogStatus) ->
       {<<"controllers">>, encode_controllers(Controllers)},
       {<<"log_status">>, LogStatus}
     ]}.
-
-controllers_as_struct(Controllers) ->
-  {struct,[{<<"controllers">>, encode_controllers(Controllers)}]}.
 
 encode_controllers(Controllers) -> 
   [{struct, [
