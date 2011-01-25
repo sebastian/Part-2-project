@@ -105,10 +105,14 @@ update_controller_state(CC, {Mode, Ports}, #state{controllers = Controllers} = S
   NewControllers = [UpdateController(C) || C <- Controllers],
   State#state{controllers = NewControllers}.
 
+-define(MASTER_LOG, "priv/www/dht.log").
+
 logFun(Action, Controller) -> hub_tcp:rpc_logger(Action, Controller).
 start_logging(State) -> perform(fun logFun/2, start_logging, State).
 stop_logging(State) -> perform(fun logFun/2, stop_logging, State).
-clear_logs(State) -> perform(fun logFun/2, clear_log, State).
+clear_logs(State) -> 
+  file:delete(?MASTER_LOG),
+  perform(fun logFun/2, clear_log, State).
 get_logs(#state{controllers = Controllers}) -> 
   spawn(fun() -> perform_get_logs(Controllers) end).
 
@@ -125,7 +129,7 @@ perform_get_logs(Controllers) ->
     end)
   end,
 
-  {ok, File} = file:open("dht_master_log.log", [append, delayed_write]),
+  {ok, File} = file:open(?MASTER_LOG, [append, delayed_write]),
   [F(C, File, self()) || C <- Controllers],
   close_file_after(length(Controllers), File).
 
