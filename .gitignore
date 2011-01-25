@@ -17,3 +17,4 @@ app/erl_crash.dump
 */deps/*
 deps/*
 hub_app/rel/
+*/*.log

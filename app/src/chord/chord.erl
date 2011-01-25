@@ -61,7 +61,9 @@ stop(Pid) ->
 %% @doc: gets a value from the chord network
 -spec(lookup/2::(pid(), Key::key()) -> [#entry{}]).
 lookup(Pid, Key) ->
+  logger:log(Pid, Key, start_lookup),
   Return = chord_tcp:rpc_lookup_key(Key, find_successor(Pid, Key)),
+  logger:log(Pid, Key, end_lookup),
   {ok, Values} = Return,
   Values.
 
@@ -74,11 +76,13 @@ set(Pid, Key, Entry) ->
 %% @doc: get's a value from the local chord node
 -spec(local_lookup/2::(pid(), Key::key()) -> {ok, [#entry{}]}).
 local_lookup(Pid, Key) ->
+  logger:log(Pid, Key, lookup_datastore),
   gen_server:call(Pid, {local_lookup, Key}).
 
 %% @doc: stores a value in the current local chord node
 -spec(local_set/3::(pid(), Key::key(), Entry::#entry{}) -> {ok, ok}).
 local_set(Pid, Key, Entry) ->
+  logger:log(Pid, Key, set_datastore),
   gen_server:call(Pid, {local_set, Key, Entry}).
 
 -spec(preceding_finger/2::(pid(), Key::key()) -> {ok, {#node{}, #node{}}}).
@@ -87,6 +91,7 @@ preceding_finger(Pid, Key) ->
 
 -spec(find_successor/2::(pid(), Key::key()) -> {ok, #node{}}).
 find_successor(Pid, Key) ->
+  logger:log(Pid, Key, route),
   gen_server:call(Pid, {find_successor, Key}).
 
 -spec(get_successor/1::(pid()) -> #node{}).
@@ -160,7 +165,10 @@ init(Args) ->
 -spec(join/2::(number(), pid()) -> {ok, #chord_state{}} | error).
 join(Port, ControllingProcess) -> 
   case chord_tcp:rendevouz(Port, ?RENDEVOUZ_HOST, ?RENDEVOUZ_PORT) of
-    {MyIp, first} -> {ok, post_rendevouz_state_update(MyIp, Port)};
+    {MyIp, first} -> 
+      % Inform the logger about our Ip
+      logger:set_ip(MyIp),
+      {ok, post_rendevouz_state_update(MyIp, Port)};
     {error, Reason} -> 
       controller:dht_failed_start(ControllingProcess),
       {stop, {couldnt_rendevouz, Reason}};

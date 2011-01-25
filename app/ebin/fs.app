@@ -13,7 +13,8 @@
     utilities, tcp_utils, 
     friendsearch, friendsearch_srv, friendsearch_sup,
     test_dht, test_utils,
-    controller, controller_tcp, controller_sup
+    controller, controller_tcp, controller_sup,
+    logger, logger_sup
   ]},
   {registered, []},
   {applications, [

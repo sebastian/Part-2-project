@@ -23,7 +23,8 @@
     get_update/1,
     switch_mode_to/2,
     start_nodes/2,
-    stop_nodes/2
+    stop_nodes/2,
+    rpc_logger/2
   ]).
 
 %% ------------------------------------------------------------------
@@ -36,6 +37,9 @@
 %% ------------------------------------------------------------------
 %% API Function Definitions
 %% ------------------------------------------------------------------
+
+rpc_logger(Action, #controller{ip = Ip, port = Port}) ->
+  perform_rpc({logger, Action}, Ip, Port).
 
 switch_mode_to(Mode, #controller{ip = Ip, port = Port}) ->
   perform_rpc({switch_mode_to, Mode}, Ip, Port).

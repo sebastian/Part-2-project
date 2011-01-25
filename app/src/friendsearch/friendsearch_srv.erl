@@ -63,7 +63,6 @@ delete(Key) ->
 %% @doc: queries the storage network for entries matching some find.
 -spec(find/1::(Query::bitstring()) -> [#person{}]).
 find(Query) ->
-  io:format("Performing: find for ~p~n", [Query]),
   gen_server:call(?MODULE, {find, Query}).
 
 %% @doc: called by the timer module to ensure that the local entries are

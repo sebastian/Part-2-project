@@ -239,7 +239,8 @@ handle_cast(welcomed, State) ->
   perform_welcomed(State),
   {noreply, State};
 
-handle_cast({route, Msg, Key}, State) ->
+handle_cast({route, Msg, Key}, #pastry_state{pastry_app_pid = PastryAppPid} = State) ->
+  logger:log(PastryAppPid, Key, route),
   route_msg(Msg, Key, State),
   {noreply, State};
 

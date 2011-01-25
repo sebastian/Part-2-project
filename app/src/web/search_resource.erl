@@ -16,7 +16,6 @@ content_types_provided(ReqData, State) ->
 to_json(ReqData, State) ->
   % Get search query
   Query = wrq:get_qs_value("q", ReqData),
-  io:format("******** Query: ~p ********~n", [Query]),
   Results = friendsearch_srv:find(Query),
   People = [{struct, [
                         {name, P#person.name},

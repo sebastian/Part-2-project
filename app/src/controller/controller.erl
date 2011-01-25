@@ -131,12 +131,18 @@ handle_cast({new_mode, NewMode}, State) when NewMode =:= pastry ; NewMode =:= ch
   datastore_srv:clear(),
   {noreply, NoNodeState#controller_state{mode = NewMode}};
 
-handle_cast({register_node, Node}, #controller_state{nodes = Nodes} = State) ->
+handle_cast({register_node, Node}, #controller_state{mode = Mode, nodes = Nodes} = State) ->
   case length(Nodes) of
     0 -> send_dht_to_friendsearch();
     _ -> ok % Dht should be fine
   end,
   NodeController = monitor_node(Node),
+  % Set mapping in logger for propper logging
+  Pid = case Mode of
+    chord -> Node#controller_node.dht_pid;
+    pastry -> Node#controller_node.app_pid
+  end,
+  logger:set_mapping(Pid, Node#controller_node.port),
   {noreply, State#controller_state{nodes = [Node#controller_node{controller_pid = NodeController}|Nodes]}};
 
 handle_cast(send_dht_to_friendsearch, #controller_state{mode = Mode, nodes = Nodes} = State) ->

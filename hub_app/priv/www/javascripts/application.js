@@ -12,25 +12,23 @@ function compile(){
 	};
 	return $p("div#templates div.controllers").compile(nodesDirectives);
 }
-function renderNodes(json){
+function renderStatus(json){
   var cont = nodesRef(json);
 	$("div#main-content").html(cont);
+	$("span#log_status").html("Status: " + json.log_status);
 }
-function cbNodes(json) {
-	renderNodes(json)
-};
 
 /**
  * Ajax functions
  */
-function getNodes() {
-	$.get('/nodes', cbNodes);
+function getStatus() {
+	$.get('/nodes', renderStatus);
 };
 
 function init(){
 	nodesRef = compile();
-  getNodes();
-  setInterval(getNodes, 2000);
+  getStatus();
+  setInterval(getStatus, 2000);
 
   $("#switch_to_chord").click(function() {
     $.post('switch_mode/chord');
@@ -48,6 +46,12 @@ function init(){
     $.post('nodes/stop/1');
     return false;
   });
+  $(".log_action").click(function() {
+    var action = this.id;
+    $.post('logging/' + action);
+    return false;
+  });
+
 
 }
 

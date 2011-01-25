@@ -31,6 +31,13 @@
     start_nodes/1,
     stop_nodes/1
   ]).
+% For logging
+-export([
+    start_logging/0,
+    stop_logging/0,
+    clear_logs/0,
+    get_logs/0
+  ]).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Exports
@@ -76,6 +83,21 @@ rendevouz_node(Node) ->
   gen_server:call(?MODULE, {rendevouz_node, Node}).
 
 % -------------------------------------------------------------------
+% Logging -----------------------------------------------------------
+
+start_logging() ->
+  gen_server:call(?MODULE, start_logging).
+
+stop_logging() ->
+  gen_server:call(?MODULE, stop_logging).
+
+clear_logs() ->
+  gen_server:call(?MODULE, clear_logs).
+
+get_logs() ->
+  gen_server:call(?MODULE, get_logs).
+
+% -------------------------------------------------------------------
 % Frontend ----------------------------------------------------------
 
 live_nodes() ->
@@ -90,6 +112,7 @@ start_nodes(N) ->
 stop_nodes(N) ->
   gen_server:cast(?MODULE, {stop_nodes, N}).
 
+
 %% ------------------------------------------------------------------
 %% gen_server Function Definitions
 %% ------------------------------------------------------------------
@@ -98,8 +121,24 @@ init(_Args) ->
   {ok, #state{}}.
 
 %% Call:
-handle_call(live_nodes, _From, #state{controllers = Controllers} = State) ->
-  {reply, controllers_as_struct(Controllers), State};
+handle_call(start_logging, _From, State) ->
+  node_core:start_logging(State),
+  {reply, ok, State};
+
+handle_call(stop_logging, _From, State) ->
+  node_core:stop_logging(State),
+  {reply, ok, State};
+
+handle_call(clear_logs, _From, State) ->
+  node_core:clear_logs(State),
+  {reply, ok, State};
+
+handle_call(get_logs, _From, State) ->
+  node_core:get_logs(State),
+  {reply, ok, State#state{log_status = getting_logs}};
+
+handle_call(live_nodes, _From, #state{controllers = Controllers, log_status = LogStatus} = State) ->
+  {reply, live_state(Controllers, LogStatus), State};
 
 handle_call(stop, _From, State) ->
   {stop, normal, ok, State};
@@ -113,6 +152,9 @@ handle_call(clear, _From, _State) ->
   {reply, ok, #state{}}.
 
 %% Casts:
+handle_cast(logs_gotten, State) ->
+  {noreply, State#state{log_status = logs_aquired}};
+
 handle_cast({remove_controller, Controller}, State) ->
   {noreply, node_core:remove_controller(Controller, State)};
 
@@ -150,6 +192,12 @@ code_change(_OldVsn, State, _Extra) ->
 %% ------------------------------------------------------------------
 %% Internal Function Definitions
 %% ------------------------------------------------------------------
+
+live_state(Controllers, LogStatus) ->
+  {struct, [
+      {<<"controllers">>, encode_controllers(Controllers)},
+      {<<"log_status">>, LogStatus}
+    ]}.
 
 controllers_as_struct(Controllers) ->
   {struct,[{<<"controllers">>, encode_controllers(Controllers)}]}.

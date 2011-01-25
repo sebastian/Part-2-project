@@ -103,10 +103,12 @@ deliver(Pid, {join, Node}, _Key) ->
   % wholeheartedly welcome it!
   gen_server:call(Pid, {welcome, Node});
 
-deliver(_, {lookup_key, Key, Node, Ref}, _Key) ->
+deliver(Pid, {lookup_key, Key, Node, Ref}, _Key) ->
+  logger:log(Pid, Key, lookup_datastore),
   pastry_tcp:send_msg({data, Ref, datastore_srv:lookup(Key)}, Node);
 
 deliver(Pid, {set, Key, Entry}, _PastryKey) ->
+  logger:log(Pid, Key, set_datastore),
   gen_server:cast(Pid, {replicate, Entry}),
   datastore_srv:set(Key, Entry);
 
@@ -150,7 +152,9 @@ handle_call({set, Key, Entry}, _From, #pastry_app_state{b = B, pastry_pid = Past
   {reply, ok, State};
 
 handle_call({lookup, Key}, From, #pastry_app_state{b = B, pastry_pid = PastryPid} = State) ->
+  SelfPid = self(),
   spawn(fun() ->
+    logger:log(SelfPid, Key, start_lookup),
     PastryKey = utilities:number_to_pastry_key_with_b(Key, B),
     Ref = make_ref(),
     pastry:route(PastryPid, {lookup_key, Key, pastry:get_self(PastryPid), {self(), Ref}}, PastryKey),
@@ -158,6 +162,7 @@ handle_call({lookup, Key}, From, #pastry_app_state{b = B, pastry_pid = PastryPid
       {data, Ref, Data} -> Data
     after ?TIMEOUT -> {error, timeout}
     end,
+    logger:log(SelfPid, Key, end_lookup),
     gen_server:reply(From, ReturnValue)
   end),
   {noreply, State};

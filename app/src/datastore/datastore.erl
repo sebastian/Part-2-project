@@ -51,7 +51,6 @@ set(Key, Entry, State) ->
 -spec(lookup/2::(Key::key(), State::#datastore_state{}) 
     -> [#entry{}]).
 lookup(Key, State) ->
-  io:format("Looking up ~p in datastore~n", [Key]),
   Data = State#datastore_state.data,
   case dict:find(Key, Data) of
     {ok, ValueList} ->

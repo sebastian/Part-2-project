@@ -60,6 +60,7 @@ init([]) ->
     end,
   
   Processes = [
+    CreateSup(logger_sup),
     CreateChild(pastry_locality, []),
     CreateSupWithArgs(fs_web_sup, 11385),
     CreateSup(datastore_sup),

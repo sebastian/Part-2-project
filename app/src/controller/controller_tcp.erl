@@ -152,6 +152,9 @@ handle_msg({stop_nodes, N}) ->
 handle_msg({switch_mode_to, Mode}) ->
   controller:switch_mode_to(Mode);
 
+handle_msg({logger, Action}) ->
+  logger:Action();
+
 handle_msg(Msg) ->
   error_logger:error_msg("Message not handled ~p", [Msg]),
   error.

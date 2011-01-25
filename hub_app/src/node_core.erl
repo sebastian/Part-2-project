@@ -13,7 +13,11 @@
     update_controller_state/3,
     switch_mode_to/2,
     start_nodes/2,
-    stop_nodes/2
+    stop_nodes/2,
+    start_logging/1,
+    stop_logging/1,
+    clear_logs/1,
+    get_logs/1
   ]).
 
 -import(lists, [member/2, sort/1, sort/2]).
@@ -95,6 +99,32 @@ update_controller_state(CC, {Mode, Ports}, #state{controllers = Controllers} = S
   MatchingControllers = [C || C <- Controllers, C#controller.ip =:= CC#controller.ip, C#controller.port =:= CC#controller.port],
   NewControllers = (Controllers -- MatchingControllers) ++ [CC#controller{mode = Mode, ports = sort(Ports)}],
   State#state{controllers = NewControllers}.
+
+logFun(Action, Controller) -> hub_tcp:rpc_logger(Action, Controller).
+start_logging(State) -> perform(fun logFun/2, start_logging, State).
+stop_logging(State) -> perform(fun logFun/2, stop_logging, State).
+clear_logs(State) -> perform(fun logFun/2, clear_log, State).
+get_logs(#state{controllers = Controllers}) -> 
+  spawn(fun() -> perform_get_logs(Controllers) end).
+
+perform_get_logs(Controllers) ->
+  F = fun(Controller, IoWriter, RetPid) ->
+    spawn(fun() ->
+      case hub_tcp:rpc_logger(get_data, Controller) of
+        {ok, Data} -> file:write(IoWriter, Data);
+        {error, Reason} -> 
+          error_handler:error_msg("Couldn't receive log data for reason ~p from controller ~p~n", [Reason, Controller])
+      end,
+      RetPid ! done
+    end)
+  end,
+
+  {ok, File} = file:open("dht_master_log.log", [append, delayed_write]),
+  [F(C, File, self()) || C <- Controllers],
+  close_file_after(length(Controllers), File).
+
+close_file_after(0, File) -> file:close(File);
+close_file_after(N, File) -> receive _Msg -> close_file_after(N-1, File) end.
 
 switch_mode_to(Mode, State) -> perform(fun(M, C) -> hub_tcp:switch_mode_to(M, C) end, Mode, State).
 start_nodes(Count, State) -> perform(fun(N, C) -> hub_tcp:start_nodes(N, C) end, Count, State).
