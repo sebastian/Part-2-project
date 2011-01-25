@@ -99,7 +99,7 @@ get_logs() ->
   gen_server:call(?MODULE, get_logs).
 
 logs_gotten() ->
-  gen_server:call(?MODULE, logs_gotten).
+  gen_server:cast(?MODULE, logs_gotten).
 
 % -------------------------------------------------------------------
 % Frontend ----------------------------------------------------------

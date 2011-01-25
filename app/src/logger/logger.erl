@@ -101,6 +101,7 @@ handle_call(get_data, _From, #state{filename = Filename} = State) ->
   {reply, Data, State};
 
 handle_call({set_ip, Ip}, _From, State) ->
+  io:format("Got set_ip in logger"),
   {reply, ok, State#state{ip = Ip}};
 
 handle_call({set_mapping, Pid, Port}, _From, #state{id_lookup = LookupTable} = State) ->
