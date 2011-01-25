@@ -165,10 +165,7 @@ init(Args) ->
 -spec(join/2::(number(), pid()) -> {ok, #chord_state{}} | error).
 join(Port, ControllingProcess) -> 
   case chord_tcp:rendevouz(Port, ?RENDEVOUZ_HOST, ?RENDEVOUZ_PORT) of
-    {MyIp, first} -> 
-      % Inform the logger about our Ip
-      logger:set_ip(MyIp),
-      {ok, post_rendevouz_state_update(MyIp, Port)};
+    {MyIp, first} -> {ok, post_rendevouz_state_update(MyIp, Port)};
     {error, Reason} -> 
       controller:dht_failed_start(ControllingProcess),
       {stop, {couldnt_rendevouz, Reason}};

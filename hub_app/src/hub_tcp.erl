@@ -170,7 +170,7 @@ handle_msg({rendevouz, _Type, Port}, Ip) ->
 handle_msg({register_controller, Port}, Ip) ->
   Controller = #controller{ip = Ip, port = Port},
   node:register_controller(Controller),
-  ok;
+  Ip;
 
 handle_msg(_, _) ->
   error_logger:error_msg("Unimplemented message type"),

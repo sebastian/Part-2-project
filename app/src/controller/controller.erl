@@ -95,7 +95,9 @@ ping() ->
 init(Args) -> 
   Port = proplists:get_value(port, Args),
   case controller_tcp:register_controller(Port, ?RENDEVOUZ_HOST, ?RENDEVOUZ_PORT) of
-    {ok, _} -> {ok, #controller_state{}};
+    {ok, Ip} -> 
+      logger:set_ip(Ip),
+      {ok, #controller_state{}};
     {error, _} -> {stop, couldnt_register_node}
   end.
 
