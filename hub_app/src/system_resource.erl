@@ -20,5 +20,5 @@ allowed_methods(R, S) -> {['POST'], R, S}.
 % Change mode --------------------------------------------------------------
 
 process_post(R, S) ->
-  node:upgrade(),
+  node:perform_upgrade(),
   {true, R, S}.

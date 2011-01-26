@@ -41,7 +41,7 @@
   ]).
 % For updating
 -export([
-    upgrade/0
+    perform_upgrade/0
   ]).
 
 %% ------------------------------------------------------------------
@@ -108,11 +108,10 @@ logs_gotten() ->
 % -------------------------------------------------------------------
 % Upgrading software ------------------------------------------------
 
-upgrade() ->
+perform_upgrade() ->
   spawn(fun() ->
     io:format("Upgrading hub~n"),
     os:cmd("git pull"),
-    os:cmd("./rebar compile"),
     io:format("Hub upgraded...~n")
   end),
   gen_server:cast(?MODULE, upgrade).

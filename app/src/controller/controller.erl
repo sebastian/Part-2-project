@@ -94,8 +94,6 @@ perform_update() ->
     io:format("Upgrading system...~n"),
     io:format(" Downloading new code~n"),
     os:cmd("git pull"),
-    io:format(" Compiling code~n"),
-    os:cmd("./rebar compile"),
     io:format("System upgrade complete!~n")
   end),
   ok.
