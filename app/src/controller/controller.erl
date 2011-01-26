@@ -109,7 +109,7 @@ init(Args) ->
       logger:set_ip(Ip),
       {ok, #controller_state{}};
     {error, Reason} -> 
-      error_handler:error_msg("Couldn't register controller because: ~p~n", [Reason]),
+      error_logger:error_msg("Couldn't register controller because: ~p~n", [Reason]),
       {stop, couldnt_register_node}
   end.
 

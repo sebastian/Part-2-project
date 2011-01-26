@@ -1,7 +1,7 @@
 -module(controller_tcp).
 -behaviour(gen_listener_tcp).
 
--define(TIMEOUT, 2000).
+-define(TIMEOUT, 10000).
 
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").

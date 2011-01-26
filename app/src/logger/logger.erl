@@ -143,7 +143,7 @@ handle_cast({log, NodeId, Key, Action, TimeNow},
       LogEntry = lists:flatten(io_lib:format("~p;~p;~p;~p~n", [Key, TimeNow, Id, Action])),
       case file:write(File, LogEntry) of
         {error, Reason} ->
-          error_handler:error_msg("Couldn't log because of ~p~n", [Reason]);
+          error_logger:error_msg("Couldn't log because of ~p~n", [Reason]);
         ok -> ok
       end;
     false ->
