@@ -5,6 +5,7 @@
 -include_lib("eunit/include/eunit.hrl").
 -endif.
 
+-define(TIMEOUT, 10000).
 -include("records.hrl").
 
 -define(TCP_OPTS, [binary, inet,
@@ -63,8 +64,7 @@ get_update(#controller{ip = Ip, port = Port}) ->
 -spec(perform_rpc/3::(Message::term(), any(), number()) ->
     {ok, _} | {error, _}).
 perform_rpc(Message, Ip, Port) ->
-  Timeout = 2000,
-  case gen_tcp:connect(Ip, Port, [binary, {packet, 0}, {active, true}], Timeout) of
+  case gen_tcp:connect(Ip, Port, [binary, {packet, 0}, {active, true}], ?TIMEOUT) of
     {ok, Socket} ->
       ok = gen_tcp:send(Socket, term_to_binary(Message)),
       receive_data(Socket, []);
@@ -85,7 +85,7 @@ receive_data(Socket, SoFar) ->
           error_logger:error_msg("Response returned by other part couldn't be parsed"),
           {error, badarg}
       end
-  after 5000 ->
+  after ?TIMEOUT ->
     error_logger:info_msg("PerformRPC times out~n"),
     {error, timeout}
   end.

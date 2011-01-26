@@ -115,7 +115,7 @@ receive_data(Socket, SoFar) ->
       try {ok, binary_to_term(list_to_binary(lists:reverse(SoFar)))}
       catch error:badarg -> {error, badarg}
       end
-  after 5000 ->
+  after ?TCP_TIMEOUT ->
     error_logger:info_msg("PerformRPC times out~n"),
     {error, timeout}
   end.
@@ -157,7 +157,7 @@ receive_incoming(Socket, SoFar, State) ->
       % Something is wrong. We aggresively close the socket.
       gen_tcp:close(Socket),
       ok
-  after 2000 ->
+  after ?TCP_TIMEOUT ->
     % Client hasn't sent us data for a while, close connection.
     gen_tcp:close(Socket)
   end.

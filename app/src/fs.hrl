@@ -9,6 +9,8 @@
 -define(RENDEVOUZ_HOST, "hub.probsteide.com").
 -define(RENDEVOUZ_PORT, 6001).
 
+-define(TCP_TIMEOUT, 5000).
+
 -type(key() :: number()).
 -type(binary_string() :: bitstring()).
 -type(port_number() :: integer()).

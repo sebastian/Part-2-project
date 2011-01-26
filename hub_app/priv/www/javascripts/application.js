@@ -16,6 +16,7 @@ function renderStatus(json){
   var cont = nodesRef(json);
 	$("div#main-content").html(cont);
 	$("span#log_status").html("Status: " + json.log_status);
+	$("span#version").html("Version: " + json.hub_version);
 }
 
 /**

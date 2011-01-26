@@ -219,7 +219,8 @@ code_change(_OldVsn, State, _Extra) ->
 live_state(Controllers, LogStatus) ->
   {struct, [
       {<<"controllers">>, encode_controllers(Controllers)},
-      {<<"log_status">>, LogStatus}
+      {<<"log_status">>, LogStatus},
+      {<<"hub_version">>, ?HUB_VERSION}
     ]}.
 
 encode_controllers(Controllers) -> 
@@ -227,7 +228,8 @@ encode_controllers(Controllers) ->
       {<<"ip">>, ip_to_binary(C#controller.ip)}, 
       {<<"port">>, code_port(C#controller.port)},
       {<<"mode">>, C#controller.mode},
-      {<<"nodes">>, C#controller.ports}
+      {<<"version">>, C#controller.version},
+      {<<"node_count">>, length(C#controller.ports)}
     ]} || C <- Controllers].
 ip_to_binary({A,B,C,D}) -> list_to_binary(lists:flatten(io_lib:format("~p.~p.~p.~p", [A,B,C,D]))).
 code_port(Port) -> list_to_bitstring(integer_to_list(Port)).

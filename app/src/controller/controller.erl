@@ -118,7 +118,7 @@ handle_call(get_new_controlling_process, _From, #controller_state{mode = Mode} =
   {reply, start_node(Mode), State};
 
 handle_call(ping, _From, #controller_state{nodes = Nodes, mode = Mode} = State) ->
-  {reply, {pong, node_count, length(Nodes), mode, Mode, ports, all_ports(Nodes)}, State};
+  {reply, {pong, node_count, length(Nodes), mode, Mode, ports, all_ports(Nodes), version, ?VERSION}, State};
 
 handle_call(stop, _From, State) ->
   {stop, normal, ok, State}.

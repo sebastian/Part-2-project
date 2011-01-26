@@ -7,6 +7,46 @@
 
 /* @group Main */
 
+/* @group Menu */
+
+div#menu ul li a {
+	color: black;
+	margin: 0;
+	padding: 2px;
+	display: block;
+	border-left: 3px solid white;
+}
+
+div#menu ul li a:active {
+	color: white;
+	border-left: 3px solid #000;
+	background-color: black;
+	text-decoration: none;
+}
+
+div#menu ul li a:hover {
+	border-left: 3px solid #000;
+}
+
+#menu h1 {
+	font-size: 123.1%;
+	margin-top: 10px;
+	margin-bottom: 2px;
+	border-bottom: 1px solid #e1e1e1;
+}
+
+span#log_status {
+	background-color: #e6e6e6;
+	padding: 3px;
+	margin-top: 4px;
+	margin-bottom: 4px;
+	display: block;
+}
+
+
+
+/* @end */
+
 /* @group Controllers */
 
 #main-content div.controllers div.controller ul li {
@@ -56,6 +96,14 @@ div#templates {
 /* @end */
 
 /* @group Footer and header */
+
+span#version {
+	padding: 3px;
+	background-color: white;
+	color: black;
+	font-size: 77%;
+	margin: 0 0 0 10px;
+}
 
 div#hd {
 	background-color: #334433;
