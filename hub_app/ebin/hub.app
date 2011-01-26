@@ -18,7 +18,7 @@
              ignition_resource,
              logging_resource,
              system_resource,
-             auth
+             auth_mod
             ]},
   {registered, []},
   {applications, [

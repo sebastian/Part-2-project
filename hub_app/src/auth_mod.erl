@@ -1,4 +1,4 @@
--module(auth).
+-module(auth_mod).
 
 -export([authenticate/2]).
 

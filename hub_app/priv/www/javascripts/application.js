@@ -6,7 +6,7 @@ function compile(){
       'controller<-controllers':{
         'a@href':"http://#{controller.ip}:11385/",
         'a':'controller.ip',
-        'span':"#{controller.mode} - #{controller.nodes.length} nodes",
+        'span':"#{controller.mode} - #{controller.nodes.length} nodes [version X]",
       }
     }
 	};
