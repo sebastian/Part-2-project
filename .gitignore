@@ -1,7 +1,6 @@
 *.un
 *.swo
 *.swp
-*.beam
 */log/*
 Code/webmachine/*
 Code/apps/fs_web/logs/*
