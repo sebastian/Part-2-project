@@ -62,8 +62,22 @@ span#log_status {
 	float: left;
 	background-color: #606060;
 	color: white;
-	padding: 5px;
-	margin: 0 0 0 10px;
+	padding: 2px;
+	margin: 0 0 0 7px;
+}
+
+#main-content div.controllers div.controller span span#tn {
+	display: block;
+	padding: 4px;
+	font-size: 77%;
+}
+
+#main-content div.controllers div.controller span span#vsn {
+	background-color: white;
+	display: block;
+	color: black;
+	font-size: 77%;
+	padding: 4px;
 }
 
 #main-content div.controllers div.controller ul {
