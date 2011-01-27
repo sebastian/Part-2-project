@@ -147,7 +147,8 @@ handle_cast({log, NodeId, Key, Action, TimeNow},
         ok -> ok
       end;
     false ->
-      io:format("Node: ~p,  Key: ~p,  Action: ~p, Time: ~p~n", [Id, Key, Action, TimeNow])
+      ok % Silent... Don't log visually
+      %io:format("Node: ~p,  Key: ~p,  Action: ~p, Time: ~p~n", [Id, Key, Action, TimeNow])
   end,
   {noreply, State};
   
