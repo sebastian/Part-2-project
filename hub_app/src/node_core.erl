@@ -271,8 +271,8 @@ get_not_me_test() ->
 liveness_checker_test() ->
   C = #controller{port=1, ip = {1,2,3,4}},
   erlymock:start(),
-  erlymock:strict(hub_tcp, get_update, [C], [{return, {pong, node_count, 1, mode, chord, ports, [1]}}]),
-  erlymock:strict(node, set_state_for_controller, [C, {chord, [1]}], [{return, ok}]),
+  erlymock:strict(hub_tcp, get_update, [C], [{return, {pong, node_count, 1, mode, chord, ports, [1], version, 1}}]),
+  erlymock:strict(node, set_state_for_controller, [C, {chord, [1], 1}], [{return, ok}]),
   erlymock:strict(hub_tcp, get_update, [C], [{return, dead}]),
   erlymock:strict(node, remove_controller, [C], [{return, ok}]),
   erlymock:replay(), 
@@ -312,9 +312,10 @@ update_controller_state_test() ->
   AlreadyUpdatedController = Controller#controller{ports = [1,2,3,4,5,6,7]},
   State = #state{controllers = [AlreadyUpdatedController]},
   #state{controllers = [C]} =
-    update_controller_state(Controller, {pastry, [1,4]}, State),
+    update_controller_state(Controller, {pastry, [1,4], 1}, State),
   ?assertEqual([1,4], C#controller.ports),
-  ?assertEqual(pastry, C#controller.mode).
+  ?assertEqual(pastry, C#controller.mode),
+  ?assertEqual(1, C#controller.version).
 
 switch_mode_to_test() ->
   C1 = #controller{

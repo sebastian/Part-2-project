@@ -142,15 +142,15 @@ init(_Args) ->
 %% Call:
 handle_call(start_logging, _From, State) ->
   node_core:start_logging(State),
-  {reply, ok, State};
+  {reply, ok, State#state{log_status = logging}};
 
 handle_call(stop_logging, _From, State) ->
   node_core:stop_logging(State),
-  {reply, ok, State};
+  {reply, ok, State#state{log_status = not_logging}};
 
 handle_call(clear_logs, _From, State) ->
   node_core:clear_logs(State),
-  {reply, ok, State};
+  {reply, ok, State#state{log_status = cleared_logs}};
 
 handle_call(get_logs, _From, State) ->
   node_core:get_logs(State),
