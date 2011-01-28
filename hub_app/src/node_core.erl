@@ -41,7 +41,10 @@ register_node_in_controllers(Node, Controllers) ->
 
 register_controller(Controller, #state{controllers = Controllers} = State) ->
   keep_while_alive(Controller),
-  UpdatedControllers = sort(fun(A,B) -> A#controller.ip =< B#controller.ip end, [Controller | Controllers]),
+  UpdatedControllers = case [C || C <- Controllers, C#controller.ip =:= Controller#controller.ip] of
+    [] -> sort(fun(A,B) -> A#controller.ip =< B#controller.ip end, [Controller | Controllers]);
+    _SameController -> Controllers
+  end,
   State#state{controllers = UpdatedControllers}.
 
 get_not_me(Node, Controllers) ->
@@ -79,8 +82,8 @@ remove_controller(Controller, #state{controllers = Controllers} = State) ->
     C#controller.port =:= Controller#controller.port],
   State#state{controllers = Controllers -- Match}.
 
-keep_while_alive(Node) ->
-  spawn(fun() -> liveness_checker(Node, 1000) end).
+keep_while_alive(Controller) ->
+  spawn(fun() -> liveness_checker(Controller, 1000) end).
 
 liveness_checker(Controller, Interval) ->
   receive after Interval -> ok end,
@@ -301,6 +304,18 @@ register_controller_test() ->
   },
   NewState = register_controller(Controller, State),
   ?assert(member(Controller, NewState#state.controllers)).
+
+register_controller_controller_registers_repeatedly_is_ok_test() ->
+  State = #state{},
+  Controller = #controller{
+    ip = {1,2,3,4},
+    port = 1234,
+    mode = chord,
+    ports = []
+  },
+  NewState = register_controller(Controller, State),
+  ?assert(member(Controller, NewState#state.controllers)),
+  NewState = register_controller(Controller, NewState).
 
 update_controller_state_test() ->
   Controller = #controller{

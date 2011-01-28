@@ -12,7 +12,8 @@
 
 -record(controller_state, {
     mode = chord,
-    nodes = []
+    nodes = [],
+    hub_ping
   }).
 %% ------------------------------------------------------------------
 %% Public API
@@ -36,7 +37,8 @@
     switch_mode_to/1,
     get_controlling_process/0,
     ping/0,
-    perform_update/0
+    perform_update/0,
+    rereg_with_hub/1
   ]).
 
 %% ------------------------------------------------------------------
@@ -106,8 +108,10 @@ init(Args) ->
   Port = proplists:get_value(port, Args),
   case controller_tcp:register_controller(Port, ?RENDEVOUZ_HOST, ?RENDEVOUZ_PORT) of
     {ok, Ip} -> 
+      % In case the controller breaks down we want to reregister with it
+      {ok, HomingDevice} = timer:apply_interval(3600000, ?MODULE, rereg_with_hub, [Port]),
       logger:set_ip(Ip),
-      {ok, #controller_state{}};
+      {ok, #controller_state{hub_ping = HomingDevice}};
     {error, Reason} -> 
       error_logger:error_msg("Couldn't register controller because: ~p~n", [Reason]),
       {stop, couldnt_register_node}
@@ -179,8 +183,9 @@ handle_cast(Msg, State) ->
 handle_info(_Info, State) ->
   {noreply, State}.
 
-terminate(_Reason, State) ->
+terminate(_Reason, #controller_state{hub_ping = HomingDevice} = State) ->
   % Stop all the nodes
+  timer:stop(HomingDevice),
   perform_stop_nodes(State),
   ok.
 
@@ -190,6 +195,9 @@ code_change(_OldVsn, State, _Extra) ->
 %% ------------------------------------------------------------------
 %% Internal Function Definitions
 %% ------------------------------------------------------------------
+
+rereg_with_hub(Port) ->
+  controller_tcp:register_controller(Port, ?RENDEVOUZ_HOST, ?RENDEVOUZ_PORT).
 
 monitor_node(Node) ->
   spawn(fun() -> perform_monitoring(Node) end).
