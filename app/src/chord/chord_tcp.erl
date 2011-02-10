@@ -101,7 +101,13 @@ perform_rpc(Message, #node{ip = Ip, port = Port}) ->
   case gen_tcp:connect(Ip, Port, [binary, {packet, 0}, {active, true}]) of
     {ok, Socket} ->
       ok = gen_tcp:send(Socket, term_to_binary(Message)),
-      receive_data(Socket, []);
+      case receive_data(Socket, []) of
+        {ok, BitSize, ReturnVal} ->
+          DataSentAndReceived = bit_size(term_to_binary(Message)) + BitSize,
+          logger:log_data(Message, DataSentAndReceived),
+          {ok, ReturnVal};
+        Msg -> Msg
+      end;
     {error, Reason} ->
       % Handle error somehow
       {error, Reason}
@@ -112,7 +118,8 @@ receive_data(Socket, SoFar) ->
     {tcp, Socket, Bin} ->
       receive_data(Socket, [Bin | SoFar]);
     {tcp_closed, Socket} ->
-      try {ok, binary_to_term(list_to_binary(lists:reverse(SoFar)))}
+      Data = list_to_binary(lists:reverse(SoFar)),
+      try {ok, bit_size(Data), binary_to_term(Data)}
       catch error:badarg -> {error, badarg}
       end
   after ?TCP_TIMEOUT ->

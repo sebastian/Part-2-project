@@ -25,7 +25,8 @@
     get_data/0,
     clear_log/0,
     set_ip/1,
-    set_mapping/2
+    set_mapping/2,
+    log_data/2
   ]).
 
 %% ------------------------------------------------------------------
@@ -60,6 +61,11 @@ stop() ->
 log(NodeId, Key, Action) ->
   TimeNow = utilities:get_time(),
   gen_server:cast(?MODULE, {log, NodeId, Key, Action, TimeNow}).
+
+% Logs the amount of bandwidth consumed by a message
+log_data(Msg, Data) ->
+  TimeNow = utilities:get_time(),
+  gen_server:cast(?MODULE, {log_data, Msg, Data, TimeNow}).
 
 start_logging() ->
   gen_server:call(?MODULE, start_logging).
@@ -131,25 +137,35 @@ handle_call(start_logging, _From, #state{filename = Filename} = State) ->
   {reply, ok, NewState}.
 
 %% Casts:
-handle_cast({log, NodeId, Key, Action, TimeNow}, 
-    #state{file = File, should_log_to_file = ShouldLogToFile, ip = {A,B,C,D}, id_lookup = Table} = State) ->
-  Port = case dict:find(NodeId, Table) of
-    {ok, Val} -> Val;
-    error -> unknown
+handle_cast({log, NodeId, Key, Action, TimeNow}, State) ->
+  Log = fun(File) ->
+    Id = get_id_for(NodeId, State),
+    LogEntry = lists:flatten(io_lib:format("act;~p;~p;~p;~p~n", [Key, TimeNow, Id, Action])),
+    case file:write(File, LogEntry) of
+      {error, Reason} ->
+        error_logger:error_msg("Couldn't log because of ~p~n", [Reason]);
+      ok -> ok
+    end
   end,
-  Id = lists:flatten(io_lib:format("~p~p~p~p_~p", [A,B,C,D,Port])),
-  case ShouldLogToFile of
-    true ->
-      LogEntry = lists:flatten(io_lib:format("~p;~p;~p;~p~n", [Key, TimeNow, Id, Action])),
-      case file:write(File, LogEntry) of
-        {error, Reason} ->
-          error_logger:error_msg("Couldn't log because of ~p~n", [Reason]);
-        ok -> ok
-      end;
-    false ->
-      ok % Silent... Don't log visually
-      %io:format("Node: ~p,  Key: ~p,  Action: ~p, Time: ~p~n", [Id, Key, Action, TimeNow])
+  perform_logging(Log, State),
+  {noreply, State};
+
+handle_cast({log_data, Msg, Data, TimeNow}, State) ->
+  Log = fun(File) ->
+    Formatted = case key_for_message(Msg) of
+      none -> 
+        io_lib:format("data;state;~p;~p~n", [Data,TimeNow]);
+      Key ->
+        io_lib:format("data;lookup;~p;~p;~p~n", [Data, Key, TimeNow])
+    end,
+    LogEntry = lists:flatten(Formatted),
+    case file:write(File, LogEntry) of
+      {error, Reason} ->
+        error_logger:error_msg("Couldn't log because of ~p~n", [Reason]);
+      ok -> ok
+    end
   end,
+  perform_logging(Log, State),
   {noreply, State};
   
 handle_cast(Msg, State) ->
@@ -173,6 +189,26 @@ code_change(_OldVsn, State, _Extra) ->
 
 close_file(#state{file = File}) ->
   file:close(File).
+
+perform_logging(LogFun, #state{file = File, should_log_to_file = ShouldLogToFile}) ->
+  case ShouldLogToFile of
+    true ->
+      LogFun(File);
+    _ -> ok % Silently ignore message
+  end.
+
+get_id_for(NodeId, #state{id_lookup = Table, ip = {A,B,C,D}}) ->
+  Port = case dict:find(NodeId, Table) of
+    {ok, Val} -> Val;
+    error -> unknown
+  end,
+  lists:flatten(io_lib:format("~p~p~p~p_~p", [A,B,C,D,Port])).
+
+key_for_message({lookup_key, Key}) -> Key;
+key_for_message({find_successor, Key}) -> Key;
+key_for_message({route, {lookup_key, Key, _, _}}) -> Key;
+key_for_message(_) -> none.
+
 
 %% ------------------------------------------------------------------
 %% Tests

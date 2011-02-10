@@ -185,7 +185,7 @@ handle_info(_Info, State) ->
 
 terminate(_Reason, #controller_state{hub_ping = HomingDevice} = State) ->
   % Stop all the nodes
-  timer:stop(HomingDevice),
+  timer:cancel(HomingDevice),
   perform_stop_nodes(State),
   ok.
 
@@ -288,6 +288,7 @@ perform_stop_nodes(#controller_state{nodes = Nodes} = State) ->
   [Controller ! kill || #controller_node{controller_pid = Controller} <- Nodes],
   State#controller_state{nodes = []}.
 
+stop_node(#controller_state{nodes = []} = State) -> State;
 stop_node(#controller_state{nodes = [#controller_node{controller_pid = NodeController}|Nodes]} = State) ->
   NodeController ! kill,
   State#controller_state{nodes = Nodes}.
@@ -415,6 +416,16 @@ stop_node_chord_test() ->
   ?assertEqual([Node2], UpdatedState#controller_state.nodes),
   % For good measure, kill the other monitor as well
   Node2#controller_node.controller_pid ! kill.
+
+stop_node_no_nodes_test() ->
+  State = #controller_state{
+    mode = chord,
+    nodes = []
+  },
+  erlymock:start(),
+  erlymock:replay(), 
+  State = stop_node(State),
+  erlymock:verify().
 
 all_ports_test() ->
   Node1 = cn1pastry(),
