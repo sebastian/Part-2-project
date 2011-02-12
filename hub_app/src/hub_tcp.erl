@@ -25,8 +25,12 @@
     switch_mode_to/2,
     start_nodes/2,
     stop_nodes/2,
+    ensure_running_n/2,
     rpc_logger/2,
-    upgrade_system/1
+    upgrade_system/1,
+    % For experiments
+    run_rampup/1,
+    stop_experimental_phase/1
   ]).
 
 %% ------------------------------------------------------------------
@@ -40,6 +44,12 @@
 %% API Function Definitions
 %% ------------------------------------------------------------------
 
+run_rampup(#controller{ip = Ip, port = Port}) ->
+  perform_rpc(run_rampup, Ip, Port).
+
+stop_experimental_phase(#controller{ip = Ip, port = Port}) ->
+  perform_rpc(stop_experimental_phase, Ip, Port).
+
 upgrade_system(#controller{ip = Ip, port = Port}) ->
   perform_rpc(upgrade_system, Ip, Port).
 
@@ -48,6 +58,9 @@ rpc_logger(Action, #controller{ip = Ip, port = Port}) ->
 
 switch_mode_to(Mode, #controller{ip = Ip, port = Port}) ->
   perform_rpc({switch_mode_to, Mode}, Ip, Port).
+
+ensure_running_n(Count, #controller{ip = Ip, port = Port}) ->
+  perform_rpc({run_n_nodes, Count}, Ip, Port).
 
 start_nodes(Count, #controller{ip = Ip, port = Port}) ->
   perform_rpc({start_nodes, Count}, Ip, Port).
@@ -170,6 +183,10 @@ code_change(_OldVsn, State, _Extra) ->
 handle_msg({rendevouz, _Type, Port}, Ip) ->
   Node = #node{ip = Ip, port = Port},
   {Ip, node:rendevouz_node(Node)};
+
+handle_msg(stop_experimental_phase, _Ip) ->
+  node:stop_experiment(),
+  ok;
 
 handle_msg({register_controller, Port}, Ip) ->
   Controller = #controller{ip = Ip, port = Port},

@@ -105,6 +105,39 @@ div#templates {
 
 /* @end */
 
+/* @group Experiment */
+
+div.experiment {
+	padding: 5px;
+}
+
+div.experiment ul {
+	background-color: #eaeaea;
+}
+
+div.experiment ul li {
+	padding-bottom: 2px;
+	padding-left: 4px;
+	padding-top: 2px;
+	font-size: 87%;
+	border-bottom: 1px solid #d4d4d4;
+}
+
+div.experiment ul:last-child li {
+	background-color: #878a8a;
+	color: white;
+}
+
+div.experiment ul:first-child li {
+	background-color: #000;
+	color: white;
+	font-weight: bold;
+	font-size: 110%;
+}
+
+
+/* @end */
+
 
 
 /* @end */

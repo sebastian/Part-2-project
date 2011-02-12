@@ -1,6 +1,7 @@
 var nodesRef = null;
+var expRef = null;
 
-function compile(){
+function compileNodes(){
 	var nodesDirectives = {
     'div':{
       'controller<-controllers':{
@@ -13,9 +14,21 @@ function compile(){
 	};
 	return $p("div#templates div.controllers").compile(nodesDirectives);
 }
+function compileExperiment(){
+	var experimentDirectives = {
+    'ul':{
+      'status<-experiments':{
+        'li':'status'
+      }
+    }
+	};
+	return $p("div#templates div.experiment").compile(experimentDirectives);
+}
 function renderStatus(json){
   var cont = nodesRef(json);
-	$("div#main-content").html(cont);
+	$("div#hosts").html(cont);
+  exp = expRef(json);
+	$("div#experiment").html(exp);
 	$("span#log_status").html("Status: " + json.log_status);
 	$("span#version").html("Version: " + json.hub_version + ", Hosts: " + json.controllers.length);
 }
@@ -28,7 +41,8 @@ function getStatus() {
 };
 
 function init(){
-	nodesRef = compile();
+	nodesRef = compileNodes();
+	expRef = compileExperiment();
   getStatus();
   setInterval(getStatus, 2000);
 
@@ -48,6 +62,11 @@ function init(){
     $.post('nodes/stop/1');
     return false;
   });
+  $("#ensure_running_n").click(function() {
+    var count = $("#num_nodes").val();
+    $.post('nodes/ensure_running_n/' + count);
+    return false;
+  });
   $(".log_action").click(function() {
     var action = this.id;
     $.post('logging/' + action);
@@ -57,8 +76,11 @@ function init(){
     $.post('upgrade_systems');
     return false;
   });
-
-
+  $(".experiment_action").click(function() {
+    var action = this.id;
+    $.post('experiment/' + action);
+    return false;
+  });
 }
 
 $(document).ready(function(){

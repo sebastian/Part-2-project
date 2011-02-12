@@ -12,13 +12,15 @@
     remove_controller/2,
     update_controller_state/3,
     switch_mode_to/2,
+    ensure_running_n/2,
     start_nodes/2,
     stop_nodes/2,
     start_logging/1,
     stop_logging/1,
     clear_logs/1,
     get_logs/1,
-    upgrade_systems/1
+    upgrade_systems/1,
+    experimental_runner/1
   ]).
 
 -import(lists, [member/2, sort/1, sort/2, reverse/1]).
@@ -143,11 +145,79 @@ close_file_after(N, File) -> receive _Msg -> close_file_after(N-1, File) end.
 
 upgrade_systems(State) -> perform(fun(_, C) -> hub_tcp:upgrade_system(C) end, undefined, State).
 switch_mode_to(Mode, State) -> perform(fun(M, C) -> hub_tcp:switch_mode_to(M, C) end, Mode, State).
+ensure_running_n(Count, State) -> perform(fun(N, C) -> hub_tcp:ensure_running_n(N, C) end, Count, State).
 start_nodes(Count, State) -> perform(fun(N, C) -> hub_tcp:start_nodes(N, C) end, Count, State).
 stop_nodes(Count, State) -> perform(fun(N, C) -> hub_tcp:stop_nodes(N, C) end, Count, State).
 
 perform(Fun, Args, #state{controllers = Controllers}) -> [spawn(fun() -> Fun(Args, C) end) || C <- Controllers].
 
+% Called to initiate an experimental run
+experimental_runner(State) ->
+  node:experiment_update("--- Experimental run ---"),
+  node:experiment_update("Telling hosts to clear their logs"),
+  node:clear_logs(),
+  node:experiment_update("Telling hosts to start logging"),
+  node:start_logging(),
+  % Phase 1
+  node:experiment_update("Telling hosts to run 1 node"),
+  node:ensure_running_n_nodes(1),
+  node:experiment_update("Waiting 3 minutes"),
+  wait_minutes(3),
+  node:experiment_update("Starting phase 1"),
+  start_experimental_phase(State),
+  % Phase 2
+  node:experiment_update("Telling hosts to run 2 nodes"),
+  node:ensure_running_n_nodes(2),
+  node:experiment_update("Waiting 3 minutes"),
+  wait_minutes(3),
+  node:experiment_update("Starting phase 2"),
+  start_experimental_phase(State),
+  % Phase 3
+  node:experiment_update("Telling hosts to run 4 nodes"),
+  node:ensure_running_n_nodes(4),
+  node:experiment_update("Waiting 3 minutes"),
+  wait_minutes(3),
+  node:experiment_update("Starting phase 3"),
+  start_experimental_phase(State),
+  % Phase 4
+  node:experiment_update("Telling hosts to run 8 nodes"),
+  node:ensure_running_n_nodes(8),
+  node:experiment_update("Waiting 3 minutes"),
+  wait_minutes(3),
+  node:experiment_update("Starting phase 4"),
+  start_experimental_phase(State),
+  % Clean up
+  node:experiment_update("--- Experiments done ---"),
+  node:experiment_update("Stopping logging"),
+  node:stop_logging(),
+  node:experiment_update("Getting logs"),
+  node:get_logs(),
+  node:experiment_update("Shutting down nodes"),
+  node:ensure_running_n_nodes(0),
+  node:experiment_update("Experiment done. Thanks!").
+
+start_experimental_phase(State) ->
+  run_rampup(State),
+  run_experimental_phase(State).
+
+run_experimental_phase(State) ->
+  receive 
+    stop_current_run ->
+      node:experiment_update("Current experimental phase completed"),
+      stop_experimental_phase(State);
+    Msg ->
+      error_handler:error_msg("Received unknown message in experimental runner: ~p", [Msg]),
+      run_experimental_phase(State)
+  after 30*60*1000 ->
+    node:experiment_update("Experimental run timed out"),
+    stop_experimental_phase(State)
+  end.
+
+run_rampup(State) -> perform(fun(_, C) -> hub_tcp:run_rampup(C) end, undefined, State).
+stop_experimental_phase(State) -> perform(fun(_, C) -> hub_tcp:stop_experimental_phase(C) end, undefined, State).
+    
+wait_minutes(Minutes) ->
+  receive after Minutes * 1000 -> ok end.
 
 %% ------------------------------------------------------------------
 %% Tests

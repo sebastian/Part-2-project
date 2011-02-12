@@ -14,5 +14,7 @@
 -record(state, {
     log_status = not_logging,
     mode,
-    controllers = [] :: [#controller{}]
+    controllers = [] :: [#controller{}],
+    experiment_pid :: pid(),
+    experiment_stats = []
 }).

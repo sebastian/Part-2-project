@@ -22,7 +22,8 @@
 
 -export([start_link/1, start/1, stop/0]).
 -export([
-    register_controller/3
+    register_controller/3,
+    stop_experimental_phase/0
   ]).
 
 %% ------------------------------------------------------------------
@@ -35,6 +36,9 @@
 %% ------------------------------------------------------------------
 %% API Function Definitions
 %% ------------------------------------------------------------------
+
+stop_experimental_phase() ->
+  perform_rpc(stop_experimental_phase, ?RENDEVOUZ_HOST, ?RENDEVOUZ_PORT).
 
 register_controller(Port, RendevouzHost, RendevouzPort) ->
   perform_rpc({register_controller, Port}, RendevouzHost, RendevouzPort).
@@ -157,6 +161,18 @@ handle_msg({logger, Action}) ->
 
 handle_msg(upgrade_system) ->
   controller:perform_update(),
+  ok;
+
+handle_msg({run_n_nodes, N}) ->
+  controller:ensure_n_nodes_running(N),
+  ok;
+
+handle_msg(run_rampup) ->
+  controller:run_rampup(),
+  ok;
+
+handle_msg(stop_experimental_phase) ->
+  controller:stop_experimental_phase(),
   ok;
 
 handle_msg(Msg) ->

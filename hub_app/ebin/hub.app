@@ -18,6 +18,7 @@
              ignition_resource,
              logging_resource,
              system_resource,
+             experiment_resource,
              auth_mod
             ]},
   {registered, []},

@@ -62,10 +62,9 @@ stop(Pid) ->
 -spec(lookup/2::(pid(), Key::key()) -> [#entry{}]).
 lookup(Pid, Key) ->
   logger:log(Pid, Key, start_lookup),
-  Return = chord_tcp:rpc_lookup_key(Key, find_successor(Pid, Key)),
+  {ok, Return} = chord_tcp:rpc_lookup_key(Key, find_successor(Pid, Key)),
   logger:log(Pid, Key, end_lookup),
-  {ok, Values} = Return,
-  Values.
+  Return.
 
 %% @doc: stores a value in the chord network
 -spec(set/3::(pid(), Key::key(), Entry::#entry{}) -> ok).

@@ -28,6 +28,7 @@
 -export([
     live_nodes/0,
     switch_mode_to/1,
+    ensure_running_n_nodes/1,
     start_nodes/1,
     stop_nodes/1
   ]).
@@ -42,6 +43,16 @@
 % For updating
 -export([
     perform_upgrade/0
+  ]).
+% For running experiments
+% From hub application
+-export([
+    % From hub application
+    start_experiment/0,
+    clear_experiment/0,
+    experiment_update/1,
+    % From controllers
+    stop_experiment/0
   ]).
 
 %% ------------------------------------------------------------------
@@ -125,12 +136,29 @@ live_nodes() ->
 switch_mode_to(Mode) ->
   gen_server:cast(?MODULE, {switch_mode_to, Mode}).
 
+ensure_running_n_nodes(N) ->
+  gen_server:cast(?MODULE, {ensure_running_n, N}).
+
 start_nodes(N) ->
   gen_server:cast(?MODULE, {start_nodes, N}).
 
 stop_nodes(N) ->
   gen_server:cast(?MODULE, {stop_nodes, N}).
 
+% -------------------------------------------------------------------
+% Experiements ------------------------------------------------------
+
+start_experiment() ->
+  gen_server:cast(?MODULE, start_experiment).
+
+clear_experiment() ->
+  gen_server:cast(?MODULE, clear_experiment).
+
+experiment_update(Update) ->
+  gen_server:cast(?MODULE, {experiment_update, Update}).
+
+stop_experiment() ->
+  gen_server:cast(?MODULE, stop_experiment).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Definitions
@@ -156,8 +184,8 @@ handle_call(get_logs, _From, State) ->
   node_core:get_logs(State),
   {reply, ok, State#state{log_status = getting_logs}};
 
-handle_call(live_nodes, _From, #state{controllers = Controllers, log_status = LogStatus} = State) ->
-  {reply, live_state(Controllers, LogStatus), State};
+handle_call(live_nodes, _From, State) ->
+  {reply, live_state(State), State};
 
 handle_call(stop, _From, State) ->
   {stop, normal, ok, State};
@@ -171,6 +199,20 @@ handle_call(clear, _From, _State) ->
   {reply, ok, #state{}}.
 
 %% Casts:
+handle_cast(start_experiment, State) ->
+  ExperimentalRunnerPid = spawn(fun() -> node_core:experimental_runner(State) end),
+  {noreply, State#state{experiment_pid = ExperimentalRunnerPid, experiment_stats = []}};
+
+handle_cast(stop_experiment, #state{experiment_pid = ExperimentPid} = State) ->
+  ExperimentPid ! stop_current_run,
+  {noreply, State};
+
+handle_cast(clear_experiment, State) ->
+  {noreply, State#state{experiment_pid = undefined, experiment_stats = []}};
+
+handle_cast({experiment_update, Update}, #state{experiment_stats = Stats} = State) ->
+  {noreply, State#state{experiment_stats = [Update|Stats]}};
+
 handle_cast(upgrade, State) ->
   node_core:upgrade_systems(State),
   {noreply, State};
@@ -186,6 +228,10 @@ handle_cast({set_state_for_controller, Controller, ControllerState}, State) ->
 
 handle_cast({register_controller, Node}, State) ->
   {noreply, node_core:register_controller(Node, State)};
+
+handle_cast({ensure_running_n, Count}, State) ->
+  node_core:ensure_running_n(Count, State),
+  {noreply, State};
 
 handle_cast({start_nodes, Count}, State) ->
   node_core:start_nodes(Count, State),
@@ -216,11 +262,12 @@ code_change(_OldVsn, State, _Extra) ->
 %% Internal Function Definitions
 %% ------------------------------------------------------------------
 
-live_state(Controllers, LogStatus) ->
+live_state(#state{controllers = Controllers, log_status = LogStatus, experiment_stats = ExpStats}) ->
   {struct, [
       {<<"controllers">>, encode_controllers(Controllers)},
       {<<"log_status">>, LogStatus},
-      {<<"hub_version">>, ?HUB_VERSION}
+      {<<"hub_version">>, ?HUB_VERSION},
+      {<<"experiments">>, [list_to_bitstring(E) || E <- lists:reverse(ExpStats)]}
     ]}.
 
 encode_controllers(Controllers) -> 
