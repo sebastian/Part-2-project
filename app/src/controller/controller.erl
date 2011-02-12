@@ -289,7 +289,7 @@ rampup_runloop(RunPid) ->
       RunPid ! stop;
     local_stop ->
       controller_tcp:stop_experimental_phase()
-  after 60 * 10 ->
+  after 10 * 1000 ->
     RunPid ! increase_level,
     rampup_runloop(RunPid)
   end.
