@@ -158,34 +158,44 @@ experimental_runner(State) ->
   node:clear_logs(),
   node:experiment_update("Telling hosts to start logging"),
   node:start_logging(),
+  % We want to append timestamps to log
+  {ok, LogFile} = file:open(?MASTER_LOG, [append]),
   % Phase 1
   node:experiment_update("Telling hosts to run 1 node"),
   node:ensure_running_n_nodes(1),
   node:experiment_update("Waiting 3 minutes"),
   wait_minutes(3),
   node:experiment_update("Starting phase 1"),
+  logPhaseStart(LogFile),
   start_experimental_phase(State),
+  logPhaseDone(LogFile),
   % Phase 2
   node:experiment_update("Telling hosts to run 2 nodes"),
   node:ensure_running_n_nodes(2),
   node:experiment_update("Waiting 3 minutes"),
   wait_minutes(3),
   node:experiment_update("Starting phase 2"),
+  logPhaseStart(LogFile),
   start_experimental_phase(State),
+  logPhaseDone(LogFile),
   % Phase 3
   node:experiment_update("Telling hosts to run 4 nodes"),
   node:ensure_running_n_nodes(4),
   node:experiment_update("Waiting 3 minutes"),
   wait_minutes(3),
   node:experiment_update("Starting phase 3"),
+  logPhaseStart(LogFile),
   start_experimental_phase(State),
+  logPhaseDone(LogFile),
   % Phase 4
   node:experiment_update("Telling hosts to run 8 nodes"),
   node:ensure_running_n_nodes(8),
   node:experiment_update("Waiting 3 minutes"),
   wait_minutes(3),
   node:experiment_update("Starting phase 4"),
+  logPhaseStart(LogFile),
   start_experimental_phase(State),
+  logPhaseDone(LogFile),
   % Clean up
   node:experiment_update("--- Experiments done ---"),
   node:experiment_update("Stopping logging"),
@@ -194,7 +204,19 @@ experimental_runner(State) ->
   node:get_logs(),
   node:experiment_update("Shutting down nodes"),
   node:ensure_running_n_nodes(0),
-  node:experiment_update("Experiment done. Thanks!").
+  node:experiment_update("Experiment done. Thanks!"),
+  file:close(LogFile).
+
+logPhaseStart(LogFile) -> logPhaseWrite(LogFile, start).
+
+logPhaseDone(LogFile) -> logPhaseWrite(LogFile, done).
+
+logPhaseWrite(LogFile, Message) ->
+  {_, S, Ms} = erlang:now(),
+  Time = S * 1000 + trunc(Ms / 1000),
+  {NumHosts, NumNodes} = node:get_num_of_hosts_and_nodes(),
+  LogEntry = lists:flatten(io_lib:format("ctrl;~p;~p;~p;~p~n", [Message, Time, NumHosts, NumNodes])),
+  file:write(LogFile, LogEntry).
 
 start_experimental_phase(State) ->
   run_rampup(State),

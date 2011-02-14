@@ -38,7 +38,8 @@
     stop_logging/0,
     clear_logs/0,
     get_logs/0,
-    logs_gotten/0
+    logs_gotten/0,
+    get_num_of_hosts_and_nodes/0
   ]).
 % For updating
 -export([
@@ -116,6 +117,9 @@ get_logs() ->
 logs_gotten() ->
   gen_server:cast(?MODULE, logs_gotten).
 
+get_num_of_hosts_and_nodes() ->
+  gen_server:call(?MODULE, get_num_of_hosts_and_nodes).
+
 % -------------------------------------------------------------------
 % Upgrading software ------------------------------------------------
 
@@ -186,6 +190,11 @@ handle_call(get_logs, _From, State) ->
 
 handle_call(live_nodes, _From, State) ->
   {reply, live_state(State), State};
+
+handle_call(get_num_of_hosts_and_nodes, _From, #state{controllers = Ctrls} = State) ->
+  LiveHosts = length(Ctrls),
+  LiveNodes = lists:foldl(fun(C,A) -> length(C#controller.ports) + A end, 0, Ctrls),
+  {reply, {LiveHosts, LiveNodes}, State};
 
 handle_call(stop, _From, State) ->
   {stop, normal, ok, State};
