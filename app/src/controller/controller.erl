@@ -272,12 +272,13 @@ all_ports(Nodes) ->
     history = []
   }).
 perform_rampup(#controller_state{nodes = Nodes, mode = Mode}) ->
-  Node = (hd(Nodes))#controller_node.dht_pid,
-  Type = case Mode of
-    pastry -> pastry_app;
-    OtherDht -> OtherDht
+  Node = hd(Nodes),
+  {Type, Pid} = case Mode of
+    pastry -> {pastry_app, Node#controller_node.app_pid};
+    OtherDht -> {OtherDht, Node#controller_node.dht_pid}
   end,
-  RunState = #exp_info{dht_pid = Node, dht = Type},
+  io:format("Running experiment on ~p~n", [Type]),
+  RunState = #exp_info{dht_pid = Pid, dht = Type},
   SelfPid = self(),
   RunPid = spawn(fun() -> perform_run(RunState, SelfPid) end),
   rampup_runloop(RunPid).

@@ -59,12 +59,12 @@ stop() ->
 %   lookup_datastore,
 %   set_datastore
 log(NodeId, Key, Action) ->
-  TimeNow = utilities:get_time(),
+  TimeNow = utilities:get_highres_time(),
   gen_server:cast(?MODULE, {log, NodeId, Key, Action, TimeNow}).
 
 % Logs the amount of bandwidth consumed by a message
 log_data(Msg, Data) ->
-  TimeNow = utilities:get_time(),
+  TimeNow = utilities:get_highres_time(),
   gen_server:cast(?MODULE, {log_data, Msg, Data, TimeNow}).
 
 start_logging() ->

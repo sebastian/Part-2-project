@@ -22,6 +22,11 @@ key_for_normalized_string(String) ->
 get_time() ->
   calendar:datetime_to_gregorian_seconds(erlang:universaltime()).
 
+-spec(get_highres_time/0::() -> integer()).
+get_highres_time() ->
+  {_, S, Ms} = erlang:now(),
+  S * 1000 + trunc(Ms / 1000).
+
 -spec(get_join_nodes/2::(Ip::ip(), Port::port_number()) -> {ip(), port_number()} | first).
 get_join_nodes(Ip, Port) ->
   io:format("Trying get join_nodes with Ip: ~p, and port: ~p~n", [Ip, Port]),

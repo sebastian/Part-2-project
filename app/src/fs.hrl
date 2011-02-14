@@ -5,8 +5,8 @@
 -define(VERSION, 4).
 
 % Rendevouz host
-%-define(RENDEVOUZ_HOST, "localhost").
--define(RENDEVOUZ_HOST, "hub.probsteide.com").
+-define(RENDEVOUZ_HOST, "localhost").
+%-define(RENDEVOUZ_HOST, "hub.probsteide.com").
 -define(RENDEVOUZ_PORT, 6001).
 
 -define(TCP_TIMEOUT, 5000).

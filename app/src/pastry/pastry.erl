@@ -240,7 +240,12 @@ handle_cast(welcomed, State) ->
   {noreply, State};
 
 handle_cast({route, Msg, Key}, #pastry_state{pastry_app_pid = PastryAppPid} = State) ->
-  logger:log(PastryAppPid, Key, route),
+  LoggableKey = case Msg of
+    {lookup_key, NumericKey, _, _} -> NumericKey;
+    _ -> Key
+  end,
+  io:format("Got message: ~p~n", [Msg]),
+  logger:log(PastryAppPid, LoggableKey, route),
   route_msg(Msg, Key, State),
   {noreply, State};
 
