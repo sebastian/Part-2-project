@@ -54,12 +54,18 @@ get_not_me(Node, Controllers) ->
   case rendevouz_nodes_from_controllers(ControllersNotMyOwn) of
     [] ->
       % We didn't get a match for match nodes only in other controllers: widen search
-      case rendevouz_nodes_from_controllers(Controllers) of
+      case rendevouz_nodes_from_controllers(randomize_starting_point(Controllers)) of
         [] -> first;
         RendevouzNodes -> RendevouzNodes
       end;
     RendevouzNodes -> RendevouzNodes
   end.
+
+randomize_starting_point(List) when length(List) < 2 -> List;
+randomize_starting_point(List) ->
+  Length = length(List),
+  Num = random:uniform(Length),
+  lists:sublist(List, Num + 1, Length - Num) ++ lists:sublist(List, Num). 
 
 rendevouz_nodes_from_controllers(Controllers) ->
   NumToGet = 5,
@@ -493,5 +499,19 @@ register_node_in_controllers_test() ->
   Node = #node{ip = SharedIp, port = 2},
   [#controller{ports = Ports}, _C2N] = register_node_in_controllers(Node, ControllerList),
   ?assert(member(2, Ports)).
+
+assert_same_items(As, Bs) ->
+  [?assert(lists:member(A, Bs)) || A <- As].
+
+randomize_starting_point_test() ->
+  List = [a,b,c,d],
+  RandomOrder = randomize_starting_point(List),
+  ?assertNot(List =:= RandomOrder),
+  ?assertEqual(length(List), length(RandomOrder)),
+  assert_same_items(List, RandomOrder).
+
+randomize_starting_point_short_lists_test() ->
+  ?assertEqual([], randomize_starting_point([])),
+  ?assertEqual([a], randomize_starting_point([a])).
 
 -endif.
