@@ -78,23 +78,17 @@ start_node() ->
 stop_node() ->
   gen_server:cast(?MODULE, stop_node).
 
-start_nodes(N) -> perform_start_stop(N, start).
-
-stop_nodes(N) -> perform_start_stop(N, stop).
-
-perform_start_stop(N, Action) ->
+start_nodes(N) -> 
   [
     begin
       Spacing = random:uniform(300),
       receive after Spacing -> ok end,
-      case Action of
-        start ->
-          start_node();
-        stop ->
-          stop_node()
-      end
+      start_node()
     end || _ <- lists:seq(1, N)
   ].
+
+stop_nodes(N) -> 
+  [stop_node() || _ <- lists:seq(1, N)].
 
 switch_mode_to(Mode) ->
   gen_server:cast(?MODULE, {new_mode, Mode}).
