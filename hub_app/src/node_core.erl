@@ -77,7 +77,7 @@ randomize_starting_point(List) ->
   lists:sublist(List, Num + 1, Length - Num) ++ lists:sublist(List, Num). 
 
 rendevouz_nodes_from_controllers(Controllers) ->
-  NumToGet = 5,
+  NumToGet = 10,
   case Controllers of
     [] -> [];
     _ ->
@@ -372,22 +372,27 @@ get_not_me_test() ->
   ReturnPort4 = 4447,
   ReturnPort5 = 4448,
   ReturnPort6 = 4449,
+  ReturnPort7 = 44410,
+  ReturnPort8 = 44411,
+  ReturnPort9 = 44412,
+  ReturnPort10 = 44413,
+  ReturnPort11 = 44414,
 
   Controller = #controller{
     ip = Ip2,
     port = Port2,
     mode = chord,
-    ports = [ReturnPort1, ReturnPort2]
+    ports = [ReturnPort1, ReturnPort2, ReturnPort7, ReturnPort8, ReturnPort9]
   },
   Controller2 = #controller{
     ip = Ip3,
     port = Port3,
     mode = chord,
-    ports = [ReturnPort3, ReturnPort4, ReturnPort5, ReturnPort6]
+    ports = [ReturnPort3, ReturnPort4, ReturnPort5, ReturnPort6, ReturnPort10, ReturnPort11]
   },
   ReturnValues = [
-    {Ip2, ReturnPort1}, {Ip2, ReturnPort2},
-    {Ip3, ReturnPort3}, {Ip3, ReturnPort4}, {Ip3, ReturnPort5}
+    {Ip2, ReturnPort1}, {Ip2, ReturnPort2}, {Ip2, ReturnPort7}, {Ip2, ReturnPort8}, {Ip2, ReturnPort9},
+    {Ip3, ReturnPort3}, {Ip3, ReturnPort4}, {Ip3, ReturnPort5}, {Ip3, ReturnPort6}, {Ip3, ReturnPort10}
   ],
   Returned = get_not_me(Node, [Controller, Controller2]),
   [?assert(member(N, ReturnValues)) || N <- Returned].

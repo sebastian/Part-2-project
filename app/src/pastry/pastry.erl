@@ -161,14 +161,21 @@ init(Args) ->
   end),
 
   Port = receive {port, TcpPort} -> TcpPort end,
+  rendevouz(Port, ControllingProcess, Args).
 
+rendevouz(Port, ControllingProcess, Args) ->
+  try_to_rendevouz(Port, ControllingProcess, Args, undefined, 5).
+
+try_to_rendevouz(_Port, ControllingProcess, _Args, Reason, 0) ->
+  controller:dht_failed_start(ControllingProcess),
+  {stop, {couldnt_rendevouz, Reason}};
+try_to_rendevouz(Port, ControllingProcess, Args, _Reason, N) ->
   case pastry_tcp:rendevouz(Port, ?RENDEVOUZ_HOST, ?RENDEVOUZ_PORT) of
     {MyIp, first} -> 
       controller:dht_successfully_started(ControllingProcess),
       {ok, post_rendevouz_state_update(MyIp, Port, Args)};
     {error, Reason} -> 
-      controller:dht_failed_start(ControllingProcess),
-      {stop, {couldnt_rendevouz, Reason}};
+      try_to_rendevouz(Port, ControllingProcess, Args, Reason, N-1);
     {MyIp, Nodes} -> perform_join(Nodes, post_rendevouz_state_update(MyIp, Port, Args), ControllingProcess)
   end.
 
