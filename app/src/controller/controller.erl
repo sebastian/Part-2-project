@@ -109,8 +109,7 @@ perform_update() ->
     os:cmd("git pull"),
     io:format("System upgrade complete!~n"),
     io:format("Restarting system!~n"),
-    fs:stop(),
-    fs:start()
+    fs:restart()
   end),
   ok.
 

@@ -5,7 +5,7 @@
 
 -module(fs).
 -author('Sebastian Probst Eide <sebastian.probst.eide@gmail.com').
--export([start/0, start_link/0, stop/0]).
+-export([start/0, start_link/0, stop/0, restart/0]).
 
 ensure_started(App) ->
     case application:start(App) of
@@ -18,31 +18,37 @@ ensure_started(App) ->
 %% @spec start_link() -> {ok,Pid::pid()}
 %% @doc Starts the app for inclusion in a supervisor tree
 start_link() ->
-    ensure_started(inets),
-    ensure_started(crypto),
-    ensure_started(mochiweb),
-    application:set_env(webmachine, webmachine_logger_module, 
-                        webmachine_logger),
-    ensure_started(webmachine),
-    fs_sup:start_link().
+  ensure_started(inets),
+  ensure_started(crypto),
+  ensure_started(mochiweb),
+  application:set_env(webmachine, webmachine_logger_module, 
+                      webmachine_logger),
+  ensure_started(webmachine),
+  fs_sup:start_link().
 
 %% @spec start() -> ok
 %% @doc Start the fs server.
 start() ->
-    ensure_started(inets),
-    ensure_started(crypto),
-    ensure_started(mochiweb),
-    application:set_env(webmachine, webmachine_logger_module, 
-                        webmachine_logger),
-    ensure_started(webmachine),
-    application:start(fs).
+  ensure_started(inets),
+  ensure_started(crypto),
+  ensure_started(mochiweb),
+  application:set_env(webmachine, webmachine_logger_module, 
+                      webmachine_logger),
+  ensure_started(webmachine),
+  application:start(fs).
 
 %% @spec stop() -> ok
 %% @doc Stop the fs_web server.
 stop() ->
-    Res = application:stop(fs),
-    application:stop(webmachine),
-    application:stop(mochiweb),
-    application:stop(crypto),
-    application:stop(inets),
-    Res.
+  Res = application:stop(fs),
+  application:stop(webmachine),
+  application:stop(mochiweb),
+  application:stop(crypto),
+  application:stop(inets),
+  Res.
+
+restart() ->
+  spawn(fun() ->
+    stop(),
+    start()
+  end).
