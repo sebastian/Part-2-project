@@ -34,12 +34,21 @@ register_node(Node, #state{controllers = Controllers} = State) ->
   {get_not_me(Node, Controllers), State#state{controllers = UpdatedControllersList}}.
 
 register_node_in_controllers(Node, Controllers) ->
-  MatchingControllers = [C || C <- Controllers, C#controller.ip =:= Node#node.ip],
-  #controller{ports = Ports} = MatchingController = hd(MatchingControllers),
-  % Why this inefficient adding of the port to the end of the list? Because we don't want to
-  % rendevouz with new ports which don't have stable routing information unless we don't 
-  % have any other option
-  [MatchingController#controller{ports = Ports ++ [Node#node.port]} | (Controllers -- [MatchingController])].
+  AllPorts = lists:foldl(fun(#controller{ports = P}, Ps) -> P ++ Ps end, [], Controllers),
+  case length(AllPorts) of
+    0 ->
+      % This is the first node that is registering.
+      % We add the port to the list even before we get to know about it
+      % through pinging the nodes so that the other nodes trying to connect
+      % have a node to connect to.
+      MatchingControllers = [C || C <- Controllers, C#controller.ip =:= Node#node.ip],
+      MatchingController = hd(MatchingControllers),
+      [MatchingController#controller{ports = [Node#node.port]} | (Controllers -- [MatchingController])];
+    _ ->
+      % There are already ports in the list, hence this node is not the first.
+      % We will be notified about it when we ping its controller the next time
+      Controllers
+  end.
 
 register_controller(Controller, #state{controllers = Controllers} = State) ->
   keep_while_alive(Controller),
@@ -493,7 +502,26 @@ stop_node_test() ->
   stop_nodes(1, State),
   erlymock:verify().
 
-register_node_in_controllers_test() ->
+register_node_in_controllers_first_node_test() ->
+  SharedIp = {1,2,3,4},
+  C1 = #controller{
+    ip = SharedIp,
+    port = 1234,
+    ports = []
+  },
+  C2 = #controller{
+    ip = {2,2,3,4},
+    port = 2234,
+    ports = []
+  },
+  ControllerList = [C1, C2],
+  Node = #node{ip = SharedIp, port = 2},
+  [#controller{ports = Ports}, _C2N] = register_node_in_controllers(Node, ControllerList),
+  % There are no ports in the system. We therefore register
+  % this node so that subsequent nodes have someone to randevouz with
+  ?assert(member(2, Ports)).
+
+register_node_in_controllers_not_first_node_test() ->
   SharedIp = {1,2,3,4},
   C1 = #controller{
     ip = SharedIp,
@@ -508,7 +536,9 @@ register_node_in_controllers_test() ->
   ControllerList = [C1, C2],
   Node = #node{ip = SharedIp, port = 2},
   [#controller{ports = Ports}, _C2N] = register_node_in_controllers(Node, ControllerList),
-  ?assert(member(2, Ports)).
+  % It should not register a port unless there are absolutely no 
+  % other ports in the system.
+  ?assertNot(member(2, Ports)).
 
 assert_same_items(As, Bs) ->
   [?assert(lists:member(A, Bs)) || A <- As].
