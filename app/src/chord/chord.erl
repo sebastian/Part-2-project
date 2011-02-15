@@ -512,6 +512,7 @@ get_first_successor(SuccessorFingers) ->
 % @doc: sets the successor and returns the updated state.
 -spec(set_successor/2::(Successor::#node{}, State::#chord_state{}) ->
     #chord_state{}).
+set_successor(undefined, State) -> State;
 set_successor(Successor, #chord_state{self = Self} = State) when Successor =:= Self -> State;
 set_successor(Successor, #chord_state{predecessor = Predecessor, self = Self} = State) ->
   Fingers = State#chord_state.fingers,
@@ -776,6 +777,11 @@ get_successor_test() ->
   Fingers = array:set(0, [#finger_entry{node=Successor}], create_finger_table(Id)),
   State = #chord_state{self = Self, fingers = Fingers},
   ?assertEqual(Successor, perform_get_successor(State)).
+
+
+set_successor_should_return_unaffected_state_if_called_with_undefined_test() ->
+  State = test_get_state(),
+  State = set_successor(undefined, State).
 
 
 set_successor_test() ->
