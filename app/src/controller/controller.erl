@@ -110,11 +110,7 @@ perform_update() ->
     os:cmd("git pull"),
     io:format("System upgrade complete!~n"),
     io:format("Restarting system!~n"),
-    supervisor:terminate_child(fs_sup, chord_sofo),
-    supervisor:terminate_child(fs_sup, pastry_sofo),
-    supervisor:restart_child(fs_sup, chord_sofo),
-    supervisor:restart_child(fs_sup, pastry_sofo),
-    reset_node_count()
+    restart_sofos()
   end),
   ok.
 
@@ -199,6 +195,7 @@ handle_cast({new_mode, NewMode}, State) when NewMode =:= pastry ; NewMode =:= ch
   % Stop all nodes
   NoNodeState = perform_stop_nodes(State),
   datastore_srv:clear(),
+  restart_sofos(),
   {noreply, NoNodeState#controller_state{mode = NewMode}};
 
 handle_cast({register_node, Node}, #controller_state{mode = Mode, nodes = Nodes} = State) ->
@@ -247,6 +244,13 @@ code_change(_OldVsn, State, _Extra) ->
 %% ------------------------------------------------------------------
 %% Internal Function Definitions
 %% ------------------------------------------------------------------
+
+restart_sofos() ->
+  supervisor:terminate_child(fs_sup, chord_sofo),
+  supervisor:terminate_child(fs_sup, pastry_sofo),
+  supervisor:restart_child(fs_sup, chord_sofo),
+  supervisor:restart_child(fs_sup, pastry_sofo),
+  reset_node_count().
 
 rereg_with_hub(Port) ->
   controller_tcp:register_controller(Port, ?RENDEVOUZ_HOST, ?RENDEVOUZ_PORT).
