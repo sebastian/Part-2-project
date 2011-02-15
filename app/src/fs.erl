@@ -5,7 +5,7 @@
 
 -module(fs).
 -author('Sebastian Probst Eide <sebastian.probst.eide@gmail.com').
--export([start/0, start_link/0, stop/0, restart/0]).
+-export([start/0, start_link/0, stop/0]).
 
 ensure_started(App) ->
     case application:start(App) of
@@ -46,9 +46,3 @@ stop() ->
   application:stop(crypto),
   application:stop(inets),
   Res.
-
-restart() ->
-  spawn(fun() ->
-    stop(),
-    start()
-  end).

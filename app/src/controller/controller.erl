@@ -40,6 +40,7 @@
     get_controlling_process/0,
     ping/0,
     perform_update/0,
+    reset_node_count/0,
     rereg_with_hub/1,
     % For experiments
     run_rampup/0,
@@ -109,9 +110,16 @@ perform_update() ->
     os:cmd("git pull"),
     io:format("System upgrade complete!~n"),
     io:format("Restarting system!~n"),
-    fs:restart()
+    supervisor:terminate_child(fs_sup, chord_sofo),
+    supervisor:terminate_child(fs_sup, pastry_sofo),
+    supervisor:restart_child(fs_sup, chord_sofo),
+    supervisor:restart_child(fs_sup, pastry_sofo),
+    reset_node_count()
   end),
   ok.
+
+reset_node_count() ->
+  gen_server:cast(?MODULE, reset_node_count).
 
 ensure_n_nodes_running(N) ->
   gen_server:cast(?MODULE, {ensure_n_nodes_running, N}).
@@ -150,6 +158,9 @@ handle_call(stop, _From, State) ->
   {stop, normal, ok, State}.
 
 %% Casts:
+handle_cast(reset_node_count, State) ->
+  {noreply, State#controller_state{nodes = []}};
+
 handle_cast(run_rampup, State) ->
   Pid = spawn(fun() -> perform_rampup(State) end),
   {noreply, State#controller_state{experiment_pid = Pid}};
