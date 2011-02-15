@@ -95,7 +95,7 @@ receive_data(Socket, SoFar) ->
         {ok, binary_to_term(list_to_binary(lists:reverse(SoFar)))}
       catch
         error:badarg ->
-          error_logger:error_msg("Response returned by other part couldn't be parsed"),
+          error_logger:error_msg("Response returned by other part couldn't be parsed: ~p~n", [lists:reverse(SoFar)]),
           {error, badarg}
       end
   after ?TIMEOUT ->
