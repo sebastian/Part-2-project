@@ -371,7 +371,7 @@ new_request(#exp_info{req_id = Id, dht = Dht, dht_pid = DhtPid} = State) ->
     end),
     receive
       ok -> ControllingPid ! request_success
-    after 1000 -> ControllingPid ! request_failed
+    after 2000 -> ControllingPid ! request_failed
     end
   end),
   State#exp_info{req_id = Id + 1}.
