@@ -10,7 +10,7 @@
 
 -define(TCP_OPTS, [binary, inet,
                    {active,    true},
-                   {backlog,   50},
+                   {backlog,   100},
                    {nodelay,   true},
                    {packet,    0},
                    {reuseaddr, true}]).
