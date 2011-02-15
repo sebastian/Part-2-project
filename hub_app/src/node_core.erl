@@ -239,8 +239,8 @@ run_rampup(State) -> perform(fun(_, C) -> hub_tcp:run_rampup(C) end, undefined, 
 stop_experimental_phase(State) -> perform(fun(_, C) -> hub_tcp:stop_experimental_phase(C) end, undefined, State).
     
 wait_minutes(Minutes) ->
-  receive after Minutes * 60 * 10 -> ok end.
-  %receive after Minutes * 60 * 1000 -> ok end.
+  %receive after Minutes * 60 * 10 -> ok end.
+  receive after Minutes * 60 * 1000 -> ok end.
 
 %% ------------------------------------------------------------------
 %% Tests
