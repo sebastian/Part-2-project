@@ -399,7 +399,13 @@ end_init_dht(Mode, Node, DhtCallbackPid) ->
     dht_success ->
       start_app(Mode, Node, DhtCallbackPid);
     dht_failed_start ->
-      io:format("Failed to start dht. Should stop TCP!?~n")
+      TcpPid = Node#controller_node.tcp_pid,
+      case Mode of
+        pastry -> 
+          pastry_tcp:stop(TcpPid);
+        chord ->
+          chord_tcp:stop(TcpPid)
+      end
   end.
 
 start_app(chord, Node, _DhtCallbackPid) ->
