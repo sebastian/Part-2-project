@@ -369,10 +369,6 @@ register_pastry_app(ControllingProcess, AppPid) ->
   ControllingProcess ! {reg_app, AppPid}.
 
 start_node(Mode) ->
-  % Wait a random amount of time so nodes
-  % don't all start at the same time
-  Time = random:uniform(10000),
-  receive after Time -> ok end,
   spawn(fun() -> start_tcp(Mode) end).
 
 start_tcp(Mode) ->
