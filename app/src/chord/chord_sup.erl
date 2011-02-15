@@ -40,7 +40,9 @@ upgrade() ->
 %% @doc supervisor callback.
 init(_Args) ->
   % The controller process that interlinks the processes
+  io:format("Getting new controlling process in chord_sup~n"),
   ControllingProcess = controller:get_controlling_process(),
+  io:format("Got new controlling process in chord_sup~n"),
   ControllingProcessArg = [{controllingProcess, ControllingProcess}],
   PortArg = [{port, 10000}],
 
