@@ -75,14 +75,26 @@ register_started_node(Node) ->
 start_node() ->
   gen_server:cast(?MODULE, start_node).
 
-start_nodes(N) ->
-  [start_node() || _ <- lists:seq(1, N)].
-
 stop_node() ->
   gen_server:cast(?MODULE, stop_node).
 
-stop_nodes(N) ->
-  [stop_node() || _ <- lists:seq(1, N)].
+start_nodes(N) -> perform_start_stop(N, start).
+
+stop_nodes(N) -> perform_start_stop(N, stop).
+
+perform_start_stop(N, Action) ->
+  [
+    begin
+      Spacing = random:uniform(300),
+      receive after Spacing -> ok end,
+      case Action of
+        start ->
+          start_node();
+        stop ->
+          stop_node()
+      end
+    end || _ <- lists:seq(1, N)
+  ].
 
 switch_mode_to(Mode) ->
   gen_server:cast(?MODULE, {new_mode, Mode}).
@@ -151,12 +163,14 @@ handle_cast(stop_experimental_phase, #controller_state{experiment_pid = Pid} = S
   {noreply, State#controller_state{experiment_pid = undefined}};
 
 handle_cast({ensure_n_nodes_running, N}, #controller_state{nodes = Nodes} = State) ->
-  NodeCount = length(Nodes),
-  NodeDiff = abs(NodeCount - N),
-  case NodeCount > N of
-    true -> stop_nodes(NodeDiff);
-    false -> start_nodes(NodeDiff)
-  end,
+  spawn(fun() ->
+    NodeCount = length(Nodes),
+    NodeDiff = abs(NodeCount - N),
+    case NodeCount > N of
+      true -> stop_nodes(NodeDiff);
+      false -> start_nodes(NodeDiff)
+    end
+  end),
   {noreply, State};
 
 handle_cast(start_node, #controller_state{mode = Mode} = State) ->

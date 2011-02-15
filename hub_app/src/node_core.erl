@@ -160,7 +160,7 @@ perform(Fun, Args, #state{controllers = Controllers}) ->
     % We want to spread out the communication a little bit, so that nodes starting can
     % have more time to join, and we don't overload nodes
     begin
-      Time = random:uniform(300),
+      Time = random:uniform(400),
       receive after Time -> ok end,
       % Now contact the other node
       spawn(fun() -> Fun(Args, C) end) 
