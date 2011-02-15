@@ -142,7 +142,7 @@ perform_get_logs(Controllers) ->
       case hub_tcp:rpc_logger(get_data, Controller) of
         {ok, Data} -> file:write(IoWriter, Data);
         {error, Reason} -> 
-          error_handler:error_msg("Couldn't receive log data for reason ~p from controller ~p~n",
+          error_logger:error_msg("Couldn't receive log data for reason ~p from controller ~p~n",
             [Reason, Controller])
       end,
       RetPid ! done
@@ -253,7 +253,7 @@ run_experimental_phase(State) ->
       node:experiment_update("Current experimental phase completed"),
       stop_experimental_phase(State);
     Msg ->
-      error_handler:error_msg("Received unknown message in experimental runner: ~p", [Msg]),
+      error_logger:error_msg("Received unknown message in experimental runner: ~p", [Msg]),
       run_experimental_phase(State)
   after 30*60*1000 ->
     node:experiment_update("Experimental run timed out"),
