@@ -155,7 +155,17 @@ ensure_running_n(Count, State) -> perform(fun(N, C) -> hub_tcp:ensure_running_n(
 start_nodes(Count, State) -> perform(fun(N, C) -> hub_tcp:start_nodes(N, C) end, Count, State).
 stop_nodes(Count, State) -> perform(fun(N, C) -> hub_tcp:stop_nodes(N, C) end, Count, State).
 
-perform(Fun, Args, #state{controllers = Controllers}) -> [spawn(fun() -> Fun(Args, C) end) || C <- Controllers].
+perform(Fun, Args, #state{controllers = Controllers}) -> 
+  [
+    % We want to spread out the communication a little bit, so that nodes starting can
+    % have more time to join, and we don't overload nodes
+    begin
+      Time = random:uniform(300),
+      receive after Time -> ok end,
+      % Now contact the other node
+      spawn(fun() -> Fun(Args, C) end) 
+    end || C <- Controllers
+  ].
 
 % Called to initiate an experimental run
 experimental_runner(State) ->
