@@ -107,7 +107,10 @@ perform_update() ->
     io:format("Upgrading system...~n"),
     io:format(" Downloading new code~n"),
     os:cmd("git pull"),
-    io:format("System upgrade complete!~n")
+    io:format("System upgrade complete!~n"),
+    io:format("Restarting system!~n"),
+    fs:stop(),
+    fs:start()
   end),
   ok.
 
