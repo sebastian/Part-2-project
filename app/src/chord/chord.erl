@@ -1086,4 +1086,37 @@ replicate_entry_test() ->
   erlymock:verify().
 
 
+perform_join_test() ->
+  State = test_get_state(),
+  OwnKey = (State#chord_state.self)#node.key,
+  JoinIp1 = {1,2,3,4},
+  JoinPort1 = 1234,
+  JoinIp2 = {2,3,4,5},
+  JoinPort2 = 2345,
+  JoinPorts = [{JoinIp1, JoinPort1}, {JoinIp2, JoinPort2}],
+
+  Succ = #node{key = 6789},
+  erlymock:start(),
+  erlymock:o_o(chord_tcp, rpc_find_successor, [OwnKey, JoinIp1, JoinPort1], [{return, {error, something}}]),
+  erlymock:o_o(chord_tcp, rpc_find_successor, [OwnKey, JoinIp2, JoinPort2], [{return, {ok, Succ}}]),
+  erlymock:replay(),
+  perform_join(JoinPorts, State),
+  erlymock:verify().
+
+perform_join_all_fail_test() ->
+  State = test_get_state(),
+  OwnKey = (State#chord_state.self)#node.key,
+  JoinIp1 = {1,2,3,4},
+  JoinPort1 = 1234,
+  JoinIp2 = {2,3,4,5},
+  JoinPort2 = 2345,
+  JoinPorts = [{JoinIp1, JoinPort1}, {JoinIp2, JoinPort2}],
+
+  erlymock:start(),
+  erlymock:o_o(chord_tcp, rpc_find_successor, [OwnKey, JoinIp1, JoinPort1], [{return, {error, something}}]),
+  erlymock:o_o(chord_tcp, rpc_find_successor, [OwnKey, JoinIp2, JoinPort2], [{return, {error, something}}]),
+  erlymock:replay(),
+  error = perform_join(JoinPorts, State),
+  erlymock:verify().
+
 -endif.
