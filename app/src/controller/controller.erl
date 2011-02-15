@@ -79,13 +79,13 @@ stop_node() ->
   gen_server:cast(?MODULE, stop_node).
 
 start_nodes(N) -> 
-  [
+  spawn(fun() -> [
     begin
       Spacing = random:uniform(300),
       receive after Spacing -> ok end,
       start_node()
     end || _ <- lists:seq(1, N)
-  ].
+  ] end).
 
 stop_nodes(N) -> 
   [stop_node() || _ <- lists:seq(1, N)].

@@ -163,11 +163,19 @@ init(Args) ->
 %% @doc: joins another chord node and returns the updated chord state
 -spec(join/2::(number(), pid()) -> {ok, #chord_state{}} | error).
 join(Port, ControllingProcess) -> 
+  repeatedly_try_to_join(Port, ControllingProcess, undefined, 5).
+
+repeatedly_try_to_join(_Port, ControllingProcess, Reason, 0) ->
+  controller:dht_failed_start(ControllingProcess),
+  {stop, {couldnt_rendevouz, Reason}};
+repeatedly_try_to_join(Port, ControllingProcess, _Reason, N) ->
   case chord_tcp:rendevouz(Port, ?RENDEVOUZ_HOST, ?RENDEVOUZ_PORT) of
     {MyIp, first} -> {ok, post_rendevouz_state_update(MyIp, Port)};
     {error, Reason} -> 
-      controller:dht_failed_start(ControllingProcess),
-      {stop, {couldnt_rendevouz, Reason}};
+      % The hub_controller must be overloaded. Wait and try again
+      error_handler:error_msg("Couldn't rendevouz. Retrying after a little while. ~p more attempts~n", [N]),
+      receive after random:uniform(3) * 1000 -> ok end,
+      repeatedly_try_to_join(Port, ControllingProcess, Reason, N - 1);
     {MyIp, Nodes} -> perform_join(Nodes, post_rendevouz_state_update(MyIp, Port))
   end.
 
