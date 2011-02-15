@@ -122,7 +122,7 @@ receive_data(Socket, SoFar) ->
       try {ok, bit_size(Data), binary_to_term(Data)}
       catch error:badarg -> {error, badarg}
       end
-  after ?TCP_TIMEOUT ->
+  after ?TCP_TIMEOUT * 10 ->
     error_logger:info_msg("PerformRPC times out~n"),
     {error, timeout}
   end.
