@@ -160,11 +160,14 @@ close_file_after(N, File) -> receive _Msg -> close_file_after(N-1, File) end.
 
 upgrade_systems(State) -> perform(fun(_, C) -> hub_tcp:upgrade_system(C) end, undefined, State).
 switch_mode_to(Mode, State) -> perform(fun(M, C) -> hub_tcp:switch_mode_to(M, C) end, Mode, State).
-ensure_running_n(Count, State) -> perform(fun(N, C) -> hub_tcp:ensure_running_n(N, C) end, Count, State).
-start_nodes(Count, State) -> perform(fun(N, C) -> hub_tcp:start_nodes(N, C) end, Count, State).
-stop_nodes(Count, State) -> perform(fun(N, C) -> hub_tcp:stop_nodes(N, C) end, Count, State).
+ensure_running_n(Count, State) -> slow_perform(fun(N, C) -> hub_tcp:ensure_running_n(N, C) end, Count, State).
+start_nodes(Count, State) -> slow_perform(fun(N, C) -> hub_tcp:start_nodes(N, C) end, Count, State).
+stop_nodes(Count, State) -> slow_perform(fun(N, C) -> hub_tcp:stop_nodes(N, C) end, Count, State).
 
 perform(Fun, Args, #state{controllers = Controllers}) -> 
+  [spawn(fun() -> Fun(Args, C) end) || C <- Controllers].
+
+slow_perform(Fun, Args, #state{controllers = Controllers}) -> 
   [
     % We want to spread out the communication a little bit, so that nodes starting can
     % have more time to join, and we don't overload nodes
