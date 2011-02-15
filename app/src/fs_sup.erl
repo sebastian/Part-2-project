@@ -62,9 +62,9 @@ init([]) ->
   Processes = [
     CreateSup(logger_sup),
     CreateChild(pastry_locality, []),
-    CreateSupWithArgs(fs_web_sup, 11385),
+    % CreateSupWithArgs(fs_web_sup, 11385),
     CreateSup(datastore_sup),
-    % CreateSup(friendsearch_sup),
+    CreateSup(friendsearch_sup),
     CreateSup(controller_sup),
     CreateSup(chord_sofo),
     CreateSup(pastry_sofo)
