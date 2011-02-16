@@ -2,7 +2,7 @@
 
 % Version number returned by controller app to see if a node is
 % running the latest release
--define(VERSION, 8).
+-define(VERSION, 9).
 
 % Rendevouz host
 %-define(RENDEVOUZ_HOST, "localhost").

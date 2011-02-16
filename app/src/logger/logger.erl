@@ -206,14 +206,12 @@ get_id_for(NodeId, #state{id_lookup = Table, ip = {A,B,C,D}}) ->
 
 key_for_message({lookup_key, Key}) -> Key;
 key_for_message({find_successor, Key}) -> Key;
-key_for_message({route, {lookup_key, Key, _, _}}) -> Key;
+key_for_message({lookup_key, Key, _, _}) -> Key;
 key_for_message(_) -> none.
-
 
 %% ------------------------------------------------------------------
 %% Tests
 %% ------------------------------------------------------------------
 
 -ifdef(TEST).
-
 -endif.

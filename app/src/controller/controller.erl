@@ -355,7 +355,7 @@ update_history(History, Result) ->
     false -> [Result|History]
   end.
 
-good_history(History) when length(History) < 10 -> true;
+good_history(History) when length(History) < 100 -> true;
 good_history(History) ->
   Failed = [R || R <- History, R =:= failed],
   length(Failed) < 0.25 * length(History).

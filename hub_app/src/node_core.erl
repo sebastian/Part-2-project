@@ -251,10 +251,17 @@ start_experimental_phase(State) ->
   run_experimental_phase(State).
 
 run_experimental_phase(State) ->
+  {Hosts, _N} = node:get_num_of_hosts_and_nodes(),
+  % Run the experiment until 5% of the nodes fail
+  run_experimental_phase(State, trunc(Hosts/20)).
+
+run_experimental_phase(State, 0) ->
+  node:experiment_update("Current experimental phase completed"),
+  stop_experimental_phase(State);
+run_experimental_phase(State, ToGo) ->
   receive 
     stop_current_run ->
-      node:experiment_update("Current experimental phase completed"),
-      stop_experimental_phase(State);
+      run_experimental_phase(State, ToGo - 1);
     Msg ->
       error_logger:error_msg("Received unknown message in experimental runner: ~p", [Msg]),
       run_experimental_phase(State)
