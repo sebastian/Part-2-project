@@ -112,9 +112,8 @@ liveness_checker(Controller, Interval) ->
   case hub_tcp:get_update(Controller) of
     dead -> node:remove_controller(Controller);
     empty ->
-      % Got an empty response. The node is probably overloaded.
-      % Try again.
-      liveness_checker(Controller, NextInterval);
+      % Kill the flaky node
+      node:remove_controller(Controller);
     Update -> 
       {pong, node_count, _NumNodes, mode, Mode, ports, Ports, version, Version} = Update,
       node:set_state_for_controller(Controller, {Mode, Ports, Version}),
