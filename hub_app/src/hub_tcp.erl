@@ -30,6 +30,7 @@
     upgrade_system/1,
     % For experiments
     run_rampup/1,
+    increase_rate/1,
     stop_experimental_phase/1
   ]).
 
@@ -43,6 +44,9 @@
 %% ------------------------------------------------------------------
 %% API Function Definitions
 %% ------------------------------------------------------------------
+
+increase_rate(#controller{ip = Ip, port = Port}) ->
+  perform_rpc(increase_rate, Ip, Port).
 
 run_rampup(#controller{ip = Ip, port = Port}) ->
   perform_rpc(run_rampup, Ip, Port).

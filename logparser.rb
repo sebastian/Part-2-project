@@ -80,15 +80,6 @@ class Request
   def has_end_time
     @end_time != 0
   end
-
-  private
-  # Check if this entry has a valid timestamp.
-  # If a node restarts and starts repeating
-  # timestamps, then we should discard the request entry
-  def valid_time(time)
-
-    
-  end
 end
 
 class LogParser
@@ -121,13 +112,17 @@ class LogParser
         # data;state;bits;time
         # data;lookup;bits;key;time
         if record[1] == "lookup" then
-          add_to_request(record[3], record) 
+          key = record[3]
+          time = record[4]
+          add_to_request(key, time, record) 
         end
         @total_bandwidth += record[2].to_i
 
       when "act"
         # act;key;time;nodeId;action_type
-        add_to_request(record[1], record)
+        key = record[1]
+        time = record[2]
+        add_to_request(key, time, record)
 
       end
     end
@@ -161,38 +156,38 @@ class LogParser
     run3 = data_for_control_message(@control_messages[2])
     run4 = data_for_control_message(@control_messages[3])
 
-    header_lat = "ms;" +
-        "R1Lat;R1LatStDev;R1DataPoints;" +
-        "R2Lat;R2LatStDev;R2DataPoints;" +
-        "R3Lat;R3LatStDev;R3DataPoints;" +
-        "R4Lat;R4LatStDev;R4DataPoints;" +
+    header_lat = "ms	" +
+        "R1Lat	R1LatStDev	R1DataPoints	" +
+        "R2Lat	R2LatStDev	R2DataPoints	" +
+        "R3Lat	R3LatStDev	R3DataPoints	" +
+        "R4Lat	R4LatStDev	R4DataPoints	" +
         "\n"
-    header_nodes = "ms;" +
-        "R1Nodes;R1NodesStDev;R1DataPoints;" +
-        "R2Nodes;R2NodesStDev;R2DataPoints;" +
-        "R3Nodes;R3NodesStDev;R3DataPoints;" +
-        "R4Nodes;R4NodesStDev;R4DataPoints;" +
+    header_nodes = "ms	" +
+        "R1Nodes	R1NodesStDev	R1DataPoints	" +
+        "R2Nodes	R2NodesStDev	R2DataPoints	" +
+        "R3Nodes	R3NodesStDev	R3DataPoints	" +
+        "R4Nodes	R4NodesStDev	R4DataPoints	" +
         "\n"
-    header_data = "ms;" +
-        "R1Data;R1DataStDev;R1DataPoints;" +
-        "R2Data;R2DataStDev;R2DataPoints;" +
-        "R3Data;R3DataStDev;R3DataPoints;" +
-        "R4Data;R4DataStDev;R4DataPoints;" +
+    header_data = "ms	" +
+        "R1Data	R1DataStDev	R1DataPoints	" +
+        "R2Data	R2DataStDev	R2DataPoints	" +
+        "R3Data	R3DataStDev	R3DataPoints	" +
+        "R4Data	R4DataStDev	R4DataPoints	" +
         "\n"
     yield header_lat, header_nodes, header_data
 
     0.upto(max_length_run(run1, run2, run3, run4)) { |n|
-      lat = "#{n};" + 
+      lat = "#{n}	" + 
           val_for(run1, n, :lat) +
           val_for(run2, n, :lat) +
           val_for(run3, n, :lat) +
           val_for(run4, n, :lat) + "\n"
-      nodes = "#{n};" +
+      nodes = "#{n}	" +
           val_for(run1, n, :nodes) +
           val_for(run2, n, :nodes) +
           val_for(run3, n, :nodes) +
           val_for(run4, n, :nodes) + "\n"
-      data = "#{n};" +
+      data = "#{n}	" +
           val_for(run1, n, :data) +
           val_for(run2, n, :data) +
           val_for(run3, n, :data) +
@@ -211,7 +206,7 @@ class LogParser
       stdev = standard_deviation(values)
       num_datapoints = values.size
     end
-    "#{av};#{stdev};#{num_datapoints};"
+    "#{av}	#{stdev}	#{num_datapoints}	"
   end
 
   def average_value(values)
@@ -239,10 +234,11 @@ class LogParser
     {:time => rec[2].to_i, :hosts => rec[3].to_i, :nodes => rec[4].to_i}
   end
 
-  def add_to_request(key, data)
-    request = @requests[key] ||= Request.new(key)
+  def add_to_request(key, time, data)
+    master_key = "#{key}#{time.to_i / 10000}"
+    request = @requests[master_key] ||= Request.new(master_key)
     request.add_data data
-    @requests[key] = request
+    @requests[master_key] = request
   end
 
   def request_array_for_interval(start_time, end_time)

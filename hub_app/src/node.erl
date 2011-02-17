@@ -50,6 +50,7 @@
 -export([
     % From hub application
     start_experiment/0,
+    terminate_experiment/0,
     clear_experiment/0,
     experiment_update/1,
     % From controllers
@@ -155,6 +156,9 @@ stop_nodes(N) ->
 start_experiment() ->
   gen_server:cast(?MODULE, start_experiment).
 
+terminate_experiment() ->
+  gen_server:cast(?MODULE, terminate_experiment).
+
 clear_experiment() ->
   gen_server:cast(?MODULE, clear_experiment).
 
@@ -214,6 +218,10 @@ handle_cast(start_experiment, State) ->
 
 handle_cast(stop_experiment, #state{experiment_pid = ExperimentPid} = State) ->
   ExperimentPid ! stop_current_run,
+  {noreply, State};
+
+handle_cast(terminate_experiment, #state{experiment_pid = ExpPid} = State) ->
+  ExpPid ! killed_by_user,
   {noreply, State};
 
 handle_cast(clear_experiment, State) ->

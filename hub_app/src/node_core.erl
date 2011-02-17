@@ -20,7 +20,8 @@
     clear_logs/1,
     get_logs/1,
     upgrade_systems/1,
-    experimental_runner/1
+    experimental_runner/1,
+    stop_experimental_phase/1
   ]).
 
 -import(lists, [member/2, sort/1, sort/2, reverse/1]).
@@ -110,6 +111,10 @@ liveness_checker(Controller, Interval) ->
   end,
   case hub_tcp:get_update(Controller) of
     dead -> node:remove_controller(Controller);
+    empty ->
+      % Got an empty response. The node is probably overloaded.
+      % Try again.
+      liveness_checker(Controller, NextInterval);
     Update -> 
       {pong, node_count, _NumNodes, mode, Mode, ports, Ports, version, Version} = Update,
       node:set_state_for_controller(Controller, {Mode, Ports, Version}),
@@ -195,8 +200,12 @@ experimental_runner(State) ->
   wait_minutes(3),
   node:experiment_update("Starting phase 1"),
   logPhaseStart(LogFile),
-  start_experimental_phase(State),
+  Res = start_experimental_phase(State, LogFile),
   logPhaseDone(LogFile),
+  experimental_runner_phase2(State, LogFile, Res).
+
+experimental_runner_phase2(State, LogFile, terminate) -> clean_up_experiment(State, LogFile);
+experimental_runner_phase2(State, LogFile, go) ->
   % Phase 2
   node:experiment_update("Telling hosts to run 2 nodes"),
   node:ensure_running_n_nodes(2),
@@ -204,8 +213,12 @@ experimental_runner(State) ->
   wait_minutes(3),
   node:experiment_update("Starting phase 2"),
   logPhaseStart(LogFile),
-  start_experimental_phase(State),
+  Res = start_experimental_phase(State, LogFile),
   logPhaseDone(LogFile),
+  experimental_runner_phase3(State, LogFile, Res).
+
+experimental_runner_phase3(State, LogFile, terminate) -> clean_up_experiment(State, LogFile);
+experimental_runner_phase3(State, LogFile, go) ->
   % Phase 3
   node:experiment_update("Telling hosts to run 4 nodes"),
   node:ensure_running_n_nodes(4),
@@ -213,8 +226,12 @@ experimental_runner(State) ->
   wait_minutes(3),
   node:experiment_update("Starting phase 3"),
   logPhaseStart(LogFile),
-  start_experimental_phase(State),
+  Res = start_experimental_phase(State, LogFile),
   logPhaseDone(LogFile),
+  experimental_runner_phase4(State, LogFile, Res).
+
+experimental_runner_phase4(State, LogFile, terminate) -> clean_up_experiment(State, LogFile);
+experimental_runner_phase4(State, LogFile, go) ->
   % Phase 4
   node:experiment_update("Telling hosts to run 8 nodes"),
   node:ensure_running_n_nodes(8),
@@ -222,8 +239,11 @@ experimental_runner(State) ->
   wait_minutes(3),
   node:experiment_update("Starting phase 4"),
   logPhaseStart(LogFile),
-  start_experimental_phase(State),
+  start_experimental_phase(State, LogFile),
   logPhaseDone(LogFile),
+  clean_up_experiment(State, LogFile).
+
+clean_up_experiment(_State, LogFile) ->
   % Clean up
   node:experiment_update("--- Experiments done ---"),
   node:experiment_update("Stopping logging"),
@@ -236,8 +256,8 @@ experimental_runner(State) ->
   file:close(LogFile).
 
 logPhaseStart(LogFile) -> logPhaseWrite(LogFile, start).
-
 logPhaseDone(LogFile) -> logPhaseWrite(LogFile, done).
+logIncreaseRate(LogFile) -> logPhaseWrite(LogFile, increase_rate).
 
 logPhaseWrite(LogFile, Message) ->
   {_, S, Ms} = erlang:now(),
@@ -246,36 +266,56 @@ logPhaseWrite(LogFile, Message) ->
   LogEntry = lists:flatten(io_lib:format("ctrl;~p;~p;~p;~p~n", [Message, Time, NumHosts, NumNodes])),
   file:write(LogFile, LogEntry).
 
-start_experimental_phase(State) ->
+start_experimental_phase(State, LogFile) ->
   run_rampup(State),
-  run_experimental_phase(State).
+  run_experimental_phase(State, LogFile).
 
-run_experimental_phase(State) ->
+run_experimental_phase(State, LogFile) ->
   {Hosts, _N} = node:get_num_of_hosts_and_nodes(),
   % Run the experiment until 5% of the nodes fail
-  run_experimental_phase(State, trunc(Hosts/20)).
+  RateIncreaser = spawn(fun() -> perform_increase_rate(State, LogFile) end),
+  run_experimental_phase(State, RateIncreaser, trunc(Hosts/20) + 1).
 
-run_experimental_phase(State, 0) ->
+perform_increase_rate(State, LogFile) ->
+  receive 
+    stop -> ok
+  after 10 * 1000 ->
+    io:format("Increasing rate~n"),
+    logIncreaseRate(LogFile),
+    increase_rate(State),
+    perform_increase_rate(State, LogFile)
+  end.
+
+run_experimental_phase(State, RateIncreaser, 0) ->
   node:experiment_update("Current experimental phase completed"),
-  stop_experimental_phase(State);
-run_experimental_phase(State, ToGo) ->
+  terminate_exp(State, RateIncreaser),
+  go; % Tells the experiment that it died of natural cause, and continues to the next phase
+run_experimental_phase(State, RateIncreaser, ToGo) ->
   receive 
     stop_current_run ->
-      run_experimental_phase(State, ToGo - 1);
+      run_experimental_phase(State, RateIncreaser, ToGo - 1);
+    killed_by_user ->
+      terminate_exp(State, RateIncreaser),
+      terminate; % Tells the experiment that the experiment was willfully terminated
     Msg ->
       error_logger:error_msg("Received unknown message in experimental runner: ~p", [Msg]),
-      run_experimental_phase(State)
+      run_experimental_phase(State, RateIncreaser, ToGo)
   after 30*60*1000 ->
     node:experiment_update("Experimental run timed out"),
     stop_experimental_phase(State)
   end.
 
+terminate_exp(State, RateIncreaser) ->
+  RateIncreaser ! stop,
+  stop_experimental_phase(State).
+
+increase_rate(State) -> perform(fun(_, C) -> hub_tcp:increase_rate(C) end, undefined, State).
 run_rampup(State) -> perform(fun(_, C) -> hub_tcp:run_rampup(C) end, undefined, State).
 stop_experimental_phase(State) -> perform(fun(_, C) -> hub_tcp:stop_experimental_phase(C) end, undefined, State).
     
 wait_minutes(Minutes) ->
-  %receive after Minutes * 60 * 10 -> ok end.
-  receive after Minutes * 60 * 1000 -> ok end.
+  receive after Minutes * 60 * 10 -> ok end.
+  %receive after Minutes * 60 * 1000 -> ok end.
 
 %% ------------------------------------------------------------------
 %% Tests

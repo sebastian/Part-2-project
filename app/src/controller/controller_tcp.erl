@@ -171,6 +171,10 @@ handle_msg(run_rampup) ->
   controller:run_rampup(),
   ok;
 
+handle_msg(increase_rate) ->
+  controller:increase_rate(),
+  ok;
+
 handle_msg(stop_experimental_phase) ->
   controller:stop_experimental_phase(),
   ok;
