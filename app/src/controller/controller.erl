@@ -362,7 +362,7 @@ good_history(History) ->
 
 new_request(#exp_info{req_id = Id, dht = Dht, dht_pid = DhtPid} = State) ->
   ControllingPid = self(),
-  Key = utilities:key_for_data({utilities:get_ip(), Id + 1}),
+  Key = utilities:key_for_data({utilities:get_ip(), Id + 1, now()}),
   spawn(fun() ->
     ReturnPid = self(),
     spawn(fun() ->

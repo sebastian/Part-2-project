@@ -23,6 +23,7 @@ class Request
     @start_time = 0
     @end_time = 0
     @data = 0
+    @time_seen = nil
   end
 
   def add_data(data)
@@ -78,6 +79,15 @@ class Request
 
   def has_end_time
     @end_time != 0
+  end
+
+  private
+  # Check if this entry has a valid timestamp.
+  # If a node restarts and starts repeating
+  # timestamps, then we should discard the request entry
+  def valid_time(time)
+
+    
   end
 end
 
@@ -151,19 +161,19 @@ class LogParser
     run3 = data_for_control_message(@control_messages[2])
     run4 = data_for_control_message(@control_messages[3])
 
-    header_lat = "ms;"
+    header_lat = "ms;" +
         "R1Lat;R1LatStDev;R1DataPoints;" +
         "R2Lat;R2LatStDev;R2DataPoints;" +
         "R3Lat;R3LatStDev;R3DataPoints;" +
         "R4Lat;R4LatStDev;R4DataPoints;" +
         "\n"
-    header_nodes = "ms;"
+    header_nodes = "ms;" +
         "R1Nodes;R1NodesStDev;R1DataPoints;" +
         "R2Nodes;R2NodesStDev;R2DataPoints;" +
         "R3Nodes;R3NodesStDev;R3DataPoints;" +
         "R4Nodes;R4NodesStDev;R4DataPoints;" +
         "\n"
-    header_data = "ms;"
+    header_data = "ms;" +
         "R1Data;R1DataStDev;R1DataPoints;" +
         "R2Data;R2DataStDev;R2DataPoints;" +
         "R3Data;R3DataStDev;R3DataPoints;" +
@@ -172,9 +182,21 @@ class LogParser
     yield header_lat, header_nodes, header_data
 
     0.upto(max_length_run(run1, run2, run3, run4)) { |n|
-      lat = val_for(run1, n, :lat) + val_for(run2, n, :lat) + val_for(run3, n, :lat) + val_for(run4, n, :lat) + "\n"
-      nodes = val_for(run1, n, :nodes) + val_for(run2, n, :nodes) + val_for(run3, n, :nodes) + val_for(run4, n, :nodes) + "\n"
-      data = val_for(run1, n, :data) + val_for(run2, n, :data) + val_for(run3, n, :data) + val_for(run4, n, :data) + "\n"
+      lat = "#{n};" + 
+          val_for(run1, n, :lat) +
+          val_for(run2, n, :lat) +
+          val_for(run3, n, :lat) +
+          val_for(run4, n, :lat) + "\n"
+      nodes = "#{n};" +
+          val_for(run1, n, :nodes) +
+          val_for(run2, n, :nodes) +
+          val_for(run3, n, :nodes) +
+          val_for(run4, n, :nodes) + "\n"
+      data = "#{n};" +
+          val_for(run1, n, :data) +
+          val_for(run2, n, :data) +
+          val_for(run3, n, :data) +
+          val_for(run4, n, :data) + "\n"
       yield lat, nodes, data
     }
   end
