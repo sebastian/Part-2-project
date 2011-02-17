@@ -1,7 +1,7 @@
 %% @author Sebastian Probst Eide <sebastian.probst.eide@gmail.com>
 %% @copyright 2010 Sebastian Probst Eide
 
-%% @doc Supervisor for the chord application.
+%% @doc Supervisor for the pastry application.
 
 -module(pastry_sup).
 -author('Sebastian Probst Eide sebastian.probst.eide@gmail.com').
@@ -58,5 +58,11 @@ init(_Args) ->
 
   {ok, { {one_for_all, 10, 10}, Processes} }.
 
-start_node() ->
-  supervisor:start_child(pastry_sofo, []).
+start_node() -> start_node(4).
+
+start_node(0) -> supervisor:start_child(pastry_sofo, []);
+start_node(N) -> 
+  case supervisor:start_child(pastry_sofo, []) of
+    {error, _Reason} -> start_node(N-1);
+    Msg -> Msg
+  end.

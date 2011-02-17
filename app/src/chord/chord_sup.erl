@@ -57,5 +57,11 @@ init(_Args) ->
 
   {ok, { {one_for_all, 10, 10}, Processes} }.
 
-start_node() ->
-  supervisor:start_child(chord_sofo, []).
+start_node() -> start_node(4).
+
+start_node(0) -> supervisor:start_child(chord_sofo, []);
+start_node(N) -> 
+  case supervisor:start_child(chord_sofo, []) of
+    {error, _Reason} -> start_node(N-1);
+    Msg -> Msg
+  end.
