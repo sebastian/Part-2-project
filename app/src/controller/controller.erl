@@ -167,14 +167,12 @@ handle_cast(run_rampup, State) ->
   {noreply, State#controller_state{experiment_pid = Pid}};
 
 handle_cast(increase_rate, #controller_state{experiment_pid = undefined} = State) ->
-  io:format("Receiving increase_rate for an experiment I am not part of after restart~n"),
   {noreply, State};
 handle_cast(increase_rate, #controller_state{experiment_pid = Pid} = State) ->
   Pid ! increase_rate,
   {noreply, State};
 
 handle_cast(stop_experimental_phase, #controller_state{experiment_pid = undefined} = State) ->
-  io:format("Asked to stop experiment we are not part of (probably because we crashed or joined late!?~n"),
   {noreply, State};
 handle_cast(stop_experimental_phase, #controller_state{experiment_pid = Pid} = State) ->
   Pid ! stop,
@@ -333,20 +331,16 @@ experiment_loop(RunPid, History) ->
       RunPid ! increase_rate,
       experiment_loop(RunPid, History);
     request_success ->
-      io:format("Success (~p)~n", [length(History)]),
       NewHistory = update_history(History, success),
       experiment_loop(RunPid, NewHistory);
     request_failed ->
-      io:format("Failed (~p)~n", [length(History)]),
       NewHistory = update_history(History, failed),
       case good_history(NewHistory) of
         true ->
           experiment_loop(RunPid, NewHistory);
         false ->
           stop_experiment(RunPid)
-      end;
-    Msg ->
-      io:format("Experiment_loop received unknown message ~p~n", [Msg])
+      end
   end.
 
 stop_experiment(Rator) ->
@@ -360,7 +354,6 @@ rator(Rate, State) ->
       ok;
     increase_rate ->
       NewRate = Rate * 2,
-      io:format("Increasing rate to ~p requests per second.~n", [NewRate]),
       rator(NewRate, State)
   after trunc(1000 / Rate) ->
     new_request(State),
@@ -375,8 +368,7 @@ new_request(#exp_info{ip = Ip, dht = Dht, dht_pid = DhtPid, control_pid = CtrlPi
       try 
         Dht:lookup(DhtPid, Key),
         ReturnPid ! ok
-      catch Error:Reason ->
-        io:format("Lookup failed with error: ~p:~p~n", [Error, Reason]),
+      catch _Error:_Reason ->
         CtrlPid ! request_failed
       end
     end),
