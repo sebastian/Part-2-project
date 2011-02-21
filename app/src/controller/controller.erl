@@ -355,7 +355,7 @@ dead_man(Controller) ->
   receive
     alive ->
       dead_man(Controller)
-  after 30000 ->
+  after 5 * 60 * 1000 ->
       error_logger:error_msg("Running experiment, but haven't heard from controller. Abort"),
       Controller ! stop
   end.
