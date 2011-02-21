@@ -319,25 +319,27 @@ perform_rampup(#controller_state{ip = Ip, nodes = Nodes, mode = Mode}) ->
   SelfPid = self(),
   RunState = #exp_info{ip = Ip, dht_pid = Pid, dht = Type, control_pid = SelfPid},
   InitialRate = 1, % per second
+  DeadManCheck = spawn(fun() -> dead_man(SelfPid) end),
   RunPid = spawn(fun() -> rator(InitialRate, RunState) end),
-  experiment_loop(RunPid, []).
+  experiment_loop(RunPid, DeadManCheck, []).
 
-experiment_loop(RunPid, History) ->
+experiment_loop(RunPid, DeadManCheck, History) ->
   receive 
     stop ->
       io:format("Stopping experiment_loop~n"),
       RunPid ! stop;
     increase_rate ->
       RunPid ! increase_rate,
-      experiment_loop(RunPid, History);
+      DeadManCheck ! alive,
+      experiment_loop(RunPid, DeadManCheck, History);
     request_success ->
       NewHistory = update_history(History, success),
-      experiment_loop(RunPid, NewHistory);
+      experiment_loop(RunPid, DeadManCheck, NewHistory);
     request_failed ->
       NewHistory = update_history(History, failed),
       case good_history(NewHistory) of
         true ->
-          experiment_loop(RunPid, NewHistory);
+          experiment_loop(RunPid, DeadManCheck, NewHistory);
         false ->
           stop_experiment(RunPid)
       end
@@ -346,6 +348,17 @@ experiment_loop(RunPid, History) ->
 stop_experiment(Rator) ->
   Rator ! stop,
   controller_tcp:stop_experimental_phase().
+
+% Prevents the host from staying in experimental mode
+% indefinitely in case of it loosing contact with the master
+dead_man(Controller) ->
+  receive
+    alive ->
+      dead_man(Controller)
+  after 30000 ->
+      error_logger:error_msg("Running experiment, but haven't heard from controller. Abort"),
+      Controller ! stop
+  end.
 
 rator(Rate, State) ->
   receive 
@@ -374,7 +387,8 @@ new_request(#exp_info{ip = Ip, dht = Dht, dht_pid = DhtPid, control_pid = CtrlPi
     end),
     receive
       ok -> CtrlPid ! request_success
-    after 1000 -> CtrlPid ! request_failed
+    % Allow requests to take up to two seconds before timing out
+    after 2000 -> CtrlPid ! request_failed
     end
   end).
 
