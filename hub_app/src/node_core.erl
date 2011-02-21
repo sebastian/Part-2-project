@@ -292,8 +292,10 @@ run_experimental_phase(State, RateIncreaser, 0) ->
 run_experimental_phase(State, RateIncreaser, ToGo) ->
   receive 
     stop_current_run ->
+      io:format("Received stop_current_run. To go: ~p~n", [ToGo]),
       run_experimental_phase(State, RateIncreaser, ToGo - 1);
     killed_by_user ->
+      io:format("User killed experiment~n"),
       terminate_exp(State, RateIncreaser),
       terminate; % Tells the experiment that the experiment was willfully terminated
     Msg ->
