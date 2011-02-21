@@ -43,8 +43,14 @@ register_node_in_controllers(Node, Controllers) ->
       % through pinging the nodes so that the other nodes trying to connect
       % have a node to connect to.
       MatchingControllers = [C || C <- Controllers, C#controller.ip =:= Node#node.ip],
-      MatchingController = hd(MatchingControllers),
-      [MatchingController#controller{ports = [Node#node.port]} | (Controllers -- [MatchingController])];
+      % This case happens when the hub restarts while hosts are trying to register
+      % nodes. Since no controller is registered, the controller list is empty
+      case MatchingControllers of
+        [] -> [];
+        _ ->
+          MatchingController = hd(MatchingControllers),
+          [MatchingController#controller{ports = [Node#node.port]} | (Controllers -- [MatchingController])]
+      end;
     _ ->
       % There are already ports in the list, hence this node is not the first.
       % We will be notified about it when we ping its controller the next time
@@ -381,6 +387,15 @@ get_not_me_when_multiple_controllers_but_no_nodes_test() ->
   },
   first = get_not_me(Node, [Controller1, Controller2]).
 
+get_not_me_when_no_controllers_test() ->
+  Ip = {1,2,3,4},
+  Port = 1234,
+  Node = #node{
+    ip = Ip,
+    port = Port
+  },
+  first = get_not_me(Node, []).
+
 get_not_me_when_only_one_host_test() ->
   Ip = {1,2,3,4},
   Port = 1234,
@@ -557,6 +572,12 @@ stop_node_test() ->
   erlymock:replay(), 
   stop_nodes(1, State),
   erlymock:verify().
+
+register_node_when_no_controller_test() ->
+  Ip = {1,2,3,4},
+  ControllerList = [],
+  Node = #node{ip = Ip, port = 2},
+  [] = register_node_in_controllers(Node, ControllerList).
 
 register_node_in_controllers_first_node_test() ->
   SharedIp = {1,2,3,4},
