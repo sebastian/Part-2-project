@@ -329,13 +329,16 @@ experiment_loop(RunPid, DeadManCheck, History) ->
       io:format("Stopping experiment_loop~n"),
       RunPid ! stop;
     increase_rate ->
+      io:format("Received increase rate~n"),
       RunPid ! increase_rate,
       DeadManCheck ! alive,
       experiment_loop(RunPid, DeadManCheck, History);
     request_success ->
+      io:format("Received success~n"),
       NewHistory = update_history(History, success),
       experiment_loop(RunPid, DeadManCheck, NewHistory);
     request_failed ->
+      io:format("Received failed request~n"),
       NewHistory = update_history(History, failed),
       case good_history(NewHistory) of
         true ->
