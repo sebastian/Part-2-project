@@ -272,14 +272,15 @@ logPhaseWrite(LogFile, Message) ->
   file:write(LogFile, LogEntry).
 
 start_experimental_phase(State, LogFile) ->
+  io:format("Starting phase~n"),
   run_rampup(State),
   run_experimental_phase(State, LogFile).
 
 run_experimental_phase(State, LogFile) ->
   {Hosts, _N} = node:get_num_of_hosts_and_nodes(),
-  % Run the experiment until 5% of the nodes fail
+  % Run the experiment until 20% of the nodes fail
   RateIncreaser = spawn(fun() -> perform_increase_rate(State, LogFile) end),
-  run_experimental_phase(State, RateIncreaser, trunc(Hosts/20) + 1).
+  run_experimental_phase(State, RateIncreaser, trunc(Hosts/5) + 1).
 
 perform_increase_rate(State, LogFile) ->
   receive 
