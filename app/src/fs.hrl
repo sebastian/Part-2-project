@@ -2,11 +2,11 @@
 
 % Version number returned by controller app to see if a node is
 % running the latest release
--define(VERSION, 16).
+-define(VERSION, 17).
 
 % Rendevouz host
 %-define(RENDEVOUZ_HOST, "localhost").
--define(RENDEVOUZ_HOST, "131.111.184.95").
+-define(RENDEVOUZ_HOST, "ec2-50-17-90-223.compute-1.amazonaws.com").
 %-define(RENDEVOUZ_HOST, "hub.probsteide.com").
 -define(RENDEVOUZ_PORT, 6001).
 
