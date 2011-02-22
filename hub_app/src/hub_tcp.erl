@@ -10,7 +10,7 @@
 
 -define(TCP_OPTS, [binary, inet,
                    {active,    true},
-                   {backlog,   100},
+                   {backlog,   50},
                    {nodelay,   true},
                    {packet,    0},
                    {reuseaddr, true}]).
@@ -145,6 +145,9 @@ receive_incoming(Socket, SoFar) ->
           % The packet got fragmented somehow...
           receive_incoming(Socket, [Bin|SoFar])
       end;
+    {error, closed} ->
+      io:format("Client closed connection!~n"),
+      ok;
     {tcp_closed, _Socket} ->
       ok;
     {tcp_error, Socket, _Reason} ->
