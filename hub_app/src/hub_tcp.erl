@@ -134,6 +134,7 @@ receive_incoming(Socket, SoFar) ->
   receive
     {tcp, Socket, Bin} ->
       try
+        io:format("Received incoming connection~n"),
         FinalBin = lists:reverse([Bin | SoFar]),
         Message = binary_to_term(list_to_binary(FinalBin)),
         {ok, {RemoteIp, _RemotePort}} = inet:peername(Socket),
