@@ -143,7 +143,10 @@ receive_incoming(Socket, SoFar) ->
       catch
         error:badarg ->
           % The packet got fragmented somehow...
-          receive_incoming(Socket, [Bin|SoFar])
+          receive_incoming(Socket, [Bin|SoFar]);
+        error:closed ->
+          io:format("Client closed connection...~n"),
+          error
       end;
     {error, closed} ->
       io:format("Client closed connection!~n"),
