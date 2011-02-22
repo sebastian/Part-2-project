@@ -177,7 +177,7 @@ try_to_rendevouz(Port, ControllingProcess, Args, _Reason, N) ->
     {error, Reason} -> 
       % The hub_controller must be overloaded. Wait and try again
       error_logger:error_msg("Couldn't rendevouz. Retrying after a little while. ~p more attempts~n", [N]),
-      receive after random:uniform(3) * 1000 -> ok end,
+      receive after random:uniform(10) * 1000 -> ok end,
       try_to_rendevouz(Port, ControllingProcess, Args, Reason, N-1);
     {MyIp, Nodes} -> perform_join(Nodes, post_rendevouz_state_update(MyIp, Port, Args), ControllingProcess)
   end.
