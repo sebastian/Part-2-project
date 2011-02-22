@@ -111,7 +111,7 @@ keep_while_alive(Controller) ->
 
 liveness_checker(Controller, Interval) ->
   receive after Interval -> ok end,
-  NextInterval = case Interval < 10000 of
+  NextInterval = case Interval < 10 * 1000 of
     true -> Interval * 2;
     false -> Interval
   end,
