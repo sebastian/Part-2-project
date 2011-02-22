@@ -382,14 +382,19 @@ new_request(#exp_info{ip = Ip, dht = Dht, dht_pid = DhtPid, control_pid = CtrlPi
       try 
         Dht:lookup(DhtPid, Key),
         ReturnPid ! ok
-      catch _Error:_Reason ->
+      catch Error:Reason ->
+        io:format("Lookup failed: ~p:~p", [Error, Reason]),
         CtrlPid ! request_failed
       end
     end),
     receive
-      ok -> CtrlPid ! request_success
+      ok -> 
+        io:format("received request ok~n"),
+        CtrlPid ! request_success
     % Allow requests to take up to two seconds before timing out
-    after 2000 -> CtrlPid ! request_failed
+    after 2000 -> 
+        io:format("request timed out~n"),
+        CtrlPid ! request_failed
     end
   end).
 
