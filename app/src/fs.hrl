@@ -6,8 +6,7 @@
 
 % Rendevouz host
 %-define(RENDEVOUZ_HOST, "localhost").
--define(RENDEVOUZ_HOST, "ec2-50-17-90-223.compute-1.amazonaws.com").
-%-define(RENDEVOUZ_HOST, "hub.probsteide.com").
+-define(RENDEVOUZ_HOST, "hub.probsteide.com").
 -define(RENDEVOUZ_PORT, 6001).
 
 -define(TCP_TIMEOUT, 1000).
