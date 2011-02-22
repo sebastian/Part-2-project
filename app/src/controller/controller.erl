@@ -84,7 +84,7 @@ stop_node() ->
 start_nodes(N) -> 
   spawn(fun() -> [
     begin
-      Spacing = random:uniform(300),
+      Spacing = random:uniform(3000),
       receive after Spacing -> ok end,
       start_node()
     end || _ <- lists:seq(1, N)
