@@ -321,9 +321,9 @@ perform_rampup(#controller_state{ip = Ip, nodes = Nodes, mode = Mode}) ->
   InitialRate = 1, % per second
   DeadManCheck = spawn(fun() -> dead_man(SelfPid) end),
   RunPid = spawn(fun() -> rator(InitialRate, RunState) end),
-  experiment_loop(RunPid, DeadManCheck, []).
+  experiment_loop(RunPid, DeadManCheck, [], false).
 
-experiment_loop(RunPid, DeadManCheck, History) ->
+experiment_loop(RunPid, DeadManCheck, History, HasInformedControllerAboutStop) ->
   receive 
     stop ->
       io:format("Stopping experiment_loop~n"),
@@ -332,25 +332,23 @@ experiment_loop(RunPid, DeadManCheck, History) ->
       io:format("Received increase rate~n"),
       RunPid ! increase_rate,
       DeadManCheck ! alive,
-      experiment_loop(RunPid, DeadManCheck, History);
+      experiment_loop(RunPid, DeadManCheck, History, HasInformedControllerAboutStop);
     request_success ->
       io:format("Received success~n"),
       NewHistory = update_history(History, success),
-      experiment_loop(RunPid, DeadManCheck, NewHistory);
+      experiment_loop(RunPid, DeadManCheck, NewHistory, HasInformedControllerAboutStop);
     request_failed ->
       io:format("Received failed request~n"),
       NewHistory = update_history(History, failed),
-      case good_history(NewHistory) of
+      case good_history(NewHistory) orelse HasInformedControllerAboutStop of
         true ->
-          experiment_loop(RunPid, DeadManCheck, NewHistory);
+          experiment_loop(RunPid, DeadManCheck, NewHistory, HasInformedControllerAboutStop);
         false ->
-          stop_experiment(RunPid)
+          % Tell the controller that we want to stop the experiment
+          controller_tcp:stop_experimental_phase(),
+          experiment_loop(RunPid, DeadManCheck, NewHistory, true)
       end
   end.
-
-stop_experiment(Rator) ->
-  Rator ! stop,
-  controller_tcp:stop_experimental_phase().
 
 % Prevents the host from staying in experimental mode
 % indefinitely in case of it loosing contact with the master
