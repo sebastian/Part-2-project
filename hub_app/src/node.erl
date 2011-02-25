@@ -63,6 +63,7 @@
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
+-export([get_state/0]).
 %% ------------------------------------------------------------------
 %% API Function Definitions
 %% ------------------------------------------------------------------
@@ -121,6 +122,9 @@ logs_gotten() ->
 get_num_of_hosts_and_nodes() ->
   gen_server:call(?MODULE, get_num_of_hosts_and_nodes).
 
+get_state() ->
+  gen_server:call(?MODULE, get_state).
+
 % -------------------------------------------------------------------
 % Upgrading software ------------------------------------------------
 
@@ -176,6 +180,9 @@ init(_Args) ->
   {ok, #state{}}.
 
 %% Call:
+handle_call(get_state, _From, State) ->
+  {reply, State, State};
+
 handle_call(start_logging, _From, State) ->
   node_core:start_logging(State),
   {reply, ok, State#state{log_status = logging}};

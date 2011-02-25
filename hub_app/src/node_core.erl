@@ -98,7 +98,7 @@ get_diverse_nodes(_, 0, Acc) -> reverse(Acc);
 get_diverse_nodes([],_, Acc) -> reverse(Acc);
 get_diverse_nodes([{_Ip, []}|Nodes], NumToGet, Acc) -> get_diverse_nodes(Nodes, NumToGet, Acc);
 get_diverse_nodes([{Ip, [Port|Ports]}|Nodes], NumToGet, Acc) -> 
-  get_diverse_nodes(Nodes ++ [{Ip, Ports}], NumToGet - 1, [{Ip, Port}|Acc]).
+  get_diverse_nodes([{Ip, Ports}] ++ Nodes, NumToGet - 1, [{Ip, Port}|Acc]).
 
 remove_controller(Controller, #state{controllers = Controllers} = State) ->
   Match = [C || C <- Controllers, 
