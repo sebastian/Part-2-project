@@ -31,13 +31,16 @@
 %% ------------------------------------------------------------------
 
 register_node(Node, #state{controllers = Controllers} = State) ->
-  UpdatedControllersList = register_node_in_controllers(Node, Controllers),
+  UpdatedControllersList = shuffle_controllers(register_node_in_controllers(Node, Controllers)),
   {get_not_me(Node, Controllers), State#state{controllers = UpdatedControllersList}}.
 
+has_ports([]) -> false;
+has_ports([#controller{ports = []}|Ns]) -> has_ports(Ns);
+has_ports(_) -> true.
+
 register_node_in_controllers(Node, Controllers) ->
-  AllPorts = lists:foldl(fun(#controller{ports = P}, Ps) -> P ++ Ps end, [], Controllers),
-  case length(AllPorts) of
-    0 ->
+  case has_ports(Controllers) of
+    false ->
       % This is the first node that is registering.
       % We add the port to the list even before we get to know about it
       % through pinging the nodes so that the other nodes trying to connect
@@ -51,7 +54,7 @@ register_node_in_controllers(Node, Controllers) ->
           MatchingController = hd(MatchingControllers),
           [MatchingController#controller{ports = [Node#node.port]} | (Controllers -- [MatchingController])]
       end;
-    _ ->
+    true ->
       % There are already ports in the list, hence this node is not the first.
       % We will be notified about it when we ping its controller the next time
       Controllers
@@ -70,17 +73,17 @@ get_not_me(Node, Controllers) ->
   case rendevouz_nodes_from_controllers(ControllersNotMyOwn) of
     [] ->
       % We didn't get a match for match nodes only in other controllers: widen search
-      case rendevouz_nodes_from_controllers(randomize_starting_point(Controllers)) of
+      case rendevouz_nodes_from_controllers(Controllers) of
         [] -> first;
         RendevouzNodes -> RendevouzNodes
       end;
     RendevouzNodes -> RendevouzNodes
   end.
 
-randomize_starting_point(List) when length(List) < 2 -> List;
-randomize_starting_point(List) ->
+shuffle_controllers(List) when length(List) < 11 -> List;
+shuffle_controllers(List) ->
   Length = length(List),
-  Num = random:uniform(Length),
+  Num = 10,
   lists:sublist(List, Num + 1, Length - Num) ++ lists:sublist(List, Num). 
 
 rendevouz_nodes_from_controllers(Controllers) ->
@@ -580,6 +583,13 @@ register_node_when_no_controller_test() ->
   Node = #node{ip = Ip, port = 2},
   [] = register_node_in_controllers(Node, ControllerList).
 
+has_ports_test() ->
+  C1 = #controller{ports = []},
+  C2 = #controller{ports = [1]},
+  ?assert(has_ports([C1,C2])),
+  ?assert(has_ports([C2])),
+  ?assertNot(has_ports([C1,C1,C1,C1])).
+
 register_node_in_controllers_first_node_test() ->
   SharedIp = {1,2,3,4},
   C1 = #controller{
@@ -621,15 +631,16 @@ register_node_in_controllers_not_first_node_test() ->
 assert_same_items(As, Bs) ->
   [?assert(lists:member(A, Bs)) || A <- As].
 
-randomize_starting_point_test() ->
+shuffle_controllers_test() ->
   List = [a,b,c,d],
-  RandomOrder = randomize_starting_point(List),
-  ?assertNot(List =:= RandomOrder),
-  ?assertEqual(length(List), length(RandomOrder)),
-  assert_same_items(List, RandomOrder).
+  Shuffled = shuffle_controllers(List),
+  % The list is less than 11 elements long, nothing to shuffle
+  ?assert(List =:= Shuffled),
+  List2 = [1,2,3,4,5,6,7,8,9,10,11,12,13,14],
+  ?assertEqual([11,12,13,14,1,2,3,4,5,6,7,8,9,10], shuffle_controllers(List2)).
 
-randomize_starting_point_short_lists_test() ->
-  ?assertEqual([], randomize_starting_point([])),
-  ?assertEqual([a], randomize_starting_point([a])).
+shuffle_controllers_short_lists_test() ->
+  ?assertEqual([], shuffle_controllers([])),
+  ?assertEqual([a], shuffle_controllers([a])).
 
 -endif.
