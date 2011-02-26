@@ -454,6 +454,7 @@ perform_find_successor(Key,
             {error, bad_node, BadNode} ->
               remove_node(Pid, BadNode),
               % Now that that is done, try again
+              io:format("r"),
               perform_find_successor(Key, State);
 
             % We successfully found a good value. Now return it.
