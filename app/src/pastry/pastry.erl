@@ -318,10 +318,12 @@ code_change(_OldVsn, State, _Extra) ->
 %% ------------------------------------------------------------------
 
 start_timer(#pastry_state{pastry_pid = Pid} = State) ->
+  io:format("Starting timer~n"),
   {ok, TimerRef} = timer:apply_interval(?NEIGHBORHOODWATCH_TIMER, ?MODULE, neighborhood_watch, [Pid]),
   State#pastry_state{neighborhood_watch_ref = TimerRef}.
 
 stop_timer(#pastry_state{neighborhood_watch_ref = NWR} = State) ->
+  io:format("Stopping timer~n"),
   timer:cancel(NWR),
   State#pastry_state{neighborhood_watch_ref = undefined}.
 

@@ -305,6 +305,7 @@ code_change(_OldVsn, State, _Extra) ->
 %% ------------------------------------------------------------------
 
 do_start_timers(#chord_state{chord_pid = SelfPid} = State) ->
+  io:format("Starting timer~n"),
   {ok, TimerRefStabilizer} = 
       timer:apply_interval(?STABILIZER_INTERVAL, ?MODULE, stabilize, [SelfPid]),
   {ok, TimerRefFixFingers} = 
@@ -317,6 +318,7 @@ do_start_timers(#chord_state{chord_pid = SelfPid} = State) ->
   }.
 
 do_stop_timers(#chord_state{timerRefStabilizer = T1, timerRefFixFingers = T2} = State) ->
+  io:format("Stopping timer~n"),
   timer:cancel(T1),
   timer:cancel(T2),
   State#chord_state{timerRefStabilizer = undefined, timerRefFixFingers = undefined}.
