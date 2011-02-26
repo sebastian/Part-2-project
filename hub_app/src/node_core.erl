@@ -287,7 +287,9 @@ run_experimental_phase(State, LogFile) ->
 
 perform_increase_rate(State, LogFile) ->
   receive 
-    stop -> ok
+    stop -> 
+      io:format("stopping perform_increase_rate~n"),
+      ok
   after 10 * 1000 ->
     io:format("Increasing rate~n"),
     logIncreaseRate(LogFile),
@@ -313,10 +315,11 @@ run_experimental_phase(State, RateIncreaser, ToGo) ->
       run_experimental_phase(State, RateIncreaser, ToGo)
   after 30*60*1000 ->
     node:experiment_update("Experimental run timed out"),
-    stop_experimental_phase(State)
+    terminate_exp(State, RateIncreaser)
   end.
 
 terminate_exp(State, RateIncreaser) ->
+  io:format("terminating experimental phase~n"),
   RateIncreaser ! stop,
   stop_experimental_phase(State).
 
