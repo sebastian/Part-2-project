@@ -174,21 +174,24 @@ handle_cast(reset_node_count, State) ->
   {noreply, State#controller_state{nodes = []}};
 
 handle_cast(run_rampup, State) ->
-  stop_dht_table_maintenance(State),
   Pid = spawn(fun() -> perform_rampup(State) end),
+  io:format("~nexperimental pid is = ~p~n", [Pid]),
+  stop_dht_table_maintenance(State),
   {noreply, State#controller_state{experiment_pid = Pid}};
 
 handle_cast(increase_rate, #controller_state{experiment_pid = undefined} = State) ->
+  io:format("~n#################### IGNORING increase_rate ##################################~n"),
   {noreply, State};
 handle_cast(increase_rate, #controller_state{experiment_pid = Pid} = State) ->
   Pid ! increase_rate,
   {noreply, State};
 
 handle_cast(stop_experimental_phase, #controller_state{experiment_pid = undefined} = State) ->
+  io:format("~n#################### IGNORING STOP EXPERIMENTAL PHASE ########################~n"),
   {noreply, State};
 handle_cast(stop_experimental_phase, #controller_state{experiment_pid = Pid} = State) ->
-  start_dht_table_maintenance(State),
   Pid ! stop,
+  start_dht_table_maintenance(State),
   {noreply, State#controller_state{experiment_pid = undefined}};
 
 handle_cast({ensure_n_nodes_running, N}, #controller_state{nodes = Nodes} = State) ->
@@ -386,13 +389,16 @@ rator(Rate, State) ->
   receive 
     stop -> 
       io:format("Stopping rator~n"),
-      ok;
-    increase_rate ->
-      NewRate = Rate * 2,
-      rator(NewRate, State)
-  after trunc(1000 / Rate) ->
-    new_request(State),
-    rator(Rate, State)
+      ok
+  after 0 -> 
+    receive
+      increase_rate ->
+        NewRate = Rate * 2,
+        rator(NewRate, State)
+    after trunc(1000 / Rate) ->
+      new_request(State),
+      rator(Rate, State)
+    end
   end.
 
 new_request(#exp_info{ip = Ip, dht = Dht, dht_pid = DhtPid, control_pid = CtrlPid}) ->

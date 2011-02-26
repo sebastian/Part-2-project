@@ -7,7 +7,7 @@
 
 %% @doc: the interval in miliseconds at which the routine tasks are performed
 -define(FIX_FINGER_INTERVAL, 10000).
--define(STABILIZER_INTERVAL, 30000).
+-define(STABILIZER_INTERVAL, 5000).
 
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
