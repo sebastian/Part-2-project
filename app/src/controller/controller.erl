@@ -350,17 +350,20 @@ experiment_loop(RunPid, DeadManCheck, History, HasInformedControllerAboutStop) -
   receive 
     stop ->
       io:format("Stopping experiment_loop~n"),
-      RunPid ! stop;
+      RunPid ! stop,
+      DeadManCheck ! stop;
     increase_rate ->
       io:format("Received increase rate~n"),
       RunPid ! increase_rate,
       DeadManCheck ! alive,
       experiment_loop(RunPid, DeadManCheck, History, HasInformedControllerAboutStop);
     request_success ->
+      RunPid ! ended_request,
       io:format("Received success~n"),
       NewHistory = update_history(History, success),
       experiment_loop(RunPid, DeadManCheck, NewHistory, HasInformedControllerAboutStop);
     request_failed ->
+      RunPid ! ended_request,
       io:format("Received failed request~n"),
       NewHistory = update_history(History, failed),
       case good_history(NewHistory) orelse HasInformedControllerAboutStop of
@@ -378,7 +381,9 @@ experiment_loop(RunPid, DeadManCheck, History, HasInformedControllerAboutStop) -
 dead_man(Controller) ->
   receive
     alive ->
-      dead_man(Controller)
+      dead_man(Controller);
+    stop ->
+      ok
   after 5 * 60 * 1000 ->
       error_logger:error_msg("Running experiment, but haven't heard from controller. Abort"),
       Controller ! stop,
@@ -386,22 +391,33 @@ dead_man(Controller) ->
   end.
 
 rator(Rate, State) ->
+  rator(Rate, State, 0).
+rator(Rate, State, OutstandingRequests) ->
   receive 
     stop -> 
       io:format("Stopping rator~n"),
-      ok
+      ok;
+    ended_request ->
+      rator(Rate, State, OutstandingRequests - 1)
   after 0 -> 
     receive
       increase_rate ->
         NewRate = Rate * 2,
-        rator(NewRate, State)
+        rator(NewRate, State, OutstandingRequests)
     after trunc(1000 / Rate) ->
-      new_request(State),
-      rator(Rate, State)
+      case OutstandingRequests > 10 of
+        true ->
+          io:format("Has ~p outstanding requests...~n", [OutstandingRequests]),
+          rator(Rate, State, OutstandingRequests);
+        false ->
+          new_request(State),
+          rator(Rate, State, OutstandingRequests+1)
+      end
     end
   end.
 
 new_request(#exp_info{ip = Ip, dht = Dht, dht_pid = DhtPid, control_pid = CtrlPid}) ->
+  io:format("n"),
   spawn(fun() ->
     Key = utilities:key_for_data({Ip, now()}),
     ReturnPid = self(),
