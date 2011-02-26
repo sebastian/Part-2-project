@@ -395,7 +395,7 @@ rator(Rate, State) ->
 rator(Rate, State, OutstandingRequests) ->
   receive 
     stop -> 
-      io:format("Stopping rator~n"),
+      io:format("Stopping rator with ~p outstanding requests~n", [OutstandingRequests]),
       ok;
     ended_request ->
       rator(Rate, State, OutstandingRequests - 1)
