@@ -378,7 +378,8 @@ dead_man(Controller) ->
       dead_man(Controller)
   after 5 * 60 * 1000 ->
       error_logger:error_msg("Running experiment, but haven't heard from controller. Abort"),
-      Controller ! stop
+      Controller ! stop,
+      controller:stop_experimental_phase()
   end.
 
 rator(Rate, State) ->
@@ -412,7 +413,7 @@ new_request(#exp_info{ip = Ip, dht = Dht, dht_pid = DhtPid, control_pid = CtrlPi
         io:format("received request ok~n"),
         CtrlPid ! request_success
     % Allow requests to take up to two seconds before timing out
-    after 2000 -> 
+    after 1000 -> 
         io:format("request timed out~n"),
         CtrlPid ! request_failed
     end
@@ -426,7 +427,7 @@ update_history(History, Result) ->
     false -> [Result|History]
   end.
 
-good_history(History) when length(History) < 50 -> true;
+good_history(History) when length(History) < 40 -> true;
 good_history(History) ->
   Failed = [R || R <- History, R =:= failed],
   length(Failed) < 0.25 * length(History).
@@ -652,7 +653,7 @@ update_history_test() ->
   ?assertEqual(failed, hd(UpdatedFullHistory)).
 
 create_fail_rate(Percent) ->
-  create_fail_rate(100-Percent, Percent, []).
+  create_fail_rate(40- trunc(Percent * 0.4), trunc(Percent * 0.4), []).
 create_fail_rate(0, 0, Acc) -> Acc;
 create_fail_rate(0, N, Acc) -> create_fail_rate(0, N-1, [failed|Acc]);
 create_fail_rate(N, M, Acc) -> create_fail_rate(N-1, M, [success|Acc]).
