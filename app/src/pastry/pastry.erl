@@ -54,6 +54,12 @@
     ping/1
   ]).
 
+% For use by controller to stop communication during experiments
+-export([
+    start_timers/1,
+    stop_timers/1
+  ]).
+
 %% ------------------------------------------------------------------
 %% gen_server Function Exports
 %% ------------------------------------------------------------------
@@ -87,6 +93,12 @@ route(Pid, Msg, Key) ->
 %% ------------------------------------------------------------------
 %% PRIVATE API Function Definitions
 %% ------------------------------------------------------------------
+
+start_timers(Pid) ->
+  gen_server:cast(Pid, start_timer).
+
+stop_timers(Pid) ->
+  gen_server:cast(Pid, stop_timer).
 
 neighborhood_watch(Pid) ->
   gen_server:cast(Pid, perform_neighborhood_watch),
@@ -183,17 +195,15 @@ try_to_rendevouz(Port, ControllingProcess, Args, _Reason, N) ->
   end.
 
 post_rendevouz_state_update(Ip, Port, Args) ->
-  B = proplists:get_value(b, Args, 20),
+  B = proplists:get_value(b, Args, 4),
   Key = utilities:key_for_node_with_b(Ip, Port, B),
   Self = #node{key = Key, port = Port, ip = Ip},
-  {ok, TimerRefNR} = timer:apply_interval(?NEIGHBORHOODWATCH_TIMER, ?MODULE, neighborhood_watch, [self()]),
-  #pastry_state{
+  start_timer(#pastry_state{
     b = B,
     self = Self,
     routing_table = create_routing_table(Key),
-    neighborhood_watch_ref = TimerRefNR,
     pastry_pid = self()
-  }.
+  }).
 
 perform_join([], _State, ControllingProcess) -> 
   controller:dht_failed_start(ControllingProcess),
@@ -281,6 +291,12 @@ handle_cast({update_local_state_with_nodes, Nodes}, #pastry_state{routing_table 
 handle_cast({discard_dead_node, Node}, State) ->
   {noreply, perform_discard_dead_node(Node, State)};
 
+handle_cast(start_timer, State) ->
+  {noreply, start_timer(State)};
+
+handle_cast(stop_timer, State) ->
+  {noreply, stop_timer(State)};
+
 handle_cast(Msg, State) ->
   error_logger:error_msg("received unknown cast: ~p", [Msg]),
   {noreply, State}.
@@ -291,9 +307,8 @@ handle_info(Info, State) ->
   {noreply, State}.
 
 % Terminate:
-terminate(_Reason, #pastry_state{neighborhood_watch_ref = NWR}) ->
-  timer:cancel(NWR),
-  ok.
+terminate(_Reason, State) ->
+  stop_timer(State).
 
 code_change(_OldVsn, State, _Extra) ->
   {ok, State}.
@@ -301,6 +316,14 @@ code_change(_OldVsn, State, _Extra) ->
 %% ------------------------------------------------------------------
 %% Internal Function Definitions
 %% ------------------------------------------------------------------
+
+start_timer(#pastry_state{pastry_pid = Pid} = State) ->
+  {ok, TimerRef} = timer:apply_interval(?NEIGHBORHOODWATCH_TIMER, ?MODULE, neighborhood_watch, [Pid]),
+  State#pastry_state{neighborhood_watch_ref = TimerRef}.
+
+stop_timer(#pastry_state{neighborhood_watch_ref = NWR} = State) ->
+  timer:cancel(NWR),
+  State#pastry_state{neighborhood_watch_ref = undefined}.
 
 perform_neighborhood_watch(#pastry_state{pastry_pid = Pid, neighborhood_set = NHS}) ->
   [spawn(fun() ->

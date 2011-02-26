@@ -21,6 +21,8 @@
 %% Public API
 %% ------------------------------------------------------------------
 
+-export([get_dht/0]).
+
 -export([start_link/1, start/1, stop/0]).
 -export([
     register_tcp/4,
@@ -131,6 +133,9 @@ increase_rate() ->
 stop_experimental_phase() ->
   gen_server:cast(?MODULE, stop_experimental_phase).
 
+get_dht() ->
+  gen_server:call(?MODULE, get_dht).
+
 %% ------------------------------------------------------------------
 %% gen_server Function Definitions
 %% ------------------------------------------------------------------
@@ -149,6 +154,12 @@ init(Args) ->
   end.
 
 %% Call:
+handle_call(get_dht, _From, S) ->
+  Nodes = S#controller_state.nodes,
+  Node = hd(Nodes),
+  Pid = Node#controller_node.dht_pid,
+  {reply, Pid, S};
+
 handle_call(get_new_controlling_process, _From, #controller_state{mode = Mode} = State) ->
   {reply, start_node(Mode), State};
 
@@ -163,6 +174,7 @@ handle_cast(reset_node_count, State) ->
   {noreply, State#controller_state{nodes = []}};
 
 handle_cast(run_rampup, State) ->
+  stop_dht_table_maintenance(State),
   Pid = spawn(fun() -> perform_rampup(State) end),
   {noreply, State#controller_state{experiment_pid = Pid}};
 
@@ -175,6 +187,7 @@ handle_cast(increase_rate, #controller_state{experiment_pid = Pid} = State) ->
 handle_cast(stop_experimental_phase, #controller_state{experiment_pid = undefined} = State) ->
   {noreply, State};
 handle_cast(stop_experimental_phase, #controller_state{experiment_pid = Pid} = State) ->
+  start_dht_table_maintenance(State),
   Pid ! stop,
   {noreply, State#controller_state{experiment_pid = undefined}};
 
@@ -257,6 +270,13 @@ code_change(_OldVsn, State, _Extra) ->
 %% ------------------------------------------------------------------
 %% Internal Function Definitions
 %% ------------------------------------------------------------------
+
+start_dht_table_maintenance(State) ->
+  start_stop_table_maintenance(State, start_timers).
+stop_dht_table_maintenance(State) ->
+  start_stop_table_maintenance(State, stop_timers).
+start_stop_table_maintenance(#controller_state{mode = Mode, nodes = Nodes}, Action) ->
+  [Mode:Action(N#controller_node.dht_pid) || N <- Nodes].
 
 restart_sofos() ->
   supervisor:terminate_child(fs_sup, chord_sofo),

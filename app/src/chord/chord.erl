@@ -6,8 +6,8 @@
 -define(MAX_NUM_OF_SUCCESSORS, 5).
 
 %% @doc: the interval in miliseconds at which the routine tasks are performed
--define(FIX_FINGER_INTERVAL, 2000).
--define(STABILIZER_INTERVAL, 1000).
+-define(FIX_FINGER_INTERVAL, 10000).
+-define(STABILIZER_INTERVAL, 30000).
 
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
@@ -37,6 +37,12 @@
     check_node_for_predecessor/4,
     receive_entries/2,
     ping/1
+  ]).
+% For use by the controller to limit the amount of traffic
+% during experiments
+-export([
+    start_timers/1,
+    stop_timers/1
   ]).
 
 %% ------------------------------------------------------------------
@@ -90,6 +96,7 @@ preceding_finger(Pid, Key) ->
 
 -spec(find_successor/2::(pid(), Key::key()) -> {ok, #node{}}).
 find_successor(Pid, Key) ->
+  io:format("find_successor in ~p~n", [Pid]),
   logger:log(Pid, Key, route),
   gen_server:call(Pid, {find_successor, Key}).
 
@@ -120,6 +127,12 @@ notified(Pid, Node) ->
   gen_server:cast(Pid, {notified, Node}), 
   ignore.
 
+start_timers(Pid) ->
+  gen_server:cast(Pid, start_timers).
+
+stop_timers(Pid) ->
+  gen_server:cast(Pid, stop_timers).
+
 %% ------------------------------------------------------------------
 %% To be called by timer
 %% ------------------------------------------------------------------
@@ -138,22 +151,9 @@ init(Args) ->
   Port = receive {port, TcpPort} -> TcpPort end,
 
   case join(Port, ControllingProcess) of
-    {ok, JoinedState} ->
+    {ok, State} ->
       controller:dht_successfully_started(ControllingProcess),
-
-      % Create the tasks that run routinely
-      {ok, TimerRefStabilizer} = 
-          timer:apply_interval(?STABILIZER_INTERVAL, ?MODULE, stabilize, [SelfPid]),
-      {ok, TimerRefFixFingers} = 
-          timer:apply_interval(?FIX_FINGER_INTERVAL, ?MODULE, fix_fingers, [SelfPid]),
-
-      State = JoinedState#chord_state{
-        % Admin stuff
-        timerRefStabilizer = TimerRefStabilizer,
-        timerRefFixFingers = TimerRefFixFingers
-      },
-      
-      {ok, State};
+      {ok, do_start_timers(State)};
 
     error ->
       controller:dht_failed_start(ControllingProcess),
@@ -246,6 +246,12 @@ handle_call(get_predecessor, _From, #chord_state{predecessor = Predecessor} = St
   {reply, Predecessor, State}.
 
 %% Casts:
+handle_cast(start_timers, State) ->
+  {noreply, do_start_timers(State)};
+
+handle_cast(stop_timers, State) ->
+  {noreply, do_stop_timers(State)};
+
 handle_cast({notified, Node}, State) ->
   {noreply, perform_notify(Node, State)};
 
@@ -289,9 +295,7 @@ handle_info(_Info, State) ->
   {noreply, State}.
 
 terminate(_Reason, State) ->
-  % Tell the admin workers to stop what they are doing
-  timer:cancel(State#chord_state.timerRefStabilizer),
-  timer:cancel(State#chord_state.timerRefFixFingers).
+  do_stop_timers(State).
 
 code_change(_OldVsn, State, _Extra) ->
   {ok, State}.
@@ -299,6 +303,23 @@ code_change(_OldVsn, State, _Extra) ->
 %% ------------------------------------------------------------------
 %% Internal Function Definitions
 %% ------------------------------------------------------------------
+
+do_start_timers(#chord_state{chord_pid = SelfPid} = State) ->
+  {ok, TimerRefStabilizer} = 
+      timer:apply_interval(?STABILIZER_INTERVAL, ?MODULE, stabilize, [SelfPid]),
+  {ok, TimerRefFixFingers} = 
+      timer:apply_interval(?FIX_FINGER_INTERVAL, ?MODULE, fix_fingers, [SelfPid]),
+
+  State#chord_state{
+    % Admin stuff
+    timerRefStabilizer = TimerRefStabilizer,
+    timerRefFixFingers = TimerRefFixFingers
+  }.
+
+do_stop_timers(#chord_state{timerRefStabilizer = T1, timerRefFixFingers = T2} = State) ->
+  timer:cancel(T1),
+  timer:cancel(T2),
+  State#chord_state{timerRefStabilizer = undefined, timerRefFixFingers = undefined}.
 
 % @doc: Fixes a given finger entry. If it's the 0th finger entry
 % (ie: the successor list) then it is not fixed as that is done
