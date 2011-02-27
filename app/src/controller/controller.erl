@@ -436,8 +436,8 @@ new_request(#exp_info{ip = Ip, dht = Dht, dht_pid = DhtPid, control_pid = CtrlPi
     end),
     receive
       ok -> CtrlPid ! request_success
-    % Allow requests to take up to two seconds before timing out
-    after 500 -> 
+    % Allow requests to take up to a certain amount of time before timing out
+    after 1000 -> 
         io:format("request timed out~n"),
         CtrlPid ! request_failed
     end
