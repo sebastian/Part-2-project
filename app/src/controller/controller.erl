@@ -409,7 +409,7 @@ rator(Rate, State, OutstandingRequests) ->
         NewRate = Rate * 2,
         rator(NewRate, State, OutstandingRequests)
     after trunc(1000 / Rate) ->
-      case OutstandingRequests > Rate of
+      case OutstandingRequests > Rate orelse OutstandingRequests > 10 of
         true ->
           io:format("~nHas more outstanding requests than the rate (~p) waiting...~n", [OutstandingRequests]),
           rator(Rate, State, OutstandingRequests);
