@@ -6,7 +6,7 @@
 -define(MAX_NUM_OF_SUCCESSORS, 5).
 
 %% @doc: the interval in miliseconds at which the routine tasks are performed
--define(FIX_FINGER_INTERVAL, 10000).
+-define(FIX_FINGER_INTERVAL, 1000).
 -define(STABILIZER_INTERVAL, 5000).
 
 -ifdef(TEST).
