@@ -433,8 +433,9 @@ get_start(NodeKey, N) ->
 %% @doc: Returns the node succeeding a key.
 -spec(perform_find_successor/2::(Key::key(), #chord_state{} | #node{})
     -> #node{}).
-perform_find_successor(Key, 
-    #chord_state{chord_pid = Pid, self = #node{key = NodeId}} = State) ->
+perform_find_successor(Key, State) ->
+  perform_find_successor(Key, State, []).
+perform_find_successor(Key, #chord_state{chord_pid = Pid, self = #node{key = NodeId}} = State, BadNodesHistory) ->
   case perform_get_successor(State) of
     undefined -> 
       % This case only happens when the chord circle is new
@@ -448,26 +449,39 @@ perform_find_successor(Key,
         true  -> Succ;
         % Try looking successively through successors successors.
         false -> 
-          case perform_find_successor(Key, Succ) of
+          case perform_find_successor(Key, Succ, BadNodesHistory) of
             % finding successor failed in the first instance.
             % Remove the offending node and try again.
             {error, bad_node, BadNode} ->
-              NewState = remove_node(Pid, BadNode),
-              % Now that that is done, try again
-              io:format("r"),
-              perform_find_successor(Key, NewState);
+              % We have received a node that is a bad node.
+              % If we have seen this bad node in the past,
+              % that is some successors of ours has returned it
+              % as the next successor, then we are likely to get the
+              % node again if we reattempt the same lookup.
+              % We therefore terminate. Otherwise, if it is
+              % a node we haven't seen, then we give the system
+              % the benefit of doubt and retry.
+              case lists:member(BadNode, BadNodesHistory) of
+                true ->
+                  error;
+                false ->
+                  NewState = remove_node(Pid, BadNode),
+                  % Now that that is done, try again
+                  io:format("r"),
+                  perform_find_successor(Key, NewState, [BadNode|BadNodesHistory])
+              end;
 
             % We successfully found a good value. Now return it.
             Val -> Val
           end
       end
   end;
-perform_find_successor(Key, #node{key = NKey} = CurrentNext) ->
+perform_find_successor(Key, #node{key = NKey} = CurrentNext, BadNodesHistory) ->
   case chord_tcp:rpc_get_closest_preceding_finger_and_succ(Key, CurrentNext) of
     {ok, {NextFinger, NSucc}} ->
       case utilities:in_right_inclusive_range(Key, NKey, NSucc#node.key) of
         true  -> NSucc;
-        false -> perform_find_successor(Key, NextFinger)
+        false -> perform_find_successor(Key, NextFinger, BadNodesHistory)
       end;
     {error, _Reason} ->
       % We couldn't connect to a node.
