@@ -231,6 +231,9 @@ handle_cast(start_experiment, State) ->
   ExperimentalRunnerPid = spawn(fun() -> node_core:experimental_runner(State) end),
   {noreply, State#state{experiment_pid = ExperimentalRunnerPid, experiment_stats = []}};
 
+handle_cast(stop_experiment, #state{experiment_pid = undefined} = State) ->
+  io:format("Some poor node is still in experiment mode!~n"),
+  {noreply, State};
 handle_cast(stop_experiment, #state{experiment_pid = ExperimentPid} = State) ->
   ExperimentPid ! stop_current_run,
   {noreply, State};
