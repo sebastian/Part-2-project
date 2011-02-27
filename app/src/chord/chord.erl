@@ -96,7 +96,6 @@ preceding_finger(Pid, Key) ->
 
 -spec(find_successor/2::(pid(), Key::key()) -> {ok, #node{}}).
 find_successor(Pid, Key) ->
-  io:format("find_successor in ~p~n", [Pid]),
   logger:log(Pid, Key, route),
   gen_server:call(Pid, {find_successor, Key}).
 

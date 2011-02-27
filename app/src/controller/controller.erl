@@ -174,7 +174,7 @@ handle_cast(reset_node_count, State) ->
   {noreply, State#controller_state{nodes = []}};
 
 handle_cast(run_rampup, State) ->
-  Pid = spawn(fun() -> perform_rampup(State) end),
+  Pid = spawn_link(fun() -> perform_rampup(State) end),
   io:format("~nexperimental pid is = ~p~n", [Pid]),
   stop_dht_table_maintenance(State),
   {noreply, State#controller_state{experiment_pid = Pid}};
@@ -230,7 +230,7 @@ handle_cast({new_mode, NewMode}, State) when NewMode =:= pastry ; NewMode =:= ch
 handle_cast({register_node, Node}, #controller_state{mode = Mode, nodes = Nodes} = State) ->
   case length(Nodes) of
     0 -> send_dht_to_friendsearch();
-    _ -> ok % Dht should be fine
+    _ -> ok % FriendSearch should be fine
   end,
   NodeController = monitor_node(Node),
   % Set mapping in logger for propper logging
@@ -292,13 +292,16 @@ rereg_with_hub(Port) ->
   controller_tcp:register_controller(Port, ?RENDEVOUZ_HOST, ?RENDEVOUZ_PORT).
 
 monitor_node(Node) ->
-  spawn(fun() -> perform_monitoring(Node) end).
+  spawn_link(fun() -> perform_monitoring(Node) end).
 
 perform_monitoring(#controller_node{dht_pid = DhtPid} = Node) ->
   receive 
-    kill -> kill_node(Node)
+    kill -> 
+      io:format("Received kill message~n"),
+      kill_node(Node)
   after 1000 -> 
-    time_to_check_liveness 
+    % time_to_check_liveness 
+    ok
   end,
   case gen_server:call(DhtPid, ping, 200) of
     pong -> perform_monitoring(Node);
@@ -316,6 +319,7 @@ kill_node(#controller_node{dht_pid = DhtPid, tcp_pid = TcpPid, app_pid = AppPid}
   pastry_tcp:stop(TcpPid),
   pastry_app:stop(AppPid);
 kill_node(#controller_node{dht_pid = DhtPid, tcp_pid = TcpPid}) ->
+  io:format("Killing chord node~n"),
   % Killing a chord node:
   chord:stop(DhtPid),
   chord_tcp:stop(TcpPid).
@@ -342,8 +346,8 @@ perform_rampup(#controller_state{ip = Ip, nodes = Nodes, mode = Mode}) ->
   SelfPid = self(),
   RunState = #exp_info{ip = Ip, dht_pid = Pid, dht = Type, control_pid = SelfPid},
   InitialRate = 1, % per second
-  DeadManCheck = spawn(fun() -> dead_man(SelfPid) end),
-  RunPid = spawn(fun() -> rator(InitialRate, RunState) end),
+  DeadManCheck = spawn_link(fun() -> dead_man(SelfPid) end),
+  RunPid = spawn_link(fun() -> rator(InitialRate, RunState) end),
   experiment_loop(RunPid, DeadManCheck, [], false).
 
 experiment_loop(RunPid, DeadManCheck, History, HasInformedControllerAboutStop) ->
@@ -359,12 +363,12 @@ experiment_loop(RunPid, DeadManCheck, History, HasInformedControllerAboutStop) -
       experiment_loop(RunPid, DeadManCheck, History, HasInformedControllerAboutStop);
     request_success ->
       RunPid ! ended_request,
-      io:format("Received success~n"),
+      io:format("S"),
       NewHistory = update_history(History, success),
       experiment_loop(RunPid, DeadManCheck, NewHistory, HasInformedControllerAboutStop);
     request_failed ->
       RunPid ! ended_request,
-      io:format("Received failed request~n"),
+      io:format("F"),
       NewHistory = update_history(History, failed),
       case good_history(NewHistory) orelse HasInformedControllerAboutStop of
         true ->
@@ -405,9 +409,9 @@ rator(Rate, State, OutstandingRequests) ->
         NewRate = Rate * 2,
         rator(NewRate, State, OutstandingRequests)
     after trunc(1000 / Rate) ->
-      case OutstandingRequests > 10 of
+      case OutstandingRequests > Rate of
         true ->
-          io:format("Has ~p outstanding requests...~n", [OutstandingRequests]),
+          io:format("~nHas more outstanding requests than the rate (~p) waiting...~n", [OutstandingRequests]),
           rator(Rate, State, OutstandingRequests);
         false ->
           new_request(State),
@@ -418,10 +422,10 @@ rator(Rate, State, OutstandingRequests) ->
 
 new_request(#exp_info{ip = Ip, dht = Dht, dht_pid = DhtPid, control_pid = CtrlPid}) ->
   io:format("n"),
-  spawn(fun() ->
+  spawn_link(fun() ->
     Key = utilities:key_for_data({Ip, now()}),
     ReturnPid = self(),
-    spawn(fun() ->
+    spawn_link(fun() ->
       try 
         Dht:lookup(DhtPid, Key),
         ReturnPid ! ok
@@ -431,11 +435,9 @@ new_request(#exp_info{ip = Ip, dht = Dht, dht_pid = DhtPid, control_pid = CtrlPi
       end
     end),
     receive
-      ok -> 
-        io:format("received request ok~n"),
-        CtrlPid ! request_success
+      ok -> CtrlPid ! request_success
     % Allow requests to take up to two seconds before timing out
-    after 1000 -> 
+    after 500 -> 
         io:format("request timed out~n"),
         CtrlPid ! request_failed
     end

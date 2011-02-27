@@ -110,7 +110,7 @@ remove_controller(Controller, #state{controllers = Controllers} = State) ->
   State#state{controllers = Controllers -- Match}.
 
 keep_while_alive(Controller) ->
-  spawn(fun() -> liveness_checker(Controller, 1000) end).
+  spawn_link(fun() -> liveness_checker(Controller, 1000) end).
 
 liveness_checker(Controller, Interval) ->
   receive after Interval -> ok end,
@@ -282,7 +282,7 @@ start_experimental_phase(State, LogFile) ->
 run_experimental_phase(State, LogFile) ->
   {Hosts, _N} = node:get_num_of_hosts_and_nodes(),
   % Run the experiment until 20% of the nodes fail
-  RateIncreaser = spawn(fun() -> perform_increase_rate(State, LogFile) end),
+  RateIncreaser = spawn_link(fun() -> perform_increase_rate(State, LogFile) end),
   run_experimental_phase(State, RateIncreaser, trunc(Hosts/5) + 1).
 
 perform_increase_rate(State, LogFile) ->
@@ -300,7 +300,7 @@ perform_increase_rate(State, LogFile) ->
 run_experimental_phase(State, RateIncreaser, 0) ->
   node:experiment_update("Current experimental phase completed"),
   terminate_exp(State, RateIncreaser),
-  go; % Tells the experiment that it died of natural cause, and continues to the next phase
+  go; % go indicates to the system that it can move on to the next stage
 run_experimental_phase(State, RateIncreaser, ToGo) ->
   receive 
     stop_current_run ->
