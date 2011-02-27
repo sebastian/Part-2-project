@@ -416,7 +416,7 @@ rator(Rate, State, OutstandingRequests, Stopper) ->
         NewRate = Rate * 2,
         rator(NewRate, State, OutstandingRequests, Stopper)
     after trunc(1000 / Rate) ->
-      case OutstandingRequests > trunc(Rate*1.5) of
+      case OutstandingRequests > (trunc(Rate*1.5) + 3) of
         true ->
           io:format("~nHas more outstanding requests than the rate (~p) waiting...~n", [OutstandingRequests]),
           Stopper ! cant_sustain_rate,
