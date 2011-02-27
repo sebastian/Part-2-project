@@ -206,7 +206,8 @@ handle_call(ping, _From, State) ->
   {reply, pong, State};
 
 handle_call({remove_node, BadNode}, _From, State) ->
-  {reply, ok, perform_remove_node(BadNode, State)};
+  NewState = perform_remove_node(BadNode, State),
+  {reply, NewState, NewState};
 
 handle_call(get_state, _From, State) ->
   {reply, State, State};
@@ -451,10 +452,10 @@ perform_find_successor(Key,
             % finding successor failed in the first instance.
             % Remove the offending node and try again.
             {error, bad_node, BadNode} ->
-              remove_node(Pid, BadNode),
+              NewState = remove_node(Pid, BadNode),
               % Now that that is done, try again
               io:format("r"),
-              perform_find_successor(Key, State);
+              perform_find_successor(Key, NewState);
 
             % We successfully found a good value. Now return it.
             Val -> Val
