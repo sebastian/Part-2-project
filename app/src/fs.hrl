@@ -2,14 +2,14 @@
 
 % Version number returned by controller app to see if a node is
 % running the latest release
--define(VERSION, 19).
+-define(VERSION, 20).
 
 % Rendevouz host
 %-define(RENDEVOUZ_HOST, "localhost").
 -define(RENDEVOUZ_HOST, "hub.probsteide.com").
 -define(RENDEVOUZ_PORT, 6001).
 
--define(TCP_TIMEOUT, 1000).
+-define(TCP_TIMEOUT, 3000).
 
 -type(key() :: number()).
 -type(binary_string() :: bitstring()).

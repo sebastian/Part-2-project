@@ -333,14 +333,19 @@ fix_finger(0, _) -> ok;
 fix_finger(FingerNum, #chord_state{chord_pid = Pid, fingers = Fingers} = State) ->
   Finger = array:get(FingerNum, Fingers),
   Succ = perform_find_successor(Finger#finger_entry.start, State),
-  % If the successor is in the interval for the finger,
-  % then update it, otherwise drop the successor.
-  {Start, End} = Finger#finger_entry.interval,
-  case (utilities:in_right_inclusive_range(Succ#node.key, Start, End)) of
+  case is_record(Succ, node) of
     true ->
-      UpdatedFinger = Finger#finger_entry{node = Succ},
-      gen_server:cast(Pid, {set_finger, FingerNum, UpdatedFinger});
-    _ -> void
+      % If the successor is in the interval for the finger,
+      % then update it, otherwise drop the successor.
+      {Start, End} = Finger#finger_entry.interval,
+      case (utilities:in_right_inclusive_range(Succ#node.key, Start, End)) of
+        true ->
+          UpdatedFinger = Finger#finger_entry{node = Succ},
+          gen_server:cast(Pid, {set_finger, FingerNum, UpdatedFinger});
+        _ -> void
+      end;
+    false ->
+      ok
   end.
 
 
@@ -493,6 +498,7 @@ perform_find_successor(Key, #node{key = NKey} = CurrentNext, BadNodesHistory, Se
           NextFingerKey = NextFinger#node.key,
           case lists:member(NextFingerKey, SeenNodes) of
             true -> 
+              io:format("Repeated keys!...~n"),
               {error, repeated_key};
             false ->
               perform_find_successor(Key, NextFinger, BadNodesHistory, [NextFingerKey|SeenNodes])
@@ -597,9 +603,10 @@ set_successor(Successor, #chord_state{predecessor = Predecessor, self = Self} = 
 % of increasing distance along the chord key space.
 -spec(sort_successors/2::(FingerList::[#finger_entry{}], Self::#node{}) -> [#finger_entry{}]).
 sort_successors(FingerList, Self) -> 
+  NodeList = lists:filter(fun(N) -> is_record(N#finger_entry.node, node) end, FingerList),
   SortedList = lists:sort(
     fun(#finger_entry{node=A},#finger_entry{node=B}) -> A#node.key =< B#node.key end,
-    FingerList),
+    NodeList),
   Smaller = lists:takewhile(
     fun(#finger_entry{node=Node}) -> Node#node.key < Self#node.key end,
     SortedList),
