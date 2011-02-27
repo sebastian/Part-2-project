@@ -49,6 +49,7 @@
 % From hub application
 -export([
     % From hub application
+    start_single_experiment/0,
     start_experiment/0,
     terminate_experiment/0,
     clear_experiment/0,
@@ -157,6 +158,9 @@ stop_nodes(N) ->
 % -------------------------------------------------------------------
 % Experiements ------------------------------------------------------
 
+start_single_experiment() ->
+  gen_server:cast(?MODULE, start_single_experiment).
+
 start_experiment() ->
   gen_server:cast(?MODULE, start_experiment).
 
@@ -219,6 +223,10 @@ handle_call(clear, _From, _State) ->
   {reply, ok, #state{}}.
 
 %% Casts:
+handle_cast(start_single_experiment, State) ->
+  ExperimentalRunnerPid = spawn(fun() -> node_core:short_experimental_runner(State) end),
+  {noreply, State#state{experiment_pid = ExperimentalRunnerPid, experiment_stats = []}};
+
 handle_cast(start_experiment, State) ->
   ExperimentalRunnerPid = spawn(fun() -> node_core:experimental_runner(State) end),
   {noreply, State#state{experiment_pid = ExperimentalRunnerPid, experiment_stats = []}};

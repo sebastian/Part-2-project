@@ -21,6 +21,7 @@
     get_logs/1,
     upgrade_systems/1,
     experimental_runner/1,
+    short_experimental_runner/1,
     stop_experimental_phase/1
   ]).
 
@@ -110,7 +111,7 @@ remove_controller(Controller, #state{controllers = Controllers} = State) ->
   State#state{controllers = Controllers -- Match}.
 
 keep_while_alive(Controller) ->
-  spawn_link(fun() -> liveness_checker(Controller, 1000) end).
+  spawn(fun() -> liveness_checker(Controller, 1000) end).
 
 liveness_checker(Controller, Interval) ->
   receive after Interval -> ok end,
@@ -191,6 +192,27 @@ slow_perform(Fun, Args, #state{controllers = Controllers}) ->
       spawn(fun() -> Fun(Args, C) end) 
     end || C <- Controllers
   ].
+
+% Single short experimental run burst
+short_experimental_runner(State) ->
+  node:experiment_update("--- Experimental run ---"),
+  node:experiment_update("Telling hosts to clear their logs"),
+  node:clear_logs(),
+  node:experiment_update("Telling hosts to start logging"),
+  node:start_logging(),
+  % We want to append timestamps to log
+  {ok, LogFile} = file:open(?MASTER_LOG, [append]),
+  % Phase 1
+  node:experiment_update("Telling hosts to run 1 node"),
+  node:ensure_running_n_nodes(1),
+  node:experiment_update("Waiting 3 minutes"),
+  wait_minutes(3),
+  node:experiment_update("Starting phase 1"),
+  logPhaseStart(LogFile),
+  start_experimental_phase(State, LogFile),
+  logPhaseDone(LogFile),
+  clean_up_experiment(State, LogFile).
+
 
 % Called to initiate an experimental run
 experimental_runner(State) ->
@@ -282,7 +304,7 @@ start_experimental_phase(State, LogFile) ->
 run_experimental_phase(State, LogFile) ->
   {Hosts, _N} = node:get_num_of_hosts_and_nodes(),
   % Run the experiment until 20% of the nodes fail
-  RateIncreaser = spawn_link(fun() -> perform_increase_rate(State, LogFile) end),
+  RateIncreaser = spawn(fun() -> perform_increase_rate(State, LogFile) end),
   run_experimental_phase(State, RateIncreaser, trunc(Hosts/5) + 1).
 
 perform_increase_rate(State, LogFile) ->
