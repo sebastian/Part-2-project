@@ -395,27 +395,35 @@ dead_man(Controller) ->
   end.
 
 rator(Rate, State) ->
-  rator(Rate, State, 0).
-rator(Rate, State, OutstandingRequests) ->
+  Stopper = spawn(fun() ->
+      receive 
+        cant_sustain_rate ->
+          io:format("Letting controller know that we can't sustain the rate~n"),
+          controller_tcp:stop_experimental_phase()
+      end
+  end),
+  rator(Rate, State, 0, Stopper).
+rator(Rate, State, OutstandingRequests, Stopper) ->
   receive 
     stop -> 
       io:format("Stopping rator with ~p outstanding requests~n", [OutstandingRequests]),
       ok;
     ended_request ->
-      rator(Rate, State, OutstandingRequests - 1)
+      rator(Rate, State, OutstandingRequests - 1, Stopper)
   after 0 -> 
     receive
       increase_rate ->
         NewRate = Rate * 2,
-        rator(NewRate, State, OutstandingRequests)
+        rator(NewRate, State, OutstandingRequests, Stopper)
     after trunc(1000 / Rate) ->
-      case OutstandingRequests > Rate orelse OutstandingRequests > 10 of
+      case OutstandingRequests > trunc(Rate*1.5) of
         true ->
           io:format("~nHas more outstanding requests than the rate (~p) waiting...~n", [OutstandingRequests]),
-          rator(Rate, State, OutstandingRequests);
+          Stopper ! cant_sustain_rate,
+          rator(Rate, State, OutstandingRequests, Stopper);
         false ->
           new_request(State),
-          rator(Rate, State, OutstandingRequests+1)
+          rator(Rate, State, OutstandingRequests+1, Stopper)
       end
     end
   end.

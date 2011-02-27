@@ -194,7 +194,6 @@ post_rendevouz_state_update(Ip, Port) ->
 perform_join([], _State) -> error;
 perform_join([{JoinIp, JoinPort}|Ps], #chord_state{self = #node{key = OwnKey}} = State) ->
   % Find the successor node using the given node
-  io:format("197: "),
   case chord_tcp:rpc_find_successor(OwnKey, JoinIp, JoinPort) of
     {ok, Succ} -> {ok, set_successor(Succ, State)};
     {error, _} ->
@@ -270,7 +269,6 @@ handle_cast(stabilize, #chord_state{self = Us, chord_pid = Pid} = State) ->
     % Update our own state with the new successors
     [gen_server:cast(Pid, {set_successor, Succ}) || {add_succ, Succ} <- SuccessorsToUpdate],
     % For good measure, we also notify the new nodes about our presence.
-    io:format("273: "),
     [chord_tcp:notify_successor(Succ, Us) || {notify, Succ} <- SuccessorsToUpdate],
     % Extend the successor list so it is as long as we wish it to be
     extend_successor_list(State)
@@ -358,7 +356,6 @@ perform_stabilize(#chord_state{chord_pid = Pid, self = ThisNode, fingers=Fingers
     rpc:pmap({?MODULE, check_node_for_predecessor}, [ThisNode, Successors, Pid], Successors)).
 
 check_node_for_predecessor(Succ, ThisNode, KnownSuccessors, Pid) ->
-  io:format("356: "),
   case chord_tcp:get_predecessor(Succ) of
     {ok, undefined} ->
       % The other node doesn't have a predecessor yet.
@@ -444,7 +441,6 @@ get_start(NodeKey, N) ->
 perform_find_successor(Key, State) ->
   perform_find_successor(Key, State, [], []).
 perform_find_successor(Key, #chord_state{chord_pid = Pid, self = #node{key = NodeId}} = State, BadNodesHistory, SeenNodes) ->
-  io:format("~nperform_find_successor(~p, [~p])~n", [Key, BadNodesHistory]),
   case perform_get_successor(State) of
     undefined -> 
       % This case only happens when the chord circle is new
@@ -472,7 +468,6 @@ perform_find_successor(Key, #chord_state{chord_pid = Pid, self = #node{key = Nod
               % the benefit of doubt and retry.
               case lists:member(BadNode, BadNodesHistory) of
                 true ->
-                  io:format("stopping perform_find_successor because of repeated bad node~n"),
                   error;
                 false ->
                   NewState = remove_node(Pid, BadNode),
@@ -487,7 +482,6 @@ perform_find_successor(Key, #chord_state{chord_pid = Pid, self = #node{key = Nod
       end
   end;
 perform_find_successor(Key, #node{key = NKey} = CurrentNext, BadNodesHistory, SeenNodes) ->
-  io:format("482: "),
   case chord_tcp:rpc_get_closest_preceding_finger_and_succ(Key, CurrentNext) of
     {ok, {NextFinger, NSucc}} ->
       case utilities:in_right_inclusive_range(Key, NKey, NSucc#node.key) of
@@ -634,7 +628,6 @@ set_predecessor(Predecessor, #chord_state{self = Self} = State) ->
 
 
 transfer_data_in_range(Start, End, Node) ->
-  io:format("618: "),
   case datastore_srv:get_entries_in_range(Start, End) of
     [] -> ok; % no data to transfer
     Data -> case chord_tcp:rpc_send_entries(Data, Node) of
@@ -651,7 +644,6 @@ extend_successor_list(#chord_state{chord_pid = Pid, fingers = Fingers}) ->
   case length(Successors) < ?MAX_NUM_OF_SUCCESSORS andalso Successors =/= [] of 
     true ->
       LastSuccessorNode = (hd(lists:reverse(Successors)))#finger_entry.node,
-      io:format("635: "),
       case chord_tcp:rpc_get_successor(LastSuccessorNode) of
         {ok, NextSucc} -> gen_server:cast(Pid, {set_successor, NextSucc});
         {error, _} -> remove_node(Pid, LastSuccessorNode)
@@ -666,7 +658,6 @@ extend_successor_list(#chord_state{chord_pid = Pid, fingers = Fingers}) ->
 -spec(replicate_entry/2::(Entry::#entry{}, State::#chord_state{}) -> ok).
 replicate_entry(Entry, State) ->
   SuccessorNodes = [F#finger_entry.node || F <- array:get(0, State#chord_state.fingers)],
-  io:format("650: "),
   [spawn(fun() -> chord_tcp:rpc_send_entries([Entry], Succ) end) || Succ <- SuccessorNodes],
   ok.
 
