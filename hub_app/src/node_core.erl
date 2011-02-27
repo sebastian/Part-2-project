@@ -205,9 +205,7 @@ short_experimental_runner(State) ->
   % Phase 1
   node:experiment_update("Telling hosts to run 1 node"),
   node:ensure_running_n_nodes(1),
-  node:experiment_update("Waiting 3 minutes"),
-  wait_minutes(3),
-  node:experiment_update("Starting phase 1"),
+  node:experiment_update("Starting experimental burst"),
   logPhaseStart(LogFile),
   start_experimental_phase(State, LogFile),
   logPhaseDone(LogFile),
@@ -305,13 +303,15 @@ run_experimental_phase(State, LogFile) ->
   {Hosts, _N} = node:get_num_of_hosts_and_nodes(),
   % Run the experiment until 20% of the nodes fail
   RateIncreaser = spawn(fun() -> perform_increase_rate(State, LogFile) end),
+  RateIncreaser ! {test_message, "Hello world, do you copy?"},
   run_experimental_phase(State, RateIncreaser, trunc(Hosts/5) + 1).
 
 perform_increase_rate(State, LogFile) ->
   receive 
     stop -> 
       io:format("stopping perform_increase_rate~n"),
-      ok
+      ok;
+    Msg -> io:format("Received message ~p in rate increaser~n", [Msg])
   after 10 * 1000 ->
     io:format("Increasing rate~n"),
     logIncreaseRate(LogFile),
