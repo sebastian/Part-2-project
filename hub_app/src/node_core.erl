@@ -203,13 +203,18 @@ short_experimental_runner(State) ->
   % We want to append timestamps to log
   {ok, LogFile} = file:open(?MASTER_LOG, [append]),
   % Phase 1
-  node:experiment_update("Telling hosts to run 1 node"),
-  node:ensure_running_n_nodes(1),
   node:experiment_update("Starting experimental burst"),
   logPhaseStart(LogFile),
   start_experimental_phase(State, LogFile),
   logPhaseDone(LogFile),
-  clean_up_experiment(State, LogFile).
+  % Clean up
+  node:experiment_update("--- Experiments done ---"),
+  node:experiment_update("Stopping logging"),
+  node:stop_logging(),
+  node:experiment_update("Getting logs"),
+  node:get_logs(),
+  node:experiment_update("Experiment done. Thanks!"),
+  file:close(LogFile).
 
 
 % Called to initiate an experimental run
@@ -311,7 +316,8 @@ perform_increase_rate(State, LogFile) ->
     stop -> 
       io:format("stopping perform_increase_rate~n"),
       ok;
-    Msg -> io:format("Received message ~p in rate increaser~n", [Msg])
+    Msg -> io:format("Received message ~p in rate increaser~n", [Msg]),
+      perform_increase_rate(State, LogFile)
   after 10 * 1000 ->
     io:format("Increasing rate~n"),
     logIncreaseRate(LogFile),
