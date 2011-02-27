@@ -292,7 +292,7 @@ rereg_with_hub(Port) ->
   controller_tcp:register_controller(Port, ?RENDEVOUZ_HOST, ?RENDEVOUZ_PORT).
 
 monitor_node(Node) ->
-  spawn_link(fun() -> perform_monitoring(Node) end).
+  spawn(fun() -> perform_monitoring(Node) end).
 
 perform_monitoring(#controller_node{dht_pid = DhtPid} = Node) ->
   receive 
