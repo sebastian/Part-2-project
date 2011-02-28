@@ -48,7 +48,8 @@
     % For experiments
     run_rampup/0,
     increase_rate/0,
-    stop_experimental_phase/0
+    stop_experimental_phase/0,
+    output_diagnostics/0
   ]).
 
 %% ------------------------------------------------------------------
@@ -136,6 +137,9 @@ stop_experimental_phase() ->
 get_dht() ->
   gen_server:call(?MODULE, get_dht).
 
+output_diagnostics() ->
+  gen_server:cast(?MODULE, output_diagnostics).
+
 %% ------------------------------------------------------------------
 %% gen_server Function Definitions
 %% ------------------------------------------------------------------
@@ -170,6 +174,11 @@ handle_call(stop, _From, State) ->
   {stop, normal, ok, State}.
 
 %% Casts:
+handle_cast(output_diagnostics, #controller_state{nodes = Nodes, mode = Dht} = S) ->
+  io:format("Diagnostics:~n"),
+  [ io:format("   ~p~n", [Dht:output_diagnostics(N#controller_node.dht_pid)]) || N <- Nodes],
+  {noreply, S};
+
 handle_cast(reset_node_count, State) ->
   {noreply, State#controller_state{nodes = []}};
 

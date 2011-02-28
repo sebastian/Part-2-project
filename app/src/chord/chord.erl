@@ -44,6 +44,8 @@
     start_timers/1,
     stop_timers/1
   ]).
+% For debugging
+-export([output_diagnostics/1]).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Exports
@@ -132,6 +134,9 @@ start_timers(Pid) ->
 stop_timers(Pid) ->
   gen_server:cast(Pid, stop_timers).
 
+output_diagnostics(Pid) ->
+  gen_server:call(Pid, output_diagnostics).
+
 %% ------------------------------------------------------------------
 %% To be called by timer
 %% ------------------------------------------------------------------
@@ -202,6 +207,9 @@ perform_join([{JoinIp, JoinPort}|Ps], #chord_state{self = #node{key = OwnKey}} =
 
 
 %% Call:
+handle_call(output_diagnostics, _From, State) ->
+  {reply, ok, State};
+
 handle_call(ping, _From, State) ->
   {reply, pong, State};
 

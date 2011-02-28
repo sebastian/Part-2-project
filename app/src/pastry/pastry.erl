@@ -59,6 +59,8 @@
     start_timers/1,
     stop_timers/1
   ]).
+% For debugging
+-export([output_diagnostics/1]).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Exports
@@ -99,6 +101,9 @@ start_timers(Pid) ->
 
 stop_timers(Pid) ->
   gen_server:cast(Pid, stop_timer).
+
+output_diagnostics(Pid) ->
+  gen_server:call(Pid, output_diagnostics).
 
 neighborhood_watch(Pid) ->
   gen_server:cast(Pid, perform_neighborhood_watch),
@@ -217,6 +222,9 @@ perform_join([{JoinIp, JoinPort}|Ps], #pastry_state{self = Self} = State, Contro
   end.
 
 % Call:
+handle_call(output_diagnostics, _From, State) ->
+  {reply, ok, State};
+
 handle_call(ping, _From, State) ->
   {reply, pong, State};
 
