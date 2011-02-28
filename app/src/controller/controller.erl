@@ -341,19 +341,18 @@ all_ports(Nodes) ->
 
 -record(exp_info, {
     dht :: pastry_app | chord,
-    dht_pid :: pid(),
+    dht_pids :: [pid()],
     control_pid :: pid(),
     ip
   }).
 perform_rampup(#controller_state{ip = Ip, nodes = Nodes, mode = Mode}) ->
-  Node = hd(Nodes),
-  {Type, Pid} = case Mode of
-    pastry -> {pastry_app, Node#controller_node.app_pid};
-    OtherDht -> {OtherDht, Node#controller_node.dht_pid}
+  {Type, Pids} = case Mode of
+    pastry -> {pastry_app, [Node#controller_node.app_pid || Node <- Nodes]};
+    OtherDht -> {OtherDht, [Node#controller_node.dht_pid || Node <- Nodes]}
   end,
   io:format("Running experiment on ~p~n", [Type]),
   SelfPid = self(),
-  RunState = #exp_info{ip = Ip, dht_pid = Pid, dht = Type, control_pid = SelfPid},
+  RunState = #exp_info{ip = Ip, dht_pids = Pids, dht = Type, control_pid = SelfPid},
   InitialRate = 1, % per second
   DeadManCheck = spawn_link(fun() -> dead_man(SelfPid) end),
   RunPid = spawn_link(fun() -> rator(InitialRate, RunState) end),
@@ -412,7 +411,7 @@ rator(Rate, State) ->
       end
   end),
   rator(Rate, State, 0, Stopper).
-rator(Rate, State, OutstandingRequests, Stopper) ->
+rator(Rate, #exp_info{dht_pids = Pids} = State, OutstandingRequests, Stopper) ->
   receive 
     stop -> 
       io:format("Stopping rator with ~p outstanding requests~n", [OutstandingRequests]),
@@ -428,16 +427,19 @@ rator(Rate, State, OutstandingRequests, Stopper) ->
       case OutstandingRequests > (trunc(Rate*1.5) + 3) of
         true ->
           io:format("~nHas more outstanding requests than the rate (~p) waiting...~n", [OutstandingRequests]),
-          Stopper ! cant_sustain_rate,
-          rator(Rate, State, OutstandingRequests, Stopper);
-        false ->
-          new_request(State),
-          rator(Rate, State, OutstandingRequests+1, Stopper)
-      end
+          Stopper ! cant_sustain_rate;
+        false -> good
+      end,
+      % Get the next DhtPid
+      NextPid = hd(Pids),
+      RestPids = tl(Pids),
+      UpdatedState = State#exp_info{dht_pids = RestPids ++ [NextPid]},
+      new_request(State, NextPid),
+      rator(Rate, UpdatedState, OutstandingRequests+1, Stopper)
     end
   end.
 
-new_request(#exp_info{ip = Ip, dht = Dht, dht_pid = DhtPid, control_pid = CtrlPid}) ->
+new_request(#exp_info{ip = Ip, dht = Dht, control_pid = CtrlPid}, DhtPid) ->
   io:format("n"),
   spawn_link(fun() ->
     Key = utilities:key_for_data({Ip, now()}),

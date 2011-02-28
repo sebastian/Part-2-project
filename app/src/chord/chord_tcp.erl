@@ -10,7 +10,7 @@
 
 -define(TCP_OPTS, [binary, inet,
                    {active,    true},
-                   {backlog,   50},
+                   {backlog,   250},
                    {nodelay,   true},
                    {packet,    0},
                    {reuseaddr, true}]).
@@ -146,6 +146,7 @@ start_link(Args) -> gen_listener_tcp:start_link(?MODULE, Args, []).
 chord_tcp_client(Socket, State) -> receive_incoming(Socket, [], State).
 
 receive_incoming(Socket, SoFar, State) ->
+  io:format("-"),
   receive
     {tcp, Socket, Bin} ->
       try

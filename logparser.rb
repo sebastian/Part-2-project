@@ -97,16 +97,24 @@ class LogParser
       when "ctrl"
         # ctrl;start;time;host_count;node_count
         # ctrl;end;time;host_count;node_count
+        # ctrl;increase_rate;time;host_count;node_count
 
+        # We want to bin the data by rate
+        # Each record, except the first and last, mark the end of one bin
+        # and the beginning of the next.
         type = record[1]
-        case type
-        when "start"
-          @control_messages << {:start => control_msg_for_rec(record)}
-        when "done"
-          last_msg = @control_messages.pop
-          last_msg[:end] = control_msg_for_rec(record)
-          @control_messages << last_msg
+        time = record[2].to_i
+
+        # Update previous control record
+        unless @control_messages.size == 0 then
+          previous_control_message = @control_messages.pop
+          previous_control_message[:end] = control_msg_for_rec(record)
+          @control_messages << previous_control_message
         end
+        
+        # Add a new control record
+        new_control_message = {:start => control_msg_for_rec(record)}
+        @control_messages << new_control_message
 
       when "data"
         # data;state;bits;time
@@ -150,58 +158,46 @@ class LogParser
 
   private
   def output_records
-    # Get the control messages
-    run1 = data_for_control_message(@control_messages[0])
-    run2 = data_for_control_message(@control_messages[1])
-    run3 = data_for_control_message(@control_messages[2])
-    run4 = data_for_control_message(@control_messages[3])
-
-    header_lat = "ms	" +
-        "R1Lat	R1LatStDev	R1DataPoints	" +
-        "R2Lat	R2LatStDev	R2DataPoints	" +
-        "R3Lat	R3LatStDev	R3DataPoints	" +
-        "R4Lat	R4LatStDev	R4DataPoints	" +
+    header_lat = "Rate	" +
+        "Latency	StDev	NumDataPoints	" +
         "\n"
-    header_nodes = "ms	" +
-        "R1Nodes	R1NodesStDev	R1DataPoints	" +
-        "R2Nodes	R2NodesStDev	R2DataPoints	" +
-        "R3Nodes	R3NodesStDev	R3DataPoints	" +
-        "R4Nodes	R4NodesStDev	R4DataPoints	" +
+    header_nodes = "Rate	" +
+        "Nodes	NodesStDev	NumDataPoints	" +
         "\n"
-    header_data = "ms	" +
-        "R1Data	R1DataStDev	R1DataPoints	" +
-        "R2Data	R2DataStDev	R2DataPoints	" +
-        "R3Data	R3DataStDev	R3DataPoints	" +
-        "R4Data	R4DataStDev	R4DataPoints	" +
+    header_data = "Rate	" +
+        "Bits	BitsStDev	NumDataPoints	" +
         "\n"
     yield header_lat, header_nodes, header_data
 
-    0.upto(max_length_run(run1, run2, run3, run4)) { |n|
-      lat = "#{n}	" + 
-          val_for(run1, n, :lat) +
-          val_for(run2, n, :lat) +
-          val_for(run3, n, :lat) +
-          val_for(run4, n, :lat) + "\n"
-      nodes = "#{n}	" +
-          val_for(run1, n, :nodes) +
-          val_for(run2, n, :nodes) +
-          val_for(run3, n, :nodes) +
-          val_for(run4, n, :nodes) + "\n"
-      data = "#{n}	" +
-          val_for(run1, n, :data) +
-          val_for(run2, n, :data) +
-          val_for(run3, n, :data) +
-          val_for(run4, n, :data) + "\n"
+    rate = nil
+    @control_messages.each do |control_message|
+      # In case this is the last control message
+      # then there is no data to collect
+      break unless control_message[:end]
+
+      data = data_for_control_message(control_message)
+
+      unless rate then
+        rate = 1
+      else
+        rate = rate * 2
+      end
+
+      # Get values for the phase
+      lat = "#{rate}	" + val_for(data, :lat) + "\n"
+      nodes = "#{rate}	" + val_for(data, :nodes) + "\n"
+      data = "#{rate}	" + val_for(data, :data) + "\n"
       yield lat, nodes, data
-    }
+    end
+
   end
   
-  def val_for(run, n, what)
+  def val_for(run, what)
     av = 0
     stdev = 0
     num_datapoints = 0
-    if run.size > n then
-      values = run[n].map {|r| r.send(what)} 
+    if run.size > 0 then
+      values = run.map {|r| r.send(what)} 
       av = average_value(values)
       stdev = standard_deviation(values)
       num_datapoints = values.size
@@ -226,8 +222,7 @@ class LogParser
   end
 
   def data_for_control_message(cm)
-    requests = request_array_for_interval(cm[:start][:time], cm[:end][:time])
-    Request.bin_and_sort(requests)
+    request_array_for_interval(cm[:start][:time], cm[:end][:time])
   end
 
   def control_msg_for_rec(rec)

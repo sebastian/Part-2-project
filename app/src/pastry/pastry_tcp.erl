@@ -10,7 +10,7 @@
 
 -define(TCP_OPTS, [binary, inet,
                    {active,    true},
-                   {backlog,   50},
+                   {backlog,   250},
                    {nodelay,   true},
                    {packet,    0},
                    {reuseaddr, true}]).
@@ -146,6 +146,7 @@ start_link(Args) -> gen_listener_tcp:start_link(?MODULE, Args, []).
 pastry_tcp_client(Socket, Pid) -> receive_incoming(Socket, [], Pid).
 
 receive_incoming(Socket, SoFar, Pid) ->
+  io:format("-"),
   receive
     {tcp, Socket, Bin} ->
       try
