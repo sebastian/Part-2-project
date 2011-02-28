@@ -2,7 +2,7 @@
 -behaviour(gen_server).
 -compile({no_auto_import,[min/2, max/2]}).
 -define(SERVER, ?MODULE).
--define(NEIGHBORHOODWATCH_TIMER, 30000).
+-define(NEIGHBORHOODWATCH_TIMER, 5000).
 
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
@@ -110,13 +110,17 @@ neighborhood_watch(Pid) ->
   gen_server:cast(Pid, perform_neighborhood_expansion).
 
 augment_routing_table(Pid, RoutingTable) ->
-  gen_server:cast(Pid, {augment_routing_table, RoutingTable}),
-  ok.
+  gen_server:call(Pid, {augment_routing_table, RoutingTable}).
 
 let_join(Pid, Node) ->
   % Send the newcomer our routing table
   spawn(fun() ->
-    pastry_tcp:send_routing_table(gen_server:call(Pid, get_routing_table), Node),
+    case pastry_tcp:send_routing_table(gen_server:call(Pid, get_routing_table), Node) of
+      {ok, NewNodes} ->
+        % The node returns nodes that we can add to our own table
+        add_nodes(Pid, NewNodes);
+      _ -> ohoh
+    end,
     pastry_tcp:send_nodes(gen_server:call(Pid, get_self), Node),
     % Forward the routing message to the next node
     route(Pid, {join, Node}, Node#node.key),
@@ -222,6 +226,16 @@ perform_join([{JoinIp, JoinPort}|Ps], #pastry_state{self = Self} = State, Contro
   end.
 
 % Call:
+handle_call({augment_routing_table, RoutingTable}, From, #pastry_state{pastry_pid = PastryPid} = State) ->
+  spawn(fun() ->
+    % add the nodes we have received to our own routing table
+    add_nodes(PastryPid, nodes_in_routing_table(RoutingTable)),
+    % respond with all our own nodes
+    OurNodes = all_known_nodes(State),
+    gen_server:reply(From, OurNodes)
+  end),
+  {noreply, State};
+
 handle_call(output_diagnostics, _From, State) ->
   Nodes = all_known_nodes(State),
   {reply, Nodes, State};
@@ -277,10 +291,6 @@ handle_cast({route, Msg, Key}, #pastry_state{pastry_app_pid = PastryAppPid} = St
   route_msg(Msg, Key, State),
   {noreply, State};
 
-handle_cast({augment_routing_table, RoutingTable}, #pastry_state{pastry_pid = PastryPid} = State) ->
-  add_nodes(PastryPid, nodes_in_routing_table(RoutingTable)),
-  {noreply, State};
-
 handle_cast({add_nodes, Nodes}, #pastry_state{pastry_pid = Pid} = State) ->
   prepare_nodes_for_adding(Nodes, Pid),
   {noreply, State};
@@ -295,7 +305,8 @@ handle_cast({update_local_state_with_nodes, Nodes}, #pastry_state{routing_table 
   NewNeighborhoodSet = foldl(fun(Node, PrevNHS) ->
     merge_node_in_nhs(Node, PrevNHS, B, State#pastry_state.self)
   end, NS, Nodes),
-  {noreply, UpdatedLeafSetState#pastry_state{routing_table = NewRT, neighborhood_set = NewNeighborhoodSet}};
+  UpdatedState = UpdatedLeafSetState#pastry_state{routing_table = NewRT, neighborhood_set = NewNeighborhoodSet},
+  {noreply, UpdatedState};
 
 handle_cast({discard_dead_node, Node}, State) ->
   {noreply, perform_discard_dead_node(Node, State)};
@@ -587,8 +598,13 @@ max_for_keylength([_|K], Mul, Acc) -> max_for_keylength(K, Mul, Acc * Mul + Mul-
 % When a welcome message is received, the newcomer
 % broadcasts its routing table so other nodes get
 % a chance to update their own.
-perform_welcomed(#pastry_state{routing_table = RT} = State) ->
-  [spawn(fun() -> pastry_tcp:send_routing_table(RT, N) end) || N <- all_known_nodes(State)].
+perform_welcomed(#pastry_state{routing_table = RT, pastry_pid = Pid} = State) ->
+  [spawn(fun() -> 
+      case pastry_tcp:send_routing_table(RT, N) of
+        {ok, NewNodes} -> add_nodes(Pid, NewNodes);
+        _ -> ohoh
+      end
+  end) || N <- all_known_nodes(State)].
 
 all_known_nodes(#pastry_state{routing_table = RT, leaf_set = {LSS, LSG}, neighborhood_set = NS}) ->
   nodes_in_routing_table(RT) ++ LSS ++ LSG ++ NS.
