@@ -209,6 +209,8 @@ short_experimental_runner(State) ->
   logPhaseDone(LogFile),
   % Clean up
   node:experiment_update("--- Experiments done ---"),
+  node:experiment_update("Waiting to let logs finish requests"),
+  wait_minutes(0.2),
   node:experiment_update("Stopping logging"),
   node:stop_logging(),
   node:experiment_update("Getting logs"),
@@ -356,9 +358,7 @@ run_rampup(State) -> perform(fun(_, C) -> hub_tcp:run_rampup(C) end, undefined, 
 stop_experimental_phase(State) -> perform(fun(_, C) -> hub_tcp:stop_experimental_phase(C) end, undefined, State).
     
 wait_minutes(Minutes) ->
-  %receive after Minutes * 60 * 10 -> ok end.
-  receive after Minutes * 10 * 1000 -> ok end.
-  %receive after Minutes * 60 * 1000 -> ok end.
+  receive after Minutes * 60 * 1000 -> ok end.
 
 %% ------------------------------------------------------------------
 %% Tests

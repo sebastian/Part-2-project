@@ -10,7 +10,7 @@ class Request
   def self.bin_and_sort(requests)
     bins = {}
     requests.each do |request|
-      bin = request.start_time / 100
+      bin = request.start_time / 1000
       bins[bin] = [] unless bins[bin]
       bins[bin] << request
     end
@@ -158,13 +158,13 @@ class LogParser
 
   private
   def output_records
-    header_lat = "Rate	" +
+    header_lat = "Rate	Time  " +
         "Latency	StDev	NumDataPoints	" +
         "\n"
-    header_nodes = "Rate	" +
+    header_nodes = "Rate	Time  " +
         "Nodes	NodesStDev	NumDataPoints	" +
         "\n"
-    header_data = "Rate	" +
+    header_data = "Rate	Time  " +
         "Bits	BitsStDev	NumDataPoints	" +
         "\n"
     yield header_lat, header_nodes, header_data
@@ -175,19 +175,24 @@ class LogParser
       # then there is no data to collect
       break unless control_message[:end]
 
-      data = data_for_control_message(control_message)
-
       unless rate then
         rate = 1
       else
         rate = rate * 2
       end
 
-      # Get values for the phase
-      lat = "#{rate}	" + val_for(data, :lat) + "\n"
-      nodes = "#{rate}	" + val_for(data, :nodes) + "\n"
-      data = "#{rate}	" + val_for(data, :data) + "\n"
-      yield lat, nodes, data
+      data_items = data_for_control_message(control_message)
+      
+      data_items.each_index do |index|
+
+        data = data_items[index]
+
+        # Get values for the phase
+        lat = "#{rate}	#{index} " + val_for(data, :lat) + "\n"
+        nodes = "#{rate}	#{index}  " + val_for(data, :nodes) + "\n"
+        data = "#{rate} #{index}  " + val_for(data, :data) + "\n"
+        yield lat, nodes, data
+      end
     end
 
   end
@@ -221,8 +226,12 @@ class LogParser
     a > b ? a : b
   end
 
+  # Returns requests starting within the interval of the control message,
+  # binned by seconds elapsed from the beginning of the control message.
+  # The bins are sorted by increasing time.
   def data_for_control_message(cm)
-    request_array_for_interval(cm[:start][:time], cm[:end][:time])
+    requests = request_array_for_interval(cm[:start][:time], cm[:end][:time])
+    Request.bin_and_sort(requests)
   end
 
   def control_msg_for_rec(rec)
