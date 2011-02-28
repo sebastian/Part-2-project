@@ -223,7 +223,8 @@ perform_join([{JoinIp, JoinPort}|Ps], #pastry_state{self = Self} = State, Contro
 
 % Call:
 handle_call(output_diagnostics, _From, State) ->
-  {reply, ok, State};
+  Nodes = all_known_nodes(State),
+  {reply, Nodes, State};
 
 handle_call(ping, _From, State) ->
   {reply, pong, State};

@@ -208,7 +208,8 @@ perform_join([{JoinIp, JoinPort}|Ps], #chord_state{self = #node{key = OwnKey}} =
 
 %% Call:
 handle_call(output_diagnostics, _From, State) ->
-  {reply, ok, State};
+  Successors = perform_get_successor(State),
+  {reply, Successors, State};
 
 handle_call(ping, _From, State) ->
   {reply, pong, State};
