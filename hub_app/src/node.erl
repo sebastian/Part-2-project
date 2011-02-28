@@ -243,7 +243,7 @@ handle_cast(terminate_experiment, #state{experiment_pid = ExpPid} = State) ->
   {noreply, State};
 
 handle_cast(clear_experiment, State) ->
-  {noreply, State#state{experiment_pid = undefined, experiment_stats = []}};
+  {noreply, State#state{experiment_stats = []}};
 
 handle_cast({experiment_update, Update}, #state{experiment_stats = Stats} = State) ->
   {noreply, State#state{experiment_stats = [Update|Stats]}};

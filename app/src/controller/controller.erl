@@ -201,7 +201,7 @@ handle_cast(stop_experimental_phase, #controller_state{experiment_pid = undefine
 handle_cast(stop_experimental_phase, #controller_state{experiment_pid = Pid} = State) ->
   Pid ! stop,
   start_dht_table_maintenance(State),
-  {noreply, State#controller_state{experiment_pid = undefined}};
+  {noreply, State};
 
 handle_cast({ensure_n_nodes_running, N}, #controller_state{nodes = Nodes} = State) ->
   spawn(fun() ->

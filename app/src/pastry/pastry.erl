@@ -337,10 +337,13 @@ code_change(_OldVsn, State, _Extra) ->
 %% Internal Function Definitions
 %% ------------------------------------------------------------------
 
-start_timer(#pastry_state{pastry_pid = Pid} = State) ->
+start_timer(#pastry_state{pastry_pid = Pid, neighborhood_watch_ref = undefined} = State) ->
   io:format("Starting timer~n"),
   {ok, TimerRef} = timer:apply_interval(?NEIGHBORHOODWATCH_TIMER, ?MODULE, neighborhood_watch, [Pid]),
-  State#pastry_state{neighborhood_watch_ref = TimerRef}.
+  State#pastry_state{neighborhood_watch_ref = TimerRef};
+start_timer(State) ->
+  io:format("avoiding duplicating timers~n"),
+  State.
 
 stop_timer(#pastry_state{neighborhood_watch_ref = NWR} = State) ->
   io:format("Stopping timer~n"),
