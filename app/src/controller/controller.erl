@@ -355,6 +355,10 @@ perform_rampup(#controller_state{ip = Ip, nodes = Nodes, mode = Mode}) ->
   RunState = #exp_info{ip = Ip, dht_pids = Pids, dht = Type, control_pid = SelfPid},
   InitialRate = 1, % per second
   DeadManCheck = spawn_link(fun() -> dead_man(SelfPid) end),
+  % start the rator at slightly offset times so that we don't get
+  % all the requests queueing up at exactly the same time
+  Wait = random:uniform(1000),
+  receive after Wait -> start end,
   RunPid = spawn_link(fun() -> rator(InitialRate, RunState) end),
   experiment_loop(RunPid, DeadManCheck, [], false).
 
