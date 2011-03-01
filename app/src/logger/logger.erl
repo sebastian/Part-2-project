@@ -26,7 +26,8 @@
     clear_log/0,
     set_ip/1,
     set_mapping/2,
-    log_data/2
+    log_data/2,
+    log_success/1
   ]).
 
 %% ------------------------------------------------------------------
@@ -66,6 +67,10 @@ log(NodeId, Key, Action) ->
 log_data(Msg, Data) ->
   TimeNow = utilities:get_highres_time(),
   gen_server:cast(?MODULE, {log_data, Msg, Data, TimeNow}).
+
+log_success(Key) ->
+  TimeNow = utilities:get_highres_time(),
+  gen_server:cast(?MODULE, {log_success, Key, TimeNow}).
 
 start_logging() ->
   gen_server:call(?MODULE, start_logging).
@@ -144,6 +149,18 @@ handle_cast({log, NodeId, Key, Action, TimeNow}, State) ->
     case file:write(File, LogEntry) of
       {error, Reason} ->
         error_logger:error_msg("Couldn't log because of ~p~n", [Reason]);
+      ok -> ok
+    end
+  end,
+  perform_logging(Log, State),
+  {noreply, State};
+
+handle_cast({log_success, Key, TimeNow}, State) ->
+  Log = fun(File) ->
+    LogEntry = lists:flatten(io_lib:format("data;success;~p;~p~n", [Key, TimeNow])),
+    case file:write(File, LogEntry) of
+      {error, Reason} ->
+        error_logger:error_msg("Couldn't log success because of ~p~n", [Reason]);
       ok -> ok
     end
   end,

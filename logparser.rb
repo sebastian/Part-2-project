@@ -158,13 +158,13 @@ class LogParser
 
   private
   def output_records
-    header_lat = "Rate	Time  " +
+    header_lat = "Rate  Time  " +
         "Latency	StDev	NumDataPoints	" +
         "\n"
-    header_nodes = "Rate	Time  " +
+    header_nodes = "Rate  Time  " +
         "Nodes	NodesStDev	NumDataPoints	" +
         "\n"
-    header_data = "Rate	Time  " +
+    header_data = "Rate Time  " +
         "Bits	BitsStDev	NumDataPoints	" +
         "\n"
     yield header_lat, header_nodes, header_data
@@ -188,9 +188,9 @@ class LogParser
         data = data_items[index]
 
         # Get values for the phase
-        lat = "#{rate}	#{index} " + val_for(data, :lat) + "\n"
-        nodes = "#{rate}	#{index}  " + val_for(data, :nodes) + "\n"
-        data = "#{rate} #{index}  " + val_for(data, :data) + "\n"
+        lat = "#{rate}.#{index} " + val_for(data, :lat) + "\n"
+        nodes = "#{rate}.#{index}  " + val_for(data, :nodes) + "\n"
+        data = "#{rate}.#{index}  " + val_for(data, :data) + "\n"
         yield lat, nodes, data
       end
     end
