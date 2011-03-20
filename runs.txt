@@ -1,0 +1,7 @@
+#nodes	start	end		runId
+1		96		95		pastry_1_t1
+2		94		94		pastry_2_t1
+4		91		91		pastry_4_t1
+4		93		93		pastry_4_t2
+8		93		93		pastry_8_t1
+
