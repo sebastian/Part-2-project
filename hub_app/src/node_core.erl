@@ -22,6 +22,7 @@
     upgrade_systems/1,
     experimental_runner/1,
     short_experimental_runner/1,
+    rate_and_time_experimental_runner/3,
     stop_experimental_phase/1
   ]).
 
@@ -193,6 +194,43 @@ slow_perform(Fun, Args, #state{controllers = Controllers}) ->
     end || C <- Controllers
   ].
 
+% Single burst for given period at fixed rate
+rate_and_time_experimental_runner(Rate, Time, State) ->
+  node:experiment_update("--- Experimental run at fixed rate ---"),
+  node:experiment_update("Telling hosts to clear their logs"),
+  node:clear_logs(),
+  node:experiment_update("Telling hosts to start logging"),
+  node:start_logging(),
+  % We want to append timestamps to log
+  {ok, LogFile} = file:open(?MASTER_LOG, [append]),
+  % Phase 1
+  node:experiment_update("Telling nodes to start requests"),
+  run_rampup(State),
+  node:experiment_update("Setting rate"),
+  set_rate(Rate, State),
+  logPhaseStart(LogFile),
+  node:experiment_update("Waiting for alloted time to pass"),
+  receive 
+    killed_by_user ->
+      node:experiment_update("Experiment ended before time")
+  after Time * 60 * 1000 ->
+    node:experiment_update("Experiment finished")
+  end,
+  node:experiment_update("Telling nodes to stop"),
+  stop_experimental_phase(State),
+  logPhaseDone(LogFile),
+  % Clean up
+  node:experiment_update("--- Experiment done ---"),
+  node:experiment_update("Waiting to let logs finish requests"),
+  wait_minutes(0.2),
+  node:experiment_update("Stopping logging"),
+  node:stop_logging(),
+  node:experiment_update("Getting logs"),
+  node:get_logs(),
+  node:experiment_update("Experiment done. Thanks!"),
+  file:close(LogFile),
+  ok.
+
 % Single short experimental run burst
 short_experimental_runner(State) ->
   node:experiment_update("--- Experimental run ---"),
@@ -354,6 +392,7 @@ terminate_exp(State, RateIncreaser) ->
   stop_experimental_phase(State).
 
 increase_rate(State) -> perform(fun(_, C) -> hub_tcp:increase_rate(C) end, undefined, State).
+set_rate(Rate, State) -> perform(fun(TheRate, C) -> hub_tcp:set_rate(TheRate, C) end, Rate, State).
 run_rampup(State) -> perform(fun(_, C) -> hub_tcp:run_rampup(C) end, undefined, State).
 stop_experimental_phase(State) -> perform(fun(_, C) -> hub_tcp:stop_experimental_phase(C) end, undefined, State).
     

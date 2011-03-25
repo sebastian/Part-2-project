@@ -49,6 +49,7 @@
 % From hub application
 -export([
     % From hub application
+    start_single_rate_for_time/2,
     start_single_experiment/0,
     start_experiment/0,
     terminate_experiment/0,
@@ -158,6 +159,10 @@ stop_nodes(N) ->
 % -------------------------------------------------------------------
 % Experiements ------------------------------------------------------
 
+% Starts an experiment at a fixed rate that runs for Time minutes
+start_single_rate_for_time(Rate, Time) ->
+  gen_server:cast(?MODULE, {start_single_rate, Rate, for_time, Time}).
+
 start_single_experiment() ->
   gen_server:cast(?MODULE, start_single_experiment).
 
@@ -223,6 +228,10 @@ handle_call(clear, _From, _State) ->
   {reply, ok, #state{}}.
 
 %% Casts:
+handle_cast({start_single_rate, Rate, for_time, Time}, State) ->
+  ExperimentalRunnerPid = spawn(fun() -> node_core:rate_and_time_experimental_runner(Rate, Time, State) end),
+  {noreply, State#state{experiment_pid = ExperimentalRunnerPid, experiment_stats = []}};
+
 handle_cast(start_single_experiment, State) ->
   ExperimentalRunnerPid = spawn(fun() -> node_core:short_experimental_runner(State) end),
   {noreply, State#state{experiment_pid = ExperimentalRunnerPid, experiment_stats = []}};

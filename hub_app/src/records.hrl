@@ -1,4 +1,4 @@
--define(HUB_VERSION, 10).
+-define(HUB_VERSION, 11).
 
 -record(node, {
   ip,

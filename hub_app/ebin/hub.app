@@ -19,6 +19,7 @@
              logging_resource,
              system_resource,
              experiment_resource,
+             fixed_rate_experiment_resource,
              auth_mod
             ]},
   {registered, []},

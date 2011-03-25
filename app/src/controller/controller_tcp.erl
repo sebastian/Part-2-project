@@ -171,6 +171,10 @@ handle_msg(run_rampup) ->
   controller:run_rampup(),
   ok;
 
+handle_msg({set_rate, Rate}) ->
+  controller:set_rate(Rate),
+  ok;
+
 handle_msg(increase_rate) ->
   controller:increase_rate(),
   ok;

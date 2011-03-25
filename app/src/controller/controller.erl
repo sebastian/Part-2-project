@@ -48,6 +48,7 @@
     % For experiments
     run_rampup/0,
     increase_rate/0,
+    set_rate/1,
     stop_experimental_phase/0,
     output_diagnostics/0
   ]).
@@ -128,6 +129,9 @@ ensure_n_nodes_running(N) ->
 run_rampup() ->
   gen_server:cast(?MODULE, run_rampup).
 
+set_rate(Rate) ->
+  gen_server:cast(?MODULE, {set_rate, Rate}).
+
 increase_rate() ->
   gen_server:cast(?MODULE, increase_rate).
 
@@ -187,6 +191,13 @@ handle_cast(run_rampup, State) ->
   io:format("~nexperimental pid is = ~p~n", [Pid]),
   stop_dht_table_maintenance(State),
   {noreply, State#controller_state{experiment_pid = Pid}};
+
+handle_cast({set_rate, _Rate}, #controller_state{experiment_pid = undefined} = State) ->
+  io:format("~n#################### IGNORING set_rate ##################################~n"),
+  {noreply, State};
+handle_cast({set_rate, Rate}, #controller_state{experiment_pid = Pid} = State) ->
+  Pid ! {set_rate, Rate},
+  {noreply, State};
 
 handle_cast(increase_rate, #controller_state{experiment_pid = undefined} = State) ->
   io:format("~n#################### IGNORING increase_rate ##################################~n"),
@@ -373,6 +384,11 @@ experiment_loop(RunPid, DeadManCheck, History, HasInformedControllerAboutStop) -
       RunPid ! increase_rate,
       DeadManCheck ! alive,
       experiment_loop(RunPid, DeadManCheck, History, HasInformedControllerAboutStop);
+    {set_rate, Rate} ->
+      io:format("Received set rate for rate ~p~n", [Rate]),
+      RunPid ! {set_rate, Rate},
+      DeadManCheck ! alive,
+      experiment_loop(RunPid, DeadManCheck, History, HasInformedControllerAboutStop);
     request_success ->
       RunPid ! ended_request,
       io:format("S"),
@@ -400,7 +416,7 @@ dead_man(Controller) ->
       dead_man(Controller);
     stop ->
       ok
-  after 5 * 60 * 1000 ->
+  after 15 * 60 * 1000 ->
       error_logger:error_msg("Running experiment, but haven't heard from controller. Abort"),
       Controller ! stop,
       controller:stop_experimental_phase()
@@ -426,11 +442,15 @@ rator(Rate, #exp_info{dht_pids = Pids} = State, OutstandingRequests, Stopper) ->
     receive
       increase_rate ->
         NewRate = Rate * 2,
+        rator(NewRate, State, OutstandingRequests, Stopper);
+      {set_rate, NewRate} ->
         rator(NewRate, State, OutstandingRequests, Stopper)
     after trunc(1000 / Rate) ->
-      case OutstandingRequests > (trunc(Rate*1.5) + 3) of
+      % We allow for two times the rate, because we want
+      % to allow the requests to take up to two seconds.
+      case OutstandingRequests > (trunc(Rate*2.2) + 5) of
         true ->
-          io:format("~nHas more outstanding requests than the rate (~p) waiting...~n", [OutstandingRequests]),
+          io:format("~nHas too many outstanding requests: ~p~n", [OutstandingRequests]),
           Stopper ! cant_sustain_rate;
         false -> good
       end,

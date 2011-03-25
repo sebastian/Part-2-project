@@ -81,6 +81,12 @@ function init(){
     $.post('experiment/' + action);
     return false;
   });
+  $("#fixed_rate_experiment").click(function() {
+    var time = $("#exp_time").val();
+    var rate = $("#exp_rate").val();
+    $.post('fixed_rate/' + rate + '/for_time/' + time);
+    return false;
+  });
 }
 
 $(document).ready(function(){

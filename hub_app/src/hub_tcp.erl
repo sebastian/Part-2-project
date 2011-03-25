@@ -30,6 +30,7 @@
     upgrade_system/1,
     % For experiments
     run_rampup/1,
+    set_rate/2,
     increase_rate/1,
     stop_experimental_phase/1
   ]).
@@ -47,6 +48,9 @@
 
 increase_rate(#controller{ip = Ip, port = Port}) ->
   perform_rpc(increase_rate, Ip, Port).
+
+set_rate(Rate, #controller{ip = Ip, port = Port}) ->
+  perform_rpc({set_rate, Rate}, Ip, Port).
 
 run_rampup(#controller{ip = Ip, port = Port}) ->
   perform_rpc(run_rampup, Ip, Port).
