@@ -1,4 +1,0 @@
-{application,psql}.
-{packages,[]}.
-{modules,[psql,psql_app,psql_con_sup,psql_connection,psql_lib,psql_logic,
-          psql_pool,psql_protocol,psql_sup]}.
