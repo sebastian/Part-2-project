@@ -1,0 +1,159 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<title>Module psql_protocol</title>
+<link rel="stylesheet" type="text/css" href="stylesheet.css" title="EDoc">
+</head>
+<body bgcolor="white">
+<div class="navbar"><a name="#navbar_top"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<hr>
+
+<h1>Module psql_protocol</h1>
+<ul class="index"><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>
+<p>Copyright © 2006 Erlang Training &amp; Consulting Ltd</p>
+
+<p><b>Version:</b> 0.0.1</p>
+<p><b>Authors:</b> Martin Carlson (<a href="mailto:martin@erlang-consulting.com"><tt>martin@erlang-consulting.com</tt></a>).</p>
+
+<h2><a name="index">Function Index</a></h2>
+<table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#authenticate-4">authenticate/4</a></td><td></td></tr>
+<tr><td valign="top"><a href="#bind-3">bind/3</a></td><td></td></tr>
+<tr><td valign="top"><a href="#close-2">close/2</a></td><td></td></tr>
+<tr><td valign="top"><a href="#copy_done-0">copy_done/0</a></td><td></td></tr>
+<tr><td valign="top"><a href="#data_type-1">data_type/1</a></td><td></td></tr>
+<tr><td valign="top"><a href="#decode-1">decode/1</a></td><td></td></tr>
+<tr><td valign="top"><a href="#decode_packet_header-1">decode_packet_header/1</a></td><td></td></tr>
+<tr><td valign="top"><a href="#describe-2">describe/2</a></td><td></td></tr>
+<tr><td valign="top"><a href="#encode-1">encode/1</a></td><td></td></tr>
+<tr><td valign="top"><a href="#encode-2">encode/2</a></td><td></td></tr>
+<tr><td valign="top"><a href="#error-1">error/1</a></td><td></td></tr>
+<tr><td valign="top"><a href="#execute-2">execute/2</a></td><td></td></tr>
+<tr><td valign="top"><a href="#md5-1">md5/1</a></td><td></td></tr>
+<tr><td valign="top"><a href="#md5digest-2">md5digest/2</a></td><td></td></tr>
+<tr><td valign="top"><a href="#parse-3">parse/3</a></td><td></td></tr>
+<tr><td valign="top"><a href="#q-1">q/1</a></td><td></td></tr>
+<tr><td valign="top"><a href="#sync-0">sync/0</a></td><td></td></tr>
+<tr><td valign="top"><a href="#to_int16-1">to_int16/1</a></td><td></td></tr>
+<tr><td valign="top"><a href="#to_int32-1">to_int32/1</a></td><td></td></tr>
+<tr><td valign="top"><a href="#to_int8-1">to_int8/1</a></td><td></td></tr>
+<tr><td valign="top"><a href="#to_string-1">to_string/1</a></td><td></td></tr>
+<tr><td valign="top"><a href="#type-1">type/1</a></td><td></td></tr>
+</table>
+
+<h2><a name="functions">Function Details</a></h2>
+
+<h3 class="function"><a name="authenticate-4">authenticate/4</a></h3>
+<div class="spec">
+<p><tt>authenticate(VSN, Usr, Pwd, Db) -&gt; any()</tt></p>
+</div>
+
+<h3 class="function"><a name="bind-3">bind/3</a></h3>
+<div class="spec">
+<p><tt>bind(Portal, Statement, Parameters) -&gt; any()</tt></p>
+</div>
+
+<h3 class="function"><a name="close-2">close/2</a></h3>
+<div class="spec">
+<p><tt>close(Name, Type) -&gt; any()</tt></p>
+</div>
+
+<h3 class="function"><a name="copy_done-0">copy_done/0</a></h3>
+<div class="spec">
+<p><tt>copy_done() -&gt; any()</tt></p>
+</div>
+
+<h3 class="function"><a name="data_type-1">data_type/1</a></h3>
+<div class="spec">
+<p><tt>data_type(X1) -&gt; any()</tt></p>
+</div>
+
+<h3 class="function"><a name="decode-1">decode/1</a></h3>
+<div class="spec">
+<p><tt>decode(Acc) -&gt; any()</tt></p>
+</div>
+
+<h3 class="function"><a name="decode_packet_header-1">decode_packet_header/1</a></h3>
+<div class="spec">
+<p><tt>decode_packet_header(X1) -&gt; any()</tt></p>
+</div>
+
+<h3 class="function"><a name="describe-2">describe/2</a></h3>
+<div class="spec">
+<p><tt>describe(Name, Type) -&gt; any()</tt></p>
+</div>
+
+<h3 class="function"><a name="encode-1">encode/1</a></h3>
+<div class="spec">
+<p><tt>encode(Message) -&gt; any()</tt></p>
+</div>
+
+<h3 class="function"><a name="encode-2">encode/2</a></h3>
+<div class="spec">
+<p><tt>encode(Type, Message) -&gt; any()</tt></p>
+</div>
+
+<h3 class="function"><a name="error-1">error/1</a></h3>
+<div class="spec">
+<p><tt>error(X1) -&gt; any()</tt></p>
+</div>
+
+<h3 class="function"><a name="execute-2">execute/2</a></h3>
+<div class="spec">
+<p><tt>execute(Portal, ResultSetSize) -&gt; any()</tt></p>
+</div>
+
+<h3 class="function"><a name="md5-1">md5/1</a></h3>
+<div class="spec">
+<p><tt>md5(Data) -&gt; any()</tt></p>
+</div>
+
+<h3 class="function"><a name="md5digest-2">md5digest/2</a></h3>
+<div class="spec">
+<p><tt>md5digest(Digest, Salt) -&gt; any()</tt></p>
+</div>
+
+<h3 class="function"><a name="parse-3">parse/3</a></h3>
+<div class="spec">
+<p><tt>parse(Name, Query, Types) -&gt; any()</tt></p>
+</div>
+
+<h3 class="function"><a name="q-1">q/1</a></h3>
+<div class="spec">
+<p><tt>q(Query) -&gt; any()</tt></p>
+</div>
+
+<h3 class="function"><a name="sync-0">sync/0</a></h3>
+<div class="spec">
+<p><tt>sync() -&gt; any()</tt></p>
+</div>
+
+<h3 class="function"><a name="to_int16-1">to_int16/1</a></h3>
+<div class="spec">
+<p><tt>to_int16(N) -&gt; any()</tt></p>
+</div>
+
+<h3 class="function"><a name="to_int32-1">to_int32/1</a></h3>
+<div class="spec">
+<p><tt>to_int32(N) -&gt; any()</tt></p>
+</div>
+
+<h3 class="function"><a name="to_int8-1">to_int8/1</a></h3>
+<div class="spec">
+<p><tt>to_int8(N) -&gt; any()</tt></p>
+</div>
+
+<h3 class="function"><a name="to_string-1">to_string/1</a></h3>
+<div class="spec">
+<p><tt>to_string(Str) -&gt; any()</tt></p>
+</div>
+
+<h3 class="function"><a name="type-1">type/1</a></h3>
+<div class="spec">
+<p><tt>type(X1) -&gt; any()</tt></p>
+</div>
+<hr>
+
+<div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<p><i>Generated by EDoc, Mar 24 2011, 10:13:59.</i></p>
+</body>
+</html>

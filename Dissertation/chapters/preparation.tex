@@ -18,7 +18,7 @@
 % Intro:
 %   Writing what I did to prepare
 
-In this chapter I will briefly describe how I prepared for my project. What led to the design decisions I made and how they influence the outcome of the project.
+In this chapter I will briefly describe how I prepared for my project, what led to the design decisions I made and how they influenced the final outcome.
 
 \mbox{} % Empty line
 
@@ -29,33 +29,38 @@ In this chapter I will briefly describe how I prepared for my project. What led 
 
 I had two goals for my project:
 
-Firstly I wanted my search server to be a program that would be run locally alongside installations of
-online social networks. 
-By having the program run by different online social networks the burden of running the search network I provide is evenly distributed between the online social networks using it. 
+Firstly I wanted my search engine to be a program that would be run by the providers of online social networks alongside the installations of their online social networks.
+By having multiple online social networks run the program, the burden of keeping the search network I provide operational gets evenly distributed between the online social networks participating in it. 
 
-Secondly I wanted to make it easy for the creators of the online social networks to integrate my service into their online social network.
-I decided to do this by exposing my service through an HTTP based API because I know from experience that web developers find that convenient. It also helps creating modular system designs.
+Secondly I wanted to make it easy for the creators of the online social networks to integrate my service into their software.
+I decided to do this by exposing my service through an HTTP based API because I know from experience that web developers find that convenient. 
 
 % 
 %     Read through different DHT's
 %       Decided on three
 %         Cut down to two, why?
 
-I decided to use Distributed Hash Tables as the backend datastore for my search network. This choice immediately presents benefits and drawbacks: 
+I wanted to evaluate how successfully one can use Distributed Hash Tables as the backend datastore for a search engine of this particular kind. Bear in mind that my search engine would not be aimed at searching for arbitrary terms in a collection of documents, but rather well defined user profile records. 
 
-\begin{figure}[!tb]
+Using Distributed Hash Tables immediately presents benefits and drawbacks: 
+
+The benefits are that Distributed Hash Tables promise key-lookups involving only a subset of the nodes in the network. The subset is proportional to the logarithm of the total number of nodes. 
+
+If you are careful when assigning keys to data items so that they are uniformly spread across the keyspace, the data and computational workload gets evenly spread out between the nodes participating in the network. Also a plus, and what makes using a distributed hash table an excellent idea, is that it allows nodes to join and leave at will. This is extremely important for a search network spanning multiple independent online social networks, each potentially being run in multiple locations by independent providers. The social networks are also free to join as they themselves see fit, and there is no central authority that can guarantee computational resources being available or for that matter staying available.
+
+A big drawback is that distributed hash tables are key-value stores. It is not immediately obvious how one can efficiently search across data stored under keys unless the keys are known. I arrived at a solution that in my opinion circumvents this shortcoming quite elegantly. I will discuss it further in the implementation chapter.
+
+\begin{figure}[!htb]
 \begin{center}
 	\includegraphics[width=0.9\linewidth]{illustrations/KeySpace.eps}
-\caption{This diagram illustrates the linear increasing keyspace of a Distributed Hash Table network. The nodes in the network are shown as dots. The grey line connecting the dots illustrates how a key-lookup involves a subset of the nodes. Notice how the key space distance between consecutive nodes involved in the lookup decreases as we reach the no storing the value. This illustrates, although in a handwavey way how a lookup involved a subset proportional in size to the logarithm of the number of nodes in the network.}
+\caption{This diagram illustrates the keyspace of a Distributed Hash Table network. The nodes in the network are shown as dots. The grey line show the nodes involved in a particular key-lookup.}
 \label{keySpace}
 \end{center}
 \end{figure}
 
-The benefits are that Distributed Hash Tables promise key-lookups involving a subset of the nodes proportional to the logarithm of the number of nodes in the network. If you are careful when assigning keys to data items so that they are uniformly spread across the keyspace, then the data and computational workload is evenly spread out between the nodes participating in the network. Also a plus, and eventually what made using a distributed hash table an excellent idea, is that it allows nodes to join and leave at will. This is extremely important in a search network that is built upon the notion of social networks joining as they themselves see fit, and where there is no central authority that can guarantee computational resources being available or for that matter staying available.
+During my preparation I evaluated different distributed hash tables. The initial plan was to implement Chord, Pastry and Kademilia, and to compare their relative benefits and drawbacks. 
 
-A big drawback is that distributed hash tables are key-value stores. It is not immediately obvious how one can efficiently search across data stored under keys unless the keys are known. I arrived at a solution that in my opinion circumvents this shortcoming quite elegantly. I will discuss it further in the implementation chapter.
-
-During my preparation I evaluated different distributed hash tables. I initially decided to implement Chord, Pastry and Kademilia, and to compare their relative benefits and drawbacks, but later decided that Chord and Pastry would give me sufficient data to study and free up time to do a more thorough analysis. This seems a worthwhile tradeof, and in the interest of the project as a whole, especially considering one of the main factors I wanted to evaluate was whether Distributed Hash Tables can successfully be used as the datastore for a search network, which can equally well be evaluated with two as with three Distributed Hash Tables.
+Chord and Pastry differ in the way the approach routing. While Chord keeps its routing tables as simple as possible, Pastry adds an additionally implementation specific proximity metric that favours closer nodes when routing. Implementing both Chord and Pastry allows me to evaluate the effectiveness of such heuristics. Upon realising Kademilia only differs from Chord in ways Pastry already differs, I decided to drop it as it superflous. The direct benefit of this decisions is that it allowed more time for compare Chord and Pastry and evaluate if Distributed Hash Tables can be successful datastores for my particular kind of search engines.
 
 %     Learned Erlang
 %       Got to know standard libraries and frameworks (OTP)
@@ -65,9 +70,9 @@ During my preparation I evaluated different distributed hash tables. I initially
 
 \mbox{}
 
-I decided to use the programming language Erlang for my implementation. Programming distributed systems is one of the key strengths of Erlang, and the project is of a highly distributed nature. Another key strength of Erlang is writing fault tolerant systems. This is achieved through hierarchies of supervising processes that ensure the system stays alive. Together these two traits of Erlang makes it extremely well suited for my project.
+Programming distributed systems is one of the key strengths of the programming language Erlang. Additionally it has built in support through its standard libraries for writing fault tolerant systems wit hot code swapping. My project being highly distributed in nature made Erlang a natural choice. Using Erlang let me spend more time on the core algorithms instead of having to reimplement infrastructure for working with distributed systems on top of another language.
 
-In the first stages of my project I spent considerable time learning Erlang, it's libraries and frameworks. I also learned how to use third party libraries for creating webservices through erlang with webmachine, and compiling and analysing code with rebar.
+I spent considerable time learning Erlang, its libraries and frameworks, and also how to use third party libraries for creating webservices through Erlang with Webmachine, and compiling and analysing code with rebar.
 
 % 
 % Summary:
@@ -75,5 +80,5 @@ In the first stages of my project I spent considerable time learning Erlang, it'
 
 \mbox{} % Insert an empty line
 
-In this chapter I discussed how I decided that my project should expose its functionality through an HTTP API, why I chose to develop distributed hash tables, and why Erlang was chosen as the language of implementation.
+In this chapter I discussed how I decided that my project should expose its functionality through an HTTP API, why I chose to use Distributed Hash Tables, and why Erlang was chosen as the language of implementation.
 In the next chapter I will discuss the implementation of my project.

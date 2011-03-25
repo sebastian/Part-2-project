@@ -1,0 +1,61 @@
+
+      PostgresSQL protocol driver
+
+@author Martin Carlson <martin@erlang-consulting.com> [http://www.erlang-consulting.com]
+@copyright 2006 Erlang Training & Consulting Ltd.
+@version 0.2.0
+
+@doc 
+Implementation of the PostgeSQL tcp protocol v3.0
+
+[http://www.postgresql.org/docs/8.1/interactive/protocol.html]
+
+Please send patches to support@erlang-consulting.com
+
+Bugs reports bugs@erlang-consulting.com
+
+<bold>OBS</bold> The postgres database MUST be configured to support MD5 authentication (pg_hba.conf)
+
+=== Example ===
+<pre>
+
+
+sys.config: {psql, [{default, {"192.168.1.101", 5432, "dev", "secret", "sql_test"}},
+            {pools, [{default, 1}]}]}
+
+15&gt; P = psql:allocate().
+&lt;0.60.0&gt;<br/>
+16&gt; psql:parse(P, "test", "select * from test where id = $1", []).
+{[],[]}
+17&gt; psql:transaction(P).<br/>
+[{&lt;&lt;66,69,71,73,78,0&gt;&gt;,[]}]
+18&gt; psql:bind(P, "test", "test", ["1"]).
+{[],[]}
+19&gt; {Desc, []} = psql:describe(P, statement, "test").
+{{{field,"id",17232,1,int,4,0},{field,"name",17232,2,string,-1,0}},[]}
+20&gt; psql:execute(P, "test", 10000, Desc).
+{{{field,"id",17232,1,int,4,0},{field,"name",17232,2,string,-1,0}},
+ [{&lt;&lt;83,69,76,69,67,84,0&gt;&gt;,[{1,"dev"}]}]}
+21&gt; psql:commit(P).
+[{&lt;&lt;67,79,77,77,73,84,0&gt;&gt;,[]}]
+22&gt;
+</pre>
+=== Limitations ===
+SSL encryption not supported
+
+Only MD5 authentication is supported.
+
+COPY Operations not implemented.
+
+=== Copyright ===
+Copyright (c) 2006, Erlang Training &amp; Consulting Ltd.
+
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+
+Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+Neither the name of the Erlang Training &amp; Consulting Ltd. nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+@end

@@ -30,7 +30,7 @@
       <data key="d6">
         <y:ShapeNode>
           <y:Geometry height="30.0" width="268.67999999999995" x="62.0" y="30.5"/>
-          <y:Fill color="#99CC00" transparent="false"/>
+          <y:Fill color="#C0C0C0" transparent="false"/>
           <y:BorderStyle color="#000000" type="line" width="1.0"/>
           <y:NodeLabel alignment="center" autoSizePolicy="content" borderDistance="0.0" fontFamily="Dialog" fontSize="13" fontStyle="plain" hasBackgroundColor="false" hasLineColor="false" height="19.310546875" modelName="internal" modelPosition="c" textColor="#000000" visible="true" width="250.60009765625" x="9.039951171874975" y="5.3447265625">Chord Simple One For One (supervisor)</y:NodeLabel>
           <y:Shape type="rectangle"/>
@@ -41,7 +41,7 @@
       <data key="d6">
         <y:ShapeNode>
           <y:Geometry height="30.0" width="268.67999999999995" x="62.0" y="285.0"/>
-          <y:Fill color="#FFFF99" transparent="false"/>
+          <y:Fill color="#FFFFFF" transparent="false"/>
           <y:BorderStyle color="#000000" type="line" width="1.0"/>
           <y:NodeLabel alignment="center" autoSizePolicy="content" borderDistance="0.0" fontFamily="Dialog" fontSize="13" fontStyle="plain" hasBackgroundColor="false" hasLineColor="false" height="19.310546875" modelName="internal" modelPosition="c" textColor="#000000" visible="true" width="250.01611328125" x="9.331943359374975" y="5.3447265625">Pastry Simple One For One (supervisor)</y:NodeLabel>
           <y:Shape type="rectangle"/>
@@ -52,7 +52,7 @@
       <data key="d6">
         <y:ShapeNode>
           <y:Geometry height="30.0" width="208.84000000000003" x="121.83999999999992" y="75.0"/>
-          <y:Fill color="#99CC00" transparent="false"/>
+          <y:Fill color="#C0C0C0" transparent="false"/>
           <y:BorderStyle color="#000000" type="line" width="1.0"/>
           <y:NodeLabel alignment="center" autoSizePolicy="content" borderDistance="0.0" fontFamily="Dialog" fontSize="13" fontStyle="plain" hasBackgroundColor="false" hasLineColor="false" height="19.310546875" modelName="internal" modelPosition="c" textColor="#000000" visible="true" width="120.974609375" x="43.932695312500016" y="5.3447265625">Chord (supervisor)</y:NodeLabel>
           <y:Shape type="rectangle"/>
@@ -63,7 +63,7 @@
       <data key="d6">
         <y:ShapeNode>
           <y:Geometry height="30.0" width="153.84000000000003" x="176.83999999999992" y="120.125"/>
-          <y:Fill color="#99CC00" transparent="false"/>
+          <y:Fill color="#C0C0C0" transparent="false"/>
           <y:BorderStyle color="#000000" type="line" width="1.0"/>
           <y:NodeLabel alignment="center" autoSizePolicy="content" borderDistance="0.0" fontFamily="Dialog" fontSize="13" fontStyle="plain" hasBackgroundColor="false" hasLineColor="false" height="19.310546875" modelName="internal" modelPosition="c" textColor="#000000" visible="true" width="123.513671875" x="15.163164062500016" y="5.3447265625">Chord (gen_server)</y:NodeLabel>
           <y:Shape type="rectangle"/>
@@ -74,7 +74,7 @@
       <data key="d6">
         <y:ShapeNode>
           <y:Geometry height="30.0" width="153.84000000000003" x="176.83999999999992" y="165.25"/>
-          <y:Fill color="#99CC00" transparent="false"/>
+          <y:Fill color="#C0C0C0" transparent="false"/>
           <y:BorderStyle color="#000000" type="line" width="1.0"/>
           <y:NodeLabel alignment="center" autoSizePolicy="content" borderDistance="0.0" fontFamily="Dialog" fontSize="13" fontStyle="plain" hasBackgroundColor="false" hasLineColor="false" height="19.310546875" modelName="internal" modelPosition="c" textColor="#000000" visible="true" width="150.68798828125" x="1.576005859375016" y="5.3447265625">Chord Tcp (gen_server)</y:NodeLabel>
           <y:Shape type="rectangle"/>
@@ -85,7 +85,7 @@
       <data key="d6">
         <y:ShapeNode>
           <y:Geometry height="30.0" width="208.84000000000003" x="121.83999999999992" y="331.25"/>
-          <y:Fill color="#FFFF99" transparent="false"/>
+          <y:Fill color="#FFFFFF" transparent="false"/>
           <y:BorderStyle color="#000000" type="line" width="1.0"/>
           <y:NodeLabel alignment="center" autoSizePolicy="content" borderDistance="0.0" fontFamily="Dialog" fontSize="13" fontStyle="plain" hasBackgroundColor="false" hasLineColor="false" height="19.310546875" modelName="internal" modelPosition="c" textColor="#000000" visible="true" width="120.390625" x="44.224687500000016" y="5.3447265625">Pastry (supervisor)</y:NodeLabel>
           <y:Shape type="rectangle"/>
@@ -96,7 +96,7 @@
       <data key="d6">
         <y:ShapeNode>
           <y:Geometry height="30.0" width="153.84000000000003" x="176.83999999999992" y="375.25"/>
-          <y:Fill color="#FFFF99" transparent="false"/>
+          <y:Fill color="#FFFFFF" transparent="false"/>
           <y:BorderStyle color="#000000" type="line" width="1.0"/>
           <y:NodeLabel alignment="center" autoSizePolicy="content" borderDistance="0.0" fontFamily="Dialog" fontSize="13" fontStyle="plain" hasBackgroundColor="false" hasLineColor="false" height="19.310546875" modelName="internal" modelPosition="c" textColor="#000000" visible="true" width="122.9296875" x="15.455156250000016" y="5.3447265625">Pastry (gen_server)</y:NodeLabel>
           <y:Shape type="rectangle"/>
@@ -107,7 +107,7 @@
       <data key="d6">
         <y:ShapeNode>
           <y:Geometry height="30.0" width="153.84000000000003" x="176.83999999999992" y="419.25"/>
-          <y:Fill color="#FFFF99" transparent="false"/>
+          <y:Fill color="#FFFFFF" transparent="false"/>
           <y:BorderStyle color="#000000" type="line" width="1.0"/>
           <y:NodeLabel alignment="center" autoSizePolicy="content" borderDistance="0.0" fontFamily="Dialog" fontSize="13" fontStyle="plain" hasBackgroundColor="false" hasLineColor="false" height="19.310546875" modelName="internal" modelPosition="c" textColor="#000000" visible="true" width="150.10400390625" x="1.867998046875016" y="5.3447265625">Pastry Tcp (gen_server)</y:NodeLabel>
           <y:Shape type="rectangle"/>
@@ -118,7 +118,7 @@
       <data key="d6">
         <y:ShapeNode>
           <y:Geometry height="30.0" width="153.84000000000003" x="176.83999999999992" y="463.25"/>
-          <y:Fill color="#FFFF99" transparent="false"/>
+          <y:Fill color="#FFFFFF" transparent="false"/>
           <y:BorderStyle color="#000000" type="line" width="1.0"/>
           <y:NodeLabel alignment="center" autoSizePolicy="content" borderDistance="0.0" fontFamily="Dialog" fontSize="13" fontStyle="plain" hasBackgroundColor="false" hasLineColor="false" height="19.310546875" modelName="internal" modelPosition="c" textColor="#000000" visible="true" width="152.37646484375" x="0.7317675781250159" y="5.3447265625">Pastry App (gen_server)</y:NodeLabel>
           <y:Shape type="rectangle"/>
@@ -129,7 +129,7 @@
       <data key="d6">
         <y:ShapeNode>
           <y:Geometry height="30.0" width="268.67999999999995" x="62.0" y="246.90999999999985"/>
-          <y:Fill color="#FFFF99" transparent="false"/>
+          <y:Fill color="#FFFFFF" transparent="false"/>
           <y:BorderStyle color="#000000" type="line" width="1.0"/>
           <y:NodeLabel alignment="center" autoSizePolicy="content" borderDistance="0.0" fontFamily="Dialog" fontSize="13" fontStyle="plain" hasBackgroundColor="false" hasLineColor="false" height="19.310546875" modelName="internal" modelPosition="c" textColor="#000000" visible="true" width="217.93505859375" x="25.372470703124975" y="5.3447265625">Pastry Locality Server (gen_server)</y:NodeLabel>
           <y:Shape type="rectangle"/>
@@ -140,9 +140,9 @@
       <data key="d6">
         <y:ShapeNode>
           <y:Geometry height="30.0" width="245.35733333333332" x="-246.87733333333335" y="30.5"/>
-          <y:Fill color="#FFFF00" transparent="false"/>
+          <y:Fill color="#000000" transparent="false"/>
           <y:BorderStyle color="#000000" type="line" width="1.0"/>
-          <y:NodeLabel alignment="center" autoSizePolicy="content" fontFamily="Dialog" fontSize="12" fontStyle="plain" hasBackgroundColor="false" hasLineColor="false" height="18.1328125" modelName="internal" modelPosition="c" textColor="#000000" visible="true" width="134.81640625" x="55.27046354166666" y="5.93359375">Controller (supervisor)</y:NodeLabel>
+          <y:NodeLabel alignment="center" autoSizePolicy="content" fontFamily="Dialog" fontSize="12" fontStyle="plain" hasBackgroundColor="false" hasLineColor="false" height="18.1328125" modelName="internal" modelPosition="c" textColor="#FFFFFF" visible="true" width="134.81640625" x="55.27046354166666" y="5.93359375">Controller (supervisor)</y:NodeLabel>
           <y:Shape type="rectangle"/>
         </y:ShapeNode>
       </data>
@@ -151,9 +151,9 @@
       <data key="d6">
         <y:ShapeNode>
           <y:Geometry height="30.0" width="194.7973333333333" x="-246.87733333333335" y="75.0"/>
-          <y:Fill color="#FFFF00" transparent="false"/>
+          <y:Fill color="#000000" transparent="false"/>
           <y:BorderStyle color="#000000" type="line" width="1.0"/>
-          <y:NodeLabel alignment="center" autoSizePolicy="content" fontFamily="Dialog" fontSize="12" fontStyle="plain" hasBackgroundColor="false" hasLineColor="false" height="18.1328125" modelName="internal" modelPosition="c" textColor="#000000" visible="true" width="137.16015625" x="28.818588541666657" y="5.93359375">Controller (gen_server)</y:NodeLabel>
+          <y:NodeLabel alignment="center" autoSizePolicy="content" fontFamily="Dialog" fontSize="12" fontStyle="plain" hasBackgroundColor="false" hasLineColor="false" height="18.1328125" modelName="internal" modelPosition="c" textColor="#FFFFFF" visible="true" width="137.16015625" x="28.818588541666657" y="5.93359375">Controller (gen_server)</y:NodeLabel>
           <y:Shape type="rectangle"/>
         </y:ShapeNode>
       </data>
@@ -162,9 +162,9 @@
       <data key="d6">
         <y:ShapeNode>
           <y:Geometry height="30.0" width="194.7973333333333" x="-246.87733333333335" y="119.5"/>
-          <y:Fill color="#FFFF00" transparent="false"/>
+          <y:Fill color="#000000" transparent="false"/>
           <y:BorderStyle color="#000000" type="line" width="1.0"/>
-          <y:NodeLabel alignment="center" autoSizePolicy="content" fontFamily="Dialog" fontSize="12" fontStyle="plain" hasBackgroundColor="false" hasLineColor="false" height="18.1328125" modelName="internal" modelPosition="c" textColor="#000000" visible="true" width="162.244140625" x="16.276596354166657" y="5.93359375">Controller Tcp (gen_server)</y:NodeLabel>
+          <y:NodeLabel alignment="center" autoSizePolicy="content" fontFamily="Dialog" fontSize="12" fontStyle="plain" hasBackgroundColor="false" hasLineColor="false" height="18.1328125" modelName="internal" modelPosition="c" textColor="#FFFFFF" visible="true" width="162.244140625" x="16.276596354166657" y="5.93359375">Controller Tcp (gen_server)</y:NodeLabel>
           <y:Shape type="rectangle"/>
         </y:ShapeNode>
       </data>
@@ -173,9 +173,9 @@
       <data key="d6">
         <y:ShapeNode>
           <y:Geometry height="30.0" width="245.35733333333332" x="-246.87733333333335" y="183.24000000000004"/>
-          <y:Fill color="#CCFFCC" transparent="false"/>
+          <y:Fill color="#999999" transparent="false"/>
           <y:BorderStyle color="#000000" type="line" width="1.0"/>
-          <y:NodeLabel alignment="center" autoSizePolicy="content" fontFamily="Dialog" fontSize="12" fontStyle="plain" hasBackgroundColor="false" hasLineColor="false" height="18.1328125" modelName="internal" modelPosition="c" textColor="#000000" visible="true" width="116.72265625" x="64.31733854166666" y="5.93359375">Logger (supervisor)</y:NodeLabel>
+          <y:NodeLabel alignment="center" autoSizePolicy="content" fontFamily="Dialog" fontSize="12" fontStyle="plain" hasBackgroundColor="false" hasLineColor="false" height="18.1328125" modelName="internal" modelPosition="c" textColor="#FFFFFF" visible="true" width="116.72265625" x="64.31733854166666" y="5.93359375">Logger (supervisor)</y:NodeLabel>
           <y:Shape type="rectangle"/>
         </y:ShapeNode>
       </data>
@@ -184,9 +184,9 @@
       <data key="d6">
         <y:ShapeNode>
           <y:Geometry height="30.0" width="194.7973333333333" x="-246.87733333333335" y="225.0"/>
-          <y:Fill color="#CCFFCC" transparent="false"/>
+          <y:Fill color="#999999" transparent="false"/>
           <y:BorderStyle color="#000000" type="line" width="1.0"/>
-          <y:NodeLabel alignment="center" autoSizePolicy="content" fontFamily="Dialog" fontSize="12" fontStyle="plain" hasBackgroundColor="false" hasLineColor="false" height="18.1328125" modelName="internal" modelPosition="c" textColor="#000000" visible="true" width="119.06640625" x="37.86546354166666" y="5.93359375">Logger (gen_server)</y:NodeLabel>
+          <y:NodeLabel alignment="center" autoSizePolicy="content" fontFamily="Dialog" fontSize="12" fontStyle="plain" hasBackgroundColor="false" hasLineColor="false" height="18.1328125" modelName="internal" modelPosition="c" textColor="#FFFFFF" visible="true" width="119.06640625" x="37.86546354166666" y="5.93359375">Logger (gen_server)</y:NodeLabel>
           <y:Shape type="rectangle"/>
         </y:ShapeNode>
       </data>
@@ -195,7 +195,7 @@
       <data key="d6">
         <y:ShapeNode>
           <y:Geometry height="30.0" width="268.67999999999995" x="62.0" y="-209.12799999999993"/>
-          <y:Fill color="#C0C0C0" transparent="false"/>
+          <y:Fill color="#FFFF00" transparent="false"/>
           <y:BorderStyle color="#000000" type="line" width="1.0"/>
           <y:NodeLabel alignment="center" autoSizePolicy="content" fontFamily="Dialog" fontSize="12" fontStyle="plain" hasBackgroundColor="false" hasLineColor="false" height="18.1328125" modelName="internal" modelPosition="c" textColor="#000000" visible="true" width="132.6953125" x="67.99234374999997" y="5.93359375">Datastore (supervisor)</y:NodeLabel>
           <y:Shape type="rectangle"/>
@@ -206,7 +206,7 @@
       <data key="d6">
         <y:ShapeNode>
           <y:Geometry height="30.0" width="208.84000000000003" x="121.83999999999992" y="-165.0"/>
-          <y:Fill color="#C0C0C0" transparent="false"/>
+          <y:Fill color="#FFFF00" transparent="false"/>
           <y:BorderStyle color="#000000" type="line" width="1.0"/>
           <y:NodeLabel alignment="center" autoSizePolicy="content" fontFamily="Dialog" fontSize="12" fontStyle="plain" hasBackgroundColor="false" hasLineColor="false" height="18.1328125" modelName="internal" modelPosition="c" textColor="#000000" visible="true" width="135.0390625" x="36.900468750000016" y="5.93359375">Datastore (gen_server)</y:NodeLabel>
           <y:Shape type="rectangle"/>
@@ -217,7 +217,7 @@
       <data key="d6">
         <y:ShapeNode>
           <y:Geometry height="30.0" width="245.35733333333332" x="-246.87733333333335" y="-209.12799999999993"/>
-          <y:Fill color="#00CCFF" transparent="false"/>
+          <y:Fill color="#99CC00" transparent="false"/>
           <y:BorderStyle color="#000000" type="line" width="1.0"/>
           <y:NodeLabel alignment="center" autoSizePolicy="content" fontFamily="Dialog" fontSize="12" fontStyle="plain" hasBackgroundColor="false" hasLineColor="false" height="18.1328125" modelName="internal" modelPosition="c" textColor="#000000" visible="true" width="154.966796875" x="45.19526822916666" y="5.93359375">Friend Search (supervisor)</y:NodeLabel>
           <y:Shape type="rectangle"/>
@@ -228,7 +228,7 @@
       <data key="d6">
         <y:ShapeNode>
           <y:Geometry height="30.0" width="194.7973333333333" x="-246.87733333333335" y="-165.0"/>
-          <y:Fill color="#00CCFF" transparent="false"/>
+          <y:Fill color="#99CC00" transparent="false"/>
           <y:BorderStyle color="#000000" type="line" width="1.0"/>
           <y:NodeLabel alignment="center" autoSizePolicy="content" fontFamily="Dialog" fontSize="12" fontStyle="plain" hasBackgroundColor="false" hasLineColor="false" height="18.1328125" modelName="internal" modelPosition="c" textColor="#000000" visible="true" width="157.310546875" x="18.743393229166657" y="5.93359375">Friend Search (gen_server)</y:NodeLabel>
           <y:Shape type="rectangle"/>
@@ -239,7 +239,7 @@
       <data key="d6">
         <y:ShapeNode>
           <y:Geometry height="30.0" width="245.35733333333332" x="-246.87733333333335" y="-330.45599999999985"/>
-          <y:Fill color="#CCFFFF" transparent="false"/>
+          <y:Fill color="#FFFF99" transparent="false"/>
           <y:BorderStyle color="#000000" type="line" width="1.0"/>
           <y:NodeLabel alignment="center" autoSizePolicy="content" fontFamily="Dialog" fontSize="12" fontStyle="plain" hasBackgroundColor="false" hasLineColor="false" height="18.1328125" modelName="internal" modelPosition="c" textColor="#000000" visible="true" width="183.267578125" x="31.044877604166658" y="5.93359375">Friend Search Web (supervisor)</y:NodeLabel>
           <y:Shape type="rectangle"/>
@@ -250,7 +250,7 @@
       <data key="d6">
         <y:ShapeNode>
           <y:Geometry height="30.0" width="194.7973333333333" x="-246.87733333333335" y="-285.0"/>
-          <y:Fill color="#CCFFFF" transparent="false"/>
+          <y:Fill color="#FFFF99" transparent="false"/>
           <y:BorderStyle color="#000000" type="line" width="1.0"/>
           <y:NodeLabel alignment="center" autoSizePolicy="content" fontFamily="Dialog" fontSize="12" fontStyle="plain" hasBackgroundColor="false" hasLineColor="false" height="18.1328125" modelName="internal" modelPosition="c" textColor="#000000" visible="true" width="76.509765625" x="59.14378385416666" y="5.93359375">webmachine</y:NodeLabel>
           <y:Shape type="rectangle"/>
