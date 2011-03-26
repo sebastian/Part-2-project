@@ -10,7 +10,7 @@
 
 -define(TCP_OPTS, [binary, inet,
                    {active,    true},
-                   {backlog,   250},
+                   {backlog,   40},
                    {nodelay,   true},
                    {packet,    0},
                    {reuseaddr, true}]).
@@ -78,7 +78,13 @@ rpc_get_closest_preceding_finger_and_succ(Key, Node) ->
 -spec(rpc_find_successor/3::(Key::key(), Ip::ip(), Port::port_number()) ->
     {ok, #node{}} | {error, _}).
 rpc_find_successor(Key, Ip, Port) ->
-  perform_rpc({find_successor, Key}, #node{ip = Ip, port = Port}).
+  case perform_rpc({find_successor, Key}, #node{ip = Ip, port = Port}) of
+    {ok, error} ->
+      % This is the case where no successor could be found due to technical issues
+      {error, technical_problems_finding_successor};
+    {ok, Succ} -> Succ;
+    OtherError -> OtherError
+  end.
 
 -spec(get_predecessor/1::(#node{}) ->
     {ok, #node{}} | {ok, undefined} | {error, _}).

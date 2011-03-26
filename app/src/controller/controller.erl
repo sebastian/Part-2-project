@@ -299,7 +299,12 @@ start_dht_table_maintenance(State) ->
 stop_dht_table_maintenance(State) ->
   start_stop_table_maintenance(State, stop_timers).
 start_stop_table_maintenance(#controller_state{mode = Mode, nodes = Nodes}, Action) ->
-  [Mode:Action(N#controller_node.dht_pid) || N <- Nodes].
+  [spawn(fun() ->
+           % Wait before telling nodes to restart, so they don't all
+           % start communicating at the very same time
+           receive after trunc(random:uniform() * 1000) -> ok end,
+           Mode:Action(N#controller_node.dht_pid)
+         end) || N <- Nodes].
 
 restart_sofos() ->
   supervisor:terminate_child(fs_sup, chord_sofo),

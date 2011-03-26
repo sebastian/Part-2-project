@@ -70,15 +70,26 @@ stop(Pid) ->
 -spec(lookup/2::(pid(), Key::key()) -> [#entry{}]).
 lookup(Pid, Key) ->
   logger:log(Pid, Key, start_lookup),
-  {ok, Return} = chord_tcp:rpc_lookup_key(Key, find_successor(Pid, Key)),
-  logger:log(Pid, Key, end_lookup),
-  Return.
+  case find_successor(Pid, Key) of
+    error ->
+      io:format("Failed at finding the successor...~n"),
+      error;
+    {ok, Successor} ->
+      {ok, Return} = chord_tcp:rpc_lookup_key(Key, Successor),
+      logger:log(Pid, Key, end_lookup),
+      Return
+  end.
 
 %% @doc: stores a value in the chord network
 -spec(set/3::(pid(), Key::key(), Entry::#entry{}) -> ok).
 set(Pid, Key, Entry) ->
-  chord_tcp:rpc_set_key(Key, Entry, find_successor(Pid, Key)),
-  ok.
+  case find_successor(Pid, Key) of
+    error ->
+      io:format("Couldn't store the value. Failed to find owner.~n");
+    {ok, Successor} ->
+      chord_tcp:rpc_set_key(Key, Entry, Successor),
+      ok
+  end.
 
 %% @doc: get's a value from the local chord node
 -spec(local_lookup/2::(pid(), Key::key()) -> {ok, [#entry{}]}).
@@ -98,7 +109,6 @@ preceding_finger(Pid, Key) ->
 
 -spec(find_successor/2::(pid(), Key::key()) -> {ok, #node{}}).
 find_successor(Pid, Key) ->
-  logger:log(Pid, Key, route),
   gen_server:call(Pid, {find_successor, Key}).
 
 -spec(get_successor/1::(pid()) -> #node{}).
@@ -237,9 +247,10 @@ handle_call({local_set, Key, Entry}, _From, State) ->
   {reply, ok, State};
 
 handle_call({get_preceding_finger, Key}, _From, State) ->
-  Finger = closest_preceding_finger(Key, State),
-  Succ = perform_get_successor(State),
-  Msg = {Finger, Succ},
+  Msg = {
+    closest_preceding_finger(Key, State),
+    perform_get_successor(State)
+  },
   {reply, Msg, State};
 
 handle_call({find_successor, Key}, From, State) ->
@@ -342,20 +353,24 @@ do_stop_timers(#chord_state{timerRefStabilizer = T1, timerRefFixFingers = T2} = 
 fix_finger(0, _) -> ok;
 fix_finger(FingerNum, #chord_state{chord_pid = Pid, fingers = Fingers} = State) ->
   Finger = array:get(FingerNum, Fingers),
-  Succ = perform_find_successor(Finger#finger_entry.start, State),
-  case is_record(Succ, node) of
-    true ->
-      % If the successor is in the interval for the finger,
-      % then update it, otherwise drop the successor.
-      {Start, End} = Finger#finger_entry.interval,
-      case (utilities:in_right_inclusive_range(Succ#node.key, Start, End)) of
+  case perform_find_successor(Finger#finger_entry.start, State) of
+    {ok, Succ} ->
+      case is_record(Succ, node) of
         true ->
-          UpdatedFinger = Finger#finger_entry{node = Succ},
-          gen_server:cast(Pid, {set_finger, FingerNum, UpdatedFinger});
-        _ -> void
+          % If the successor is in the interval for the finger,
+          % then update it, otherwise drop the successor.
+          {Start, End} = Finger#finger_entry.interval,
+          case (utilities:in_right_inclusive_range(Succ#node.key, Start, End)) of
+            true ->
+              UpdatedFinger = Finger#finger_entry{node = Succ},
+              gen_server:cast(Pid, {set_finger, FingerNum, UpdatedFinger});
+            _ -> void
+          end;
+        false ->
+          ok
       end;
-    false ->
-      ok
+    error ->
+      io:format("Failed at fixing finger, because couldn't lookup the successor node~n")
   end.
 
 
@@ -447,73 +462,40 @@ get_start(NodeKey, N) ->
   (NodeKey + (1 bsl N)) rem (1 bsl 160).
 
 
-%% @doc: Returns the node succeeding a key.
--spec(perform_find_successor/2::(Key::key(), #chord_state{} | #node{})
-    -> #node{}).
-perform_find_successor(Key, State) ->
-  perform_find_successor(Key, State, [], []).
-perform_find_successor(Key, #chord_state{chord_pid = Pid, self = #node{key = NodeId}} = State, BadNodesHistory, SeenNodes) ->
-  case perform_get_successor(State) of
-    undefined -> 
-      % This case only happens when the chord circle is new
-      % and the second node joins. Then the first node does
-      % not yet have any successors.
-      State#chord_state.self;
-    Succ ->
-      % First check locally to see if it is in the range
-      % of this node and this nodes successor.
-      case utilities:in_right_inclusive_range(Key, NodeId, Succ#node.key) of
-        true  -> Succ;
-        % Try looking successively through successors successors.
-        false -> 
-          case perform_find_successor(Key, Succ, BadNodesHistory, SeenNodes) of
-            % finding successor failed in the first instance.
-            % Remove the offending node and try again.
-            {error, bad_node, BadNode} ->
-              % We have received a node that is a bad node.
-              % If we have seen this bad node in the past,
-              % that is some successors of ours has returned it
-              % as the next successor, then we are likely to get the
-              % node again if we reattempt the same lookup.
-              % We therefore terminate. Otherwise, if it is
-              % a node we haven't seen, then we give the system
-              % the benefit of doubt and retry.
-              case lists:member(BadNode, BadNodesHistory) of
-                true ->
-                  error;
-                false ->
-                  NewState = remove_node(Pid, BadNode),
-                  % Now that that is done, try again
-                  io:format("r"),
-                  perform_find_successor(Key, NewState, [BadNode|BadNodesHistory], SeenNodes)
-              end;
+-record(pred_info, {
+    node,
+    successor
+  }).
 
-            % We successfully found a good value. Now return it.
-            Val -> Val
-          end
+%% @doc: Returns the node succeeding a key.
+-spec(perform_find_successor/2::(Key::key(), #chord_state{}) -> {ok, #node{}} | error).
+perform_find_successor(Key, #chord_state{self = Self, chord_pid = Pid} = State) -> 
+  logger:log(Pid, Key, route),
+  % in the case we are the only party in a chord circle,
+  % then we are also our own successors.
+  case closest_preceding_finger(Key, State) of
+    Self -> {ok, Self};
+    OtherNode -> 
+      case perform_find_predecessor(Key, OtherNode) of
+        error -> error;
+        Predecessor-> {ok, Predecessor#pred_info.successor}
       end
-  end;
-perform_find_successor(Key, #node{key = NKey} = CurrentNext, BadNodesHistory, SeenNodes) ->
-  case chord_tcp:rpc_get_closest_preceding_finger_and_succ(Key, CurrentNext) of
-    {ok, {NextFinger, NSucc}} ->
-      case utilities:in_right_inclusive_range(Key, NKey, NSucc#node.key) of
-        true  -> NSucc;
-        false -> 
-          % At times we inexplicably get into loops where the same nodes
-          % are requested repeatedly... when that happens, stop.
-          NextFingerKey = NextFinger#node.key,
-          case lists:member(NextFingerKey, SeenNodes) of
-            true -> 
-              io:format("Repeated keys!...~n"),
-              {error, repeated_key};
-            false ->
-              perform_find_successor(Key, NextFinger, BadNodesHistory, [NextFingerKey|SeenNodes])
-          end
+  end.
+
+perform_find_predecessor(Key, Node) ->
+  case chord_tcp:rpc_get_closest_preceding_finger_and_succ(Key, Node) of
+    {ok, {NextClosest, NodeSuccessor}} ->
+      case utilities:in_right_inclusive_range(Key, Node#node.key, NodeSuccessor#node.key) of
+        true -> 
+          #pred_info{
+            node = Node,
+            successor = NodeSuccessor
+          };
+        false ->
+          perform_find_predecessor(Key, NextClosest)
       end;
     {error, _Reason} ->
-      % We couldn't connect to a node.
-      % We remove it from our tables.
-      {error, bad_node, CurrentNext}
+      error
   end.
 
 
@@ -540,32 +522,39 @@ remove_node_from_fingers(BadNode, #chord_state{fingers = Fingers} = State) ->
   }.
 
 
--spec(closest_preceding_finger/2::(Key::key(), 
-    State::#chord_state{}) -> _::#node{}).
+% Returns the node in the finger table of the current node
+% that most closely precedes a given key.
 closest_preceding_finger(Key, State) ->
   closest_preceding_finger(Key, 
     State#chord_state.fingers, array:size(State#chord_state.fingers) - 1,
     State#chord_state.self).
 
-
--spec(closest_preceding_finger/4::(Key::key(), 
-    array(), CurrentFinger::integer(),
-    CurrentNode::#node{}) -> #node{}).
-closest_preceding_finger(_Key, _Fingers, -1, CurrentNode) -> CurrentNode;
-closest_preceding_finger(Key, Fingers, 0, CurrentNode) ->
+closest_preceding_finger(_Key, _Fingers, -1, Self) -> Self;
+closest_preceding_finger(Key, Fingers, 0, Self) ->
+  % The current finger is the successor finger.
+  % Get the closest successor from the list of successors
   FingerNode = get_first_successor(array:get(0, Fingers)),
-  check_closest_preceding_finger(Key, FingerNode, Fingers, 0, CurrentNode);
-closest_preceding_finger(Key, Fingers, CurrentFinger, CurrentNode) ->
-  FingerNode = (array:get(CurrentFinger, Fingers))#finger_entry.node,
-  check_closest_preceding_finger(Key, FingerNode, Fingers, CurrentFinger, CurrentNode).
+  check_closest_preceding_finger(Key, FingerNode, Fingers, 0, Self);
+closest_preceding_finger(Key, Fingers, FingerIndex, Self) ->
+  FingerNode = (array:get(FingerIndex, Fingers))#finger_entry.node,
+  check_closest_preceding_finger(Key, FingerNode, Fingers, FingerIndex, Self).
 
-check_closest_preceding_finger(Key, undefined, Fingers, CurrentFinger, CurrentNode) ->
+% We check if the node for a given finger entry is between ourselves
+% and the key we are looking for. Since we are looking through the finger
+% table for nodes that are successively closer to ourself, we are bound
+% to end up with the node most closely preceding the key that we know about.
+check_closest_preceding_finger(Key, undefined, Fingers, FingerIndex, Self) ->
   % The finger entry is empty. We skip it
-  closest_preceding_finger(Key, Fingers, CurrentFinger-1, CurrentNode);
-check_closest_preceding_finger(Key, #node{key = NodeId} = Node, Fingers, CurrentFinger, CurrentNode) ->
-  case ((CurrentNode#node.key < NodeId) andalso (NodeId < Key)) of
-    true -> Node;
-    false -> closest_preceding_finger(Key, Fingers, CurrentFinger-1, CurrentNode)
+  closest_preceding_finger(Key, Fingers, FingerIndex-1, Self);
+check_closest_preceding_finger(Key, Node, Fingers, FingerIndex, Self) ->
+  case utilities:in_range(Node#node.key, Self#node.key, Key) of
+    true -> 
+      % This is the key in our routing table that is closest
+      % to the destination key. Return it.
+      Node;
+    false -> 
+      % The current finger is greater than the key. Try closer fingers
+      closest_preceding_finger(Key, Fingers, FingerIndex-1, Self)
   end.
 
 
@@ -691,19 +680,21 @@ test_get_empty_state() ->
 
 
 test_get_state() ->
-  Fingers = array:set(0, [#finger_entry{start = 1, interval = {1,2}, node = nForKey(1)}],
+  Fingers = array:set(0, [],
             array:set(1, #finger_entry{start = 2, interval = {2,4}, node = nForKey(3)},
             array:set(2, #finger_entry{start = 4, interval = {4,0}, node = nForKey(0)},
                 array:new(3)))),
-  #chord_state{
+  State = #chord_state{
     fingers = Fingers,
     self = nForKey(0)
-  }.
+  },
+  Successor = nForKey(1),
+  set_successor(Successor, State).
 
 
-find_closest_preceding_finger_test_() ->
+closest_preceding_finger_test_() ->
   {inparallel, [
-    ?_assertEqual(nForKey(0), closest_preceding_finger(0, test_get_state())),
+    ?_assertEqual(nForKey(3), closest_preceding_finger(0, test_get_state())),
     ?_assertEqual(nForKey(0), closest_preceding_finger(1, test_get_state())),
     ?_assertEqual(nForKey(1), closest_preceding_finger(2, test_get_state())),
     ?_assertEqual(nForKey(1), closest_preceding_finger(3, test_get_state())),
@@ -718,32 +709,43 @@ find_closest_preceding_finger_test_() ->
 closest_preceding_finger_for_empty_fingers_test() ->
   Self = #node{key=1234},
   State = #chord_state{self = Self, fingers = create_finger_table(Self#node.key)},
-  ?assertEqual(Self, closest_preceding_finger(0, State)).
+  ?assertEqual(Self, closest_preceding_finger(0, State)),
+  ?assertEqual(Self, closest_preceding_finger(10000, State)),
+  ?assertEqual(Self, closest_preceding_finger(10000000, State)),
+  ?assertEqual(Self, closest_preceding_finger(10000000000, State)).
 
 
 %% *** find_successor tests ***
-% Test when the successor is directly in our finger table
-perform_find_successor_on_same_node_test() ->
-  State = test_get_state(),
-  ?assertEqual(perform_get_successor(State), perform_find_successor(1, State)).
-
-
 % Test when the successor is one hop away
 perform_find_successor_next_hop_test() ->
+  % We are looking for the successor of 4 in the sample chord key space.
+  % That happens to be ourselves.
+  %
+  % The following process is about to happen as we look for the keys predecessor
+  % 1) We ask the node we know about that most closely precedes the key (node 3) who they
+  %    know most closely precedes the key, and who node 3's successor is.
+  %    Three returns itself as the node most closely preceding 3 and us as it's
+  %    predecessor.
+  % 2) The key is between node 3 and its successor (us), so we return ourself.
+
   % Our current successor is node 1.
   State = test_get_state(),
+  Self = State#chord_state.self,
+  Node3 = nForKey(3),
 
-  NextFinger = #node{},
-  NextSuccessor = #node{key = 6},
-  RpcReturn = {ok, {NextFinger, NextSuccessor}},
+  RpcReturn = {ok, {Node3, Self}},
 
   Key = 4,
 
   erlymock:start(),
   erlymock:strict(chord_tcp, rpc_get_closest_preceding_finger_and_succ, 
-    [Key, perform_get_successor(State)], [{return, RpcReturn}]),
+    [Key, Node3], [{return, RpcReturn}]),
   erlymock:replay(), 
-  ?assertEqual(NextSuccessor, perform_find_successor(Key, State)),
+
+  ExpectedResponse = {ok, Self},
+  ActualResponse = perform_find_successor(Key, State),
+
+  ?assertEqual(ExpectedResponse, ActualResponse),
   erlymock:verify().
 
 
@@ -752,21 +754,29 @@ perform_find_successor_subsequent_hop_test() ->
   % Our current successor is node 1.
   State = test_get_state(),
 
-  FirstNextFinger = #node{},
+  LocalClosest = nForKey(3),
+  FirstNextFinger = nForKey(6),
   FirstNextSuccessor = #node{key = 6},
   FirstRpcReturn = {ok, {FirstNextFinger, FirstNextSuccessor}},
 
-  SecondNextFinger = #node{},
-  SecondNextSuccessor = #node{key = 14},
+  % The second finger is the closest predecessor
+  SecondNextFinger = FirstNextSuccessor,
+  SecondNextSuccessor = nForKey(11),
   SecondRpcReturn = {ok, {SecondNextFinger, SecondNextSuccessor}},
 
   Key = 10,
 
   erlymock:start(),
-  erlymock:strict(chord_tcp, rpc_get_closest_preceding_finger_and_succ, [Key, perform_get_successor(State)], [{return, FirstRpcReturn}]),
+  erlymock:strict(chord_tcp, rpc_get_closest_preceding_finger_and_succ, [Key, LocalClosest], [{return, FirstRpcReturn}]),
   erlymock:strict(chord_tcp, rpc_get_closest_preceding_finger_and_succ, [Key, FirstNextFinger], [{return, SecondRpcReturn}]),
   erlymock:replay(), 
-  ?assertEqual(SecondNextSuccessor, perform_find_successor(Key, State)),
+
+  % Since SecondNextFinger is the closest preceding finger, then it's successor
+  % is the successor of the key.
+  Expected = {ok, SecondNextSuccessor},
+  Actual = perform_find_successor(Key, State),
+  ?assertEqual(Expected, Actual),
+
   erlymock:verify().
 
 
@@ -776,7 +786,7 @@ perform_find_successor_for_missing_successor_test() ->
   Self = #node{key = 1234},
   Id = 100,
   State = #chord_state{self = Self, fingers = create_finger_table(Id)},
-  ?assertEqual(Self, perform_find_successor(0, State)).
+  ?assertEqual({ok, Self}, perform_find_successor(0, State)).
 
 
 %% *** perform_stabilize tests ***
