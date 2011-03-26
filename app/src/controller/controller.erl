@@ -453,7 +453,7 @@ rator(Rate, #exp_info{dht_pids = Pids} = State, OutstandingRequests, Stopper) ->
     after trunc(1000 / Rate) ->
       % We allow for two times the rate, because we want
       % to allow the requests to take up to two seconds.
-      case OutstandingRequests > (trunc(Rate*2.2) + 5) of
+      case OutstandingRequests > (trunc(Rate*5.1) + 5) of
         true ->
           io:format("~nHas too many outstanding requests: ~p~n", [OutstandingRequests]),
           Stopper ! cant_sustain_rate;
@@ -487,7 +487,7 @@ new_request(#exp_info{ip = Ip, dht = Dht, control_pid = CtrlPid}, DhtPid) ->
         logger:log_success(Key),
         CtrlPid ! request_success
     % Allow requests to take up to a certain amount of time before timing out
-    after 1000 -> 
+    after 5000 -> 
         io:format("request timed out~n"),
         CtrlPid ! request_failed
     end
