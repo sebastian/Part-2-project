@@ -73,7 +73,12 @@ rpc_set_key(Key, Value, Node) ->
 -spec(rpc_get_closest_preceding_finger_and_succ/2::(Key::key(), Node::#node{}) 
     -> {ok, {_::#node{}, _::#node{}}} | {error, _}).
 rpc_get_closest_preceding_finger_and_succ(Key, Node) ->
-  perform_rpc({preceding_finger, Key}, Node).
+  case perform_rpc({preceding_finger, Key}, Node) of
+    {ok, {NC, NS}} when is_record(NC, node), is_record(NS, node) ->
+      {ok, {NC, NS}};
+    {error, Reason} -> {error, Reason};
+    _OtherError -> {error, faulty_record_type}
+  end.
 
 -spec(rpc_find_successor/3::(Key::key(), Ip::ip(), Port::port_number()) ->
     {ok, #node{}} | {error, _}).
