@@ -477,12 +477,14 @@ new_request(#exp_info{ip = Ip, dht = Dht, control_pid = CtrlPid}, DhtPid) ->
       try 
         Dht:lookup(DhtPid, Key),
         ReturnPid ! ok
-      catch Error:Reason ->
-        io:format("Lookup failed: ~p:~p", [Error, Reason]),
-        CtrlPid ! request_failed
+      catch _Error:Reason ->
+        ReturnPid ! {failed, Reason}
       end
     end),
     receive
+      {failed, Reason} ->
+        io:format("Lookup failed for reason:~p~n", [Reason]),
+        CtrlPid ! request_failed;
       ok -> 
         logger:log_success(Key),
         CtrlPid ! request_success
