@@ -2,7 +2,7 @@
 -behaviour(gen_server).
 
 -define(SERVER, ?MODULE).
--define(TIMEOUT, 2000).
+-define(TIMEOUT, 5000).
 
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
