@@ -469,8 +469,7 @@ get_start(NodeKey, N) ->
 
 %% @doc: Returns the node succeeding a key.
 -spec(perform_find_successor/2::(Key::key(), #chord_state{}) -> {ok, #node{}} | error).
-perform_find_successor(Key, #chord_state{self = Self, chord_pid = Pid} = State) -> 
-  logger:log(Pid, Key, route),
+perform_find_successor(Key, #chord_state{self = Self} = State) -> 
   % in the case we are the only party in a chord circle,
   % then we are also our own successors.
   case closest_preceding_finger(Key, State) of
@@ -524,7 +523,8 @@ remove_node_from_fingers(BadNode, #chord_state{fingers = Fingers} = State) ->
 
 % Returns the node in the finger table of the current node
 % that most closely precedes a given key.
-closest_preceding_finger(Key, State) ->
+closest_preceding_finger(Key, #chord_state{chord_pid = Pid} = State) ->
+  logger:log(Pid, Key, route), % This means it will be logged once per node that is touched
   closest_preceding_finger(Key, 
     State#chord_state.fingers, array:size(State#chord_state.fingers) - 1,
     State#chord_state.self).
