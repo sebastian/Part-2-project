@@ -21,10 +21,7 @@
 %% ------------------------------------------------------------------
 
 -export([start_link/1, start/1, stop/0]).
--export([
-    register_controller/3,
-    stop_experimental_phase/0
-  ]).
+-export([register_controller/3]).
 
 %% ------------------------------------------------------------------
 %% gen_listener_tcp Function Exports
@@ -36,9 +33,6 @@
 %% ------------------------------------------------------------------
 %% API Function Definitions
 %% ------------------------------------------------------------------
-
-stop_experimental_phase() ->
-  perform_rpc(stop_experimental_phase, ?RENDEVOUZ_HOST, ?RENDEVOUZ_PORT).
 
 register_controller(Port, RendevouzHost, RendevouzPort) ->
   perform_rpc({register_controller, Port}, RendevouzHost, RendevouzPort).
@@ -167,16 +161,8 @@ handle_msg({run_n_nodes, N}) ->
   controller:ensure_n_nodes_running(N),
   ok;
 
-handle_msg(run_rampup) ->
-  controller:run_rampup(),
-  ok;
-
-handle_msg({set_rate, Rate}) ->
-  controller:set_rate(Rate),
-  ok;
-
-handle_msg(increase_rate) ->
-  controller:increase_rate(),
+handle_msg({perform_experiment, Rate}) ->
+  controller:perform_experiment(Rate),
   ok;
 
 handle_msg(stop_experimental_phase) ->

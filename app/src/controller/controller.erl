@@ -46,9 +46,7 @@
     reset_node_count/0,
     rereg_with_hub/1,
     % For experiments
-    run_rampup/0,
-    increase_rate/0,
-    set_rate/1,
+    perform_experiment/1,
     stop_experimental_phase/0,
     output_diagnostics/0
   ]).
@@ -126,14 +124,8 @@ reset_node_count() ->
 ensure_n_nodes_running(N) ->
   gen_server:cast(?MODULE, {ensure_n_nodes_running, N}).
 
-run_rampup() ->
-  gen_server:cast(?MODULE, run_rampup).
-
-set_rate(Rate) ->
-  gen_server:cast(?MODULE, {set_rate, Rate}).
-
-increase_rate() ->
-  gen_server:cast(?MODULE, increase_rate).
+perform_experiment(Rate) ->
+  gen_server:cast(?MODULE, {perform_experiment, Rate}).
 
 stop_experimental_phase() ->
   gen_server:cast(?MODULE, stop_experimental_phase).
@@ -186,25 +178,11 @@ handle_cast(output_diagnostics, #controller_state{nodes = Nodes, mode = Dht} = S
 handle_cast(reset_node_count, State) ->
   {noreply, State#controller_state{nodes = []}};
 
-handle_cast(run_rampup, State) ->
-  Pid = spawn_link(fun() -> perform_rampup(State) end),
+handle_cast({perform_experiment, Rate}, State) ->
+  Pid = spawn_link(fun() -> perform_experiment(Rate, State) end),
   io:format("~nexperimental pid is = ~p~n", [Pid]),
   stop_dht_table_maintenance(State),
   {noreply, State#controller_state{experiment_pid = Pid}};
-
-handle_cast({set_rate, _Rate}, #controller_state{experiment_pid = undefined} = State) ->
-  io:format("~n#################### IGNORING set_rate ##################################~n"),
-  {noreply, State};
-handle_cast({set_rate, Rate}, #controller_state{experiment_pid = Pid} = State) ->
-  Pid ! {set_rate, Rate},
-  {noreply, State};
-
-handle_cast(increase_rate, #controller_state{experiment_pid = undefined} = State) ->
-  io:format("~n#################### IGNORING increase_rate ##################################~n"),
-  {noreply, State};
-handle_cast(increase_rate, #controller_state{experiment_pid = Pid} = State) ->
-  Pid ! increase_rate,
-  {noreply, State};
 
 handle_cast(stop_experimental_phase, #controller_state{experiment_pid = undefined} = State) ->
   io:format("~n#################### IGNORING STOP EXPERIMENTAL PHASE ########################~n"),
@@ -358,60 +336,24 @@ all_ports(Nodes) ->
 -record(exp_info, {
     dht :: pastry_app | chord,
     dht_pids :: [pid()],
-    control_pid :: pid(),
+    dead_man :: pid(),
     ip
   }).
-perform_rampup(#controller_state{ip = Ip, nodes = Nodes, mode = Mode}) ->
+
+perform_experiment(Rate, #controller_state{ip = Ip, nodes = Nodes, mode = Mode}) ->
   {Type, Pids} = case Mode of
     pastry -> {pastry_app, [Node#controller_node.app_pid || Node <- Nodes]};
     OtherDht -> {OtherDht, [Node#controller_node.dht_pid || Node <- Nodes]}
   end,
-  io:format("Running experiment on ~p~n", [Type]),
+  io:format("Running experiment on ~p at rate ~p~n", [Type, Rate]),
   SelfPid = self(),
-  RunState = #exp_info{ip = Ip, dht_pids = Pids, dht = Type, control_pid = SelfPid},
-  InitialRate = 1, % per second
+  RunState = #exp_info{ip = Ip, dht_pids = Pids, dht = Type},
   DeadManCheck = spawn_link(fun() -> dead_man(SelfPid) end),
   % start the rator at slightly offset times so that we don't get
   % all the requests queueing up at exactly the same time
   Wait = random:uniform(1000),
   receive after Wait -> start end,
-  RunPid = spawn_link(fun() -> rator(InitialRate, RunState) end),
-  experiment_loop(RunPid, DeadManCheck, [], false).
-
-experiment_loop(RunPid, DeadManCheck, History, HasInformedControllerAboutStop) ->
-  receive 
-    stop ->
-      io:format("Stopping experiment_loop~n"),
-      RunPid ! stop,
-      DeadManCheck ! stop;
-    increase_rate ->
-      io:format("Received increase rate~n"),
-      RunPid ! increase_rate,
-      DeadManCheck ! alive,
-      experiment_loop(RunPid, DeadManCheck, History, HasInformedControllerAboutStop);
-    {set_rate, Rate} ->
-      io:format("Received set rate for rate ~p~n", [Rate]),
-      RunPid ! {set_rate, Rate},
-      DeadManCheck ! alive,
-      experiment_loop(RunPid, DeadManCheck, History, HasInformedControllerAboutStop);
-    request_success ->
-      RunPid ! ended_request,
-      io:format("S"),
-      NewHistory = update_history(History, success),
-      experiment_loop(RunPid, DeadManCheck, NewHistory, HasInformedControllerAboutStop);
-    request_failed ->
-      RunPid ! ended_request,
-      io:format("F"),
-      NewHistory = update_history(History, failed),
-      case good_history(NewHistory) orelse HasInformedControllerAboutStop of
-        true ->
-          experiment_loop(RunPid, DeadManCheck, NewHistory, HasInformedControllerAboutStop);
-        false ->
-          % Tell the controller that we want to stop the experiment
-          controller_tcp:stop_experimental_phase(),
-          experiment_loop(RunPid, DeadManCheck, NewHistory, true)
-      end
-  end.
+  rator(Rate, RunState#exp_info{dead_man = DeadManCheck}).
 
 % Prevents the host from staying in experimental mode
 % indefinitely in case of it loosing contact with the master
@@ -427,48 +369,21 @@ dead_man(Controller) ->
       controller:stop_experimental_phase()
   end.
 
-rator(Rate, State) ->
-  Stopper = spawn(fun() ->
-      receive 
-        cant_sustain_rate ->
-          io:format("Letting controller know that we can't sustain the rate~n"),
-          controller_tcp:stop_experimental_phase()
-      end
-  end),
-  rator(Rate, State, 0, Stopper).
-rator(Rate, #exp_info{dht_pids = Pids} = State, OutstandingRequests, Stopper) ->
+rator(Rate, #exp_info{dht_pids = Pids} = State) ->
   receive 
     stop -> 
-      io:format("Stopping rator with ~p outstanding requests~n", [OutstandingRequests]),
-      ok;
-    ended_request ->
-      rator(Rate, State, OutstandingRequests - 1, Stopper)
-  after 0 -> 
-    receive
-      increase_rate ->
-        NewRate = Rate * 2,
-        rator(NewRate, State, OutstandingRequests, Stopper);
-      {set_rate, NewRate} ->
-        rator(NewRate, State, OutstandingRequests, Stopper)
-    after trunc(1000 / Rate) ->
-      % We allow for two times the rate, because we want
-      % to allow the requests to take up to two seconds.
-      case OutstandingRequests > (trunc(Rate*5.1) + 5) of
-        true ->
-          io:format("~nHas too many outstanding requests: ~p~n", [OutstandingRequests]),
-          Stopper ! cant_sustain_rate;
-        false -> good
-      end,
-      % Get the next DhtPid
-      NextPid = hd(Pids),
-      RestPids = tl(Pids),
-      UpdatedState = State#exp_info{dht_pids = RestPids ++ [NextPid]},
-      new_request(State, NextPid),
-      rator(Rate, UpdatedState, OutstandingRequests+1, Stopper)
-    end
+      State#exp_info.dead_man ! stop,
+      io:format("Stopping rator~n")
+  after trunc(1000 / Rate) ->
+    % Get the next DhtPid
+    NextPid = hd(Pids),
+    RestPids = tl(Pids),
+    UpdatedState = State#exp_info{dht_pids = RestPids ++ [NextPid]},
+    new_request(State, NextPid),
+    rator(Rate, UpdatedState)
   end.
 
-new_request(#exp_info{ip = Ip, dht = Dht, control_pid = CtrlPid}, DhtPid) ->
+new_request(#exp_info{ip = Ip, dht = Dht}, DhtPid) ->
   io:format("n"),
   spawn_link(fun() ->
     Key = utilities:key_for_data({Ip, now()}),
@@ -482,31 +397,12 @@ new_request(#exp_info{ip = Ip, dht = Dht, control_pid = CtrlPid}, DhtPid) ->
       end
     end),
     receive
-      {failed, Reason} ->
-        io:format("Lookup failed for reason:~p~n", [Reason]),
-        CtrlPid ! request_failed;
-      ok -> 
-        logger:log_success(Key),
-        CtrlPid ! request_success
+      {failed, Reason} -> io:format("Lookup failed for reason:~p~n", [Reason]);
+      ok ->  logger:log_success(Key)
     % Allow requests to take up to a certain amount of time before timing out
-    after 5000 -> 
-        io:format("request timed out~n"),
-        CtrlPid ! request_failed
+    after 5000 -> io:format("request timed out~n")
     end
   end).
-
-update_history([], Result) -> [Result];
-update_history(History, Result) ->
-  Length = length(History),
-  case Length >= 50 of
-    true -> [Result|lists:sublist(History, 1, Length - 1)];
-    false -> [Result|History]
-  end.
-
-good_history(History) when length(History) < 40 -> true;
-good_history(History) ->
-  Failed = [R || R <- History, R =:= failed],
-  length(Failed) < 0.25 * length(History).
 
 % -------------------------------------------------------------------
 % Start node statemachine -------------------------------------------
@@ -715,31 +611,5 @@ all_ports_test() ->
   Node2 = cn2pastry(),
   Nodes = [Node1, Node2],
   ?assertEqual([1000, 2000], all_ports(Nodes)).
-
-update_history_test() ->
-  Hist = [],
-  UpdatedHist = update_history(Hist, success),
-  ?assertEqual([success], UpdatedHist),
-  UpdatedHist2 = update_history(UpdatedHist, success),
-  ?assertEqual([success, success], UpdatedHist2),
-  FullHistory = lists:seq(1,100),
-  ?assertEqual(100, length(FullHistory)),
-  UpdatedFullHistory = update_history(FullHistory, failed),
-  ?assertEqual(100, length(UpdatedFullHistory)),
-  ?assertEqual(failed, hd(UpdatedFullHistory)).
-
-create_fail_rate(Percent) ->
-  create_fail_rate(40- trunc(Percent * 0.4), trunc(Percent * 0.4), []).
-create_fail_rate(0, 0, Acc) -> Acc;
-create_fail_rate(0, N, Acc) -> create_fail_rate(0, N-1, [failed|Acc]);
-create_fail_rate(N, M, Acc) -> create_fail_rate(N-1, M, [success|Acc]).
-good_history_test() ->
-  ?assert(good_history(create_fail_rate(24))),
-  ?assert(good_history(create_fail_rate(20))),
-  ?assert(good_history(create_fail_rate(0))),
-  ?assert(good_history([])),
-  ?assertNot(good_history(create_fail_rate(25))),
-  ?assertNot(good_history(create_fail_rate(26))),
-  ?assertNot(good_history(create_fail_rate(100))).
 
 -endif.

@@ -20,8 +20,6 @@
     clear_logs/1,
     get_logs/1,
     upgrade_systems/1,
-    experimental_runner/1,
-    short_experimental_runner/1,
     rate_and_time_experimental_runner/3,
     stop_experimental_phase/1
   ]).
@@ -205,10 +203,8 @@ rate_and_time_experimental_runner(Rate, Time, State) ->
   {ok, LogFile} = file:open(?MASTER_LOG, [append]),
   % Phase 1
   node:experiment_update("Telling nodes to start requests"),
-  run_rampup(State),
-  node:experiment_update("Setting rate"),
-  set_rate(Rate, State),
   logPhaseStart(LogFile),
+  run_experiment(Rate, State),
   node:experiment_update("Waiting for alloted time to pass"),
   receive 
     killed_by_user ->
@@ -231,106 +227,8 @@ rate_and_time_experimental_runner(Rate, Time, State) ->
   file:close(LogFile),
   ok.
 
-% Single short experimental run burst
-short_experimental_runner(State) ->
-  node:experiment_update("--- Experimental run ---"),
-  node:experiment_update("Telling hosts to clear their logs"),
-  node:clear_logs(),
-  node:experiment_update("Telling hosts to start logging"),
-  node:start_logging(),
-  % We want to append timestamps to log
-  {ok, LogFile} = file:open(?MASTER_LOG, [append]),
-  % Phase 1
-  node:experiment_update("Starting experimental burst"),
-  logPhaseStart(LogFile),
-  start_experimental_phase(State, LogFile),
-  logPhaseDone(LogFile),
-  % Clean up
-  node:experiment_update("--- Experiments done ---"),
-  node:experiment_update("Waiting to let logs finish requests"),
-  wait_minutes(0.2),
-  node:experiment_update("Stopping logging"),
-  node:stop_logging(),
-  node:experiment_update("Getting logs"),
-  node:get_logs(),
-  node:experiment_update("Experiment done. Thanks!"),
-  file:close(LogFile).
-
-
-% Called to initiate an experimental run
-experimental_runner(State) ->
-  node:experiment_update("--- Experimental run ---"),
-  node:experiment_update("Telling hosts to clear their logs"),
-  node:clear_logs(),
-  node:experiment_update("Telling hosts to start logging"),
-  node:start_logging(),
-  % We want to append timestamps to log
-  {ok, LogFile} = file:open(?MASTER_LOG, [append]),
-  % Phase 1
-  node:experiment_update("Telling hosts to run 1 node"),
-  node:ensure_running_n_nodes(1),
-  node:experiment_update("Waiting 3 minutes"),
-  wait_minutes(3),
-  node:experiment_update("Starting phase 1"),
-  logPhaseStart(LogFile),
-  Res = start_experimental_phase(State, LogFile),
-  logPhaseDone(LogFile),
-  experimental_runner_phase2(State, LogFile, Res).
-
-experimental_runner_phase2(State, LogFile, terminate) -> clean_up_experiment(State, LogFile);
-experimental_runner_phase2(State, LogFile, go) ->
-  % Phase 2
-  node:experiment_update("Telling hosts to run 2 nodes"),
-  node:ensure_running_n_nodes(2),
-  node:experiment_update("Waiting 3 minutes"),
-  wait_minutes(3),
-  node:experiment_update("Starting phase 2"),
-  logPhaseStart(LogFile),
-  Res = start_experimental_phase(State, LogFile),
-  logPhaseDone(LogFile),
-  experimental_runner_phase3(State, LogFile, Res).
-
-experimental_runner_phase3(State, LogFile, terminate) -> clean_up_experiment(State, LogFile);
-experimental_runner_phase3(State, LogFile, go) ->
-  % Phase 3
-  node:experiment_update("Telling hosts to run 4 nodes"),
-  node:ensure_running_n_nodes(4),
-  node:experiment_update("Waiting 3 minutes"),
-  wait_minutes(3),
-  node:experiment_update("Starting phase 3"),
-  logPhaseStart(LogFile),
-  Res = start_experimental_phase(State, LogFile),
-  logPhaseDone(LogFile),
-  experimental_runner_phase4(State, LogFile, Res).
-
-experimental_runner_phase4(State, LogFile, terminate) -> clean_up_experiment(State, LogFile);
-experimental_runner_phase4(State, LogFile, go) ->
-  % Phase 4
-  node:experiment_update("Telling hosts to run 8 nodes"),
-  node:ensure_running_n_nodes(8),
-  node:experiment_update("Waiting 3 minutes"),
-  wait_minutes(3),
-  node:experiment_update("Starting phase 4"),
-  logPhaseStart(LogFile),
-  start_experimental_phase(State, LogFile),
-  logPhaseDone(LogFile),
-  clean_up_experiment(State, LogFile).
-
-clean_up_experiment(_State, LogFile) ->
-  % Clean up
-  node:experiment_update("--- Experiments done ---"),
-  node:experiment_update("Stopping logging"),
-  node:stop_logging(),
-  node:experiment_update("Getting logs"),
-  node:get_logs(),
-  node:experiment_update("Shutting down nodes"),
-  node:ensure_running_n_nodes(0),
-  node:experiment_update("Experiment done. Thanks!"),
-  file:close(LogFile).
-
 logPhaseStart(LogFile) -> logPhaseWrite(LogFile, start).
 logPhaseDone(LogFile) -> logPhaseWrite(LogFile, done).
-logIncreaseRate(LogFile) -> logPhaseWrite(LogFile, increase_rate).
 
 logPhaseWrite(LogFile, Message) ->
   {_, S, Ms} = erlang:now(),
@@ -339,61 +237,7 @@ logPhaseWrite(LogFile, Message) ->
   LogEntry = lists:flatten(io_lib:format("ctrl;~p;~p;~p;~p~n", [Message, Time, NumHosts, NumNodes])),
   file:write(LogFile, LogEntry).
 
-start_experimental_phase(State, LogFile) ->
-  io:format("Starting phase~n"),
-  run_rampup(State),
-  run_experimental_phase(State, LogFile).
-
-run_experimental_phase(State, LogFile) ->
-  {Hosts, _N} = node:get_num_of_hosts_and_nodes(),
-  % Run the experiment until 20% of the nodes fail
-  RateIncreaser = spawn(fun() -> perform_increase_rate(State, LogFile) end),
-  RateIncreaser ! {test_message, "Hello world, do you copy?"},
-  run_experimental_phase(State, RateIncreaser, trunc(Hosts/5) + 1).
-
-perform_increase_rate(State, LogFile) ->
-  receive 
-    stop -> 
-      io:format("stopping perform_increase_rate~n"),
-      ok;
-    Msg -> io:format("Received message ~p in rate increaser~n", [Msg]),
-      perform_increase_rate(State, LogFile)
-  after 10 * 1000 ->
-    io:format("Increasing rate~n"),
-    logIncreaseRate(LogFile),
-    increase_rate(State),
-    perform_increase_rate(State, LogFile)
-  end.
-
-run_experimental_phase(State, RateIncreaser, 0) ->
-  node:experiment_update("Current experimental phase completed"),
-  terminate_exp(State, RateIncreaser),
-  go; % go indicates to the system that it can move on to the next stage
-run_experimental_phase(State, RateIncreaser, ToGo) ->
-  receive 
-    stop_current_run ->
-      io:format("Received stop_current_run. To go: ~p~n", [ToGo]),
-      run_experimental_phase(State, RateIncreaser, ToGo - 1);
-    killed_by_user ->
-      io:format("User killed experiment~n"),
-      terminate_exp(State, RateIncreaser),
-      terminate; % Tells the experiment that the experiment was willfully terminated
-    Msg ->
-      error_logger:error_msg("Received unknown message in experimental runner: ~p", [Msg]),
-      run_experimental_phase(State, RateIncreaser, ToGo)
-  after 30*60*1000 ->
-    node:experiment_update("Experimental run timed out"),
-    terminate_exp(State, RateIncreaser)
-  end.
-
-terminate_exp(State, RateIncreaser) ->
-  io:format("terminating experimental phase~n"),
-  RateIncreaser ! stop,
-  stop_experimental_phase(State).
-
-increase_rate(State) -> perform(fun(_, C) -> hub_tcp:increase_rate(C) end, undefined, State).
-set_rate(Rate, State) -> perform(fun(TheRate, C) -> hub_tcp:set_rate(TheRate, C) end, Rate, State).
-run_rampup(State) -> perform(fun(_, C) -> hub_tcp:run_rampup(C) end, undefined, State).
+run_experiment(Rate, State) -> perform(fun(TheRate, C) -> hub_tcp:perform_experiment(TheRate, C) end, Rate, State).
 stop_experimental_phase(State) -> perform(fun(_, C) -> hub_tcp:stop_experimental_phase(C) end, undefined, State).
     
 wait_minutes(Minutes) ->
@@ -698,9 +542,6 @@ register_node_in_controllers_not_first_node_test() ->
   % It should not register a port unless there are absolutely no 
   % other ports in the system.
   ?assertNot(member(2, Ports)).
-
-assert_same_items(As, Bs) ->
-  [?assert(lists:member(A, Bs)) || A <- As].
 
 shuffle_controllers_test() ->
   List = [a,b,c,d],

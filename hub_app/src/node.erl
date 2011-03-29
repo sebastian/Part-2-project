@@ -50,13 +50,9 @@
 -export([
     % From hub application
     start_single_rate_for_time/2,
-    start_single_experiment/0,
-    start_experiment/0,
     terminate_experiment/0,
     clear_experiment/0,
-    experiment_update/1,
-    % From controllers
-    stop_experiment/0
+    experiment_update/1
   ]).
 
 %% ------------------------------------------------------------------
@@ -163,12 +159,6 @@ stop_nodes(N) ->
 start_single_rate_for_time(Rate, Time) ->
   gen_server:cast(?MODULE, {start_single_rate, Rate, for_time, Time}).
 
-start_single_experiment() ->
-  gen_server:cast(?MODULE, start_single_experiment).
-
-start_experiment() ->
-  gen_server:cast(?MODULE, start_experiment).
-
 terminate_experiment() ->
   gen_server:cast(?MODULE, terminate_experiment).
 
@@ -177,9 +167,6 @@ clear_experiment() ->
 
 experiment_update(Update) ->
   gen_server:cast(?MODULE, {experiment_update, Update}).
-
-stop_experiment() ->
-  gen_server:cast(?MODULE, stop_experiment).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Definitions
@@ -231,21 +218,6 @@ handle_call(clear, _From, _State) ->
 handle_cast({start_single_rate, Rate, for_time, Time}, State) ->
   ExperimentalRunnerPid = spawn(fun() -> node_core:rate_and_time_experimental_runner(Rate, Time, State) end),
   {noreply, State#state{experiment_pid = ExperimentalRunnerPid, experiment_stats = []}};
-
-handle_cast(start_single_experiment, State) ->
-  ExperimentalRunnerPid = spawn(fun() -> node_core:short_experimental_runner(State) end),
-  {noreply, State#state{experiment_pid = ExperimentalRunnerPid, experiment_stats = []}};
-
-handle_cast(start_experiment, State) ->
-  ExperimentalRunnerPid = spawn(fun() -> node_core:experimental_runner(State) end),
-  {noreply, State#state{experiment_pid = ExperimentalRunnerPid, experiment_stats = []}};
-
-handle_cast(stop_experiment, #state{experiment_pid = undefined} = State) ->
-  io:format("Some poor node is still in experiment mode!~n"),
-  {noreply, State};
-handle_cast(stop_experiment, #state{experiment_pid = ExperimentPid} = State) ->
-  ExperimentPid ! stop_current_run,
-  {noreply, State};
 
 handle_cast(terminate_experiment, #state{experiment_pid = ExpPid} = State) ->
   ExpPid ! killed_by_user,
