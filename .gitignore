@@ -5,6 +5,6 @@ Deploy
 */log/*
 .eunit
 hub_app/priv/log
-app/priv/log
-app/erl_crash.dump
+fs/priv/log
+fs/erl_crash.dump
 */*.log
