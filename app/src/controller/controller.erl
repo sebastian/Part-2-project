@@ -336,7 +336,6 @@ all_ports(Nodes) ->
 -record(exp_info, {
     dht :: pastry_app | chord,
     dht_pids :: [pid()],
-    dead_man :: pid(),
     ip
   }).
 
@@ -346,33 +345,16 @@ perform_experiment(Rate, #controller_state{ip = Ip, nodes = Nodes, mode = Mode})
     OtherDht -> {OtherDht, [Node#controller_node.dht_pid || Node <- Nodes]}
   end,
   io:format("Running experiment on ~p at rate ~p~n", [Type, Rate]),
-  SelfPid = self(),
   RunState = #exp_info{ip = Ip, dht_pids = Pids, dht = Type},
-  DeadManCheck = spawn_link(fun() -> dead_man(SelfPid) end),
   % start the rator at slightly offset times so that we don't get
   % all the requests queueing up at exactly the same time
   Wait = random:uniform(1000),
   receive after Wait -> start end,
-  rator(Rate, RunState#exp_info{dead_man = DeadManCheck}).
-
-% Prevents the host from staying in experimental mode
-% indefinitely in case of it loosing contact with the master
-dead_man(Controller) ->
-  receive
-    alive ->
-      dead_man(Controller);
-    stop ->
-      ok
-  after 15 * 60 * 1000 ->
-      error_logger:error_msg("Running experiment, but haven't heard from controller. Abort"),
-      Controller ! stop,
-      controller:stop_experimental_phase()
-  end.
+  rator(Rate, RunState).
 
 rator(Rate, #exp_info{dht_pids = Pids} = State) ->
   receive 
     stop -> 
-      State#exp_info.dead_man ! stop,
       io:format("Stopping rator~n")
   after trunc(1000 / Rate) ->
     % Get the next DhtPid
@@ -398,9 +380,9 @@ new_request(#exp_info{ip = Ip, dht = Dht}, DhtPid) ->
     end),
     receive
       {failed, Reason} -> io:format("Lookup failed for reason:~p~n", [Reason]);
-      ok ->  logger:log_success(Key)
+      ok ->  logger:log_success(Key), io:format("s")
     % Allow requests to take up to a certain amount of time before timing out
-    after 5000 -> io:format("request timed out~n")
+    after 5000 -> io:format("f")
     end
   end).
 
