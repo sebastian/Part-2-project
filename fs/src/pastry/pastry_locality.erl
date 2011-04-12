@@ -53,7 +53,8 @@ stop() ->
 % Results are cached for increased performance
 -spec(distance/1::(Ip::ip()) -> number()).
 distance(Ip) ->
-  gen_server:call(?SERVER, {get_distance, Ip}).
+  0.
+  %gen_server:call(?SERVER, {get_distance, Ip}).
 
 
 %% ------------------------------------------------------------------

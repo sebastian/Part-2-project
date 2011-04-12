@@ -1,18 +1,14 @@
 \relax 
 \bibstyle{plain}
-\@writefile{toc}{\contentsline {section}{\numberline {0.1}}{1}}
-\@writefile{toc}{\contentsline {section}{\numberline {0.2}}{1}}
+\@writefile{toc}{\contentsline {section}{\numberline {0.1}Cover sheet}{1}}
+\@writefile{toc}{\contentsline {section}{\numberline {0.2}Proforma}{1}}
 \@writefile{toc}{\contentsline {section}{\numberline {0.3}Declaration of originality}{1}}
-\@writefile{toc}{\contentsline {section}{\numberline {0.4}}{1}}
+\@writefile{toc}{\contentsline {section}{\numberline {0.4}Table of Contents}{1}}
 \@writefile{toc}{\contentsline {section}{\numberline {0.5}Introduction}{1}}
 \@writefile{toc}{\contentsline {section}{\numberline {0.6}Preparation}{1}}
-\@writefile{toc}{\contentsline {section}{\numberline {0.7}Implementation}{2}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {0.7.1}General discussion}{2}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {0.7.2}Third party code used}{4}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {0.7.3}Process}{4}}
-the key space distance between consecutive nodes involved in the lookup decreases as we approach the node storing the value. This illustrates, although in a handwavey way, how a lookup involves a subset proportional in size to the logarithm of the number of nodes in the network.\relax }}{2}}
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces This diagram illustrates the keyspace of a Distributed Hash Table network. The nodes in the network are shown as dots. The grey line show the nodes involved in a particular key-lookup.\relax }}{3}}
 \providecommand*\caption@xref[2]{\@setref\relax\@undefined{#1}}
-\newlabel{keySpace}{{1}{2}}
+\newlabel{keySpace}{{1}{3}}
 \@writefile{toc}{\contentsline {section}{\numberline {0.7}Implementation}{3}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {0.7.1}General discussion}{4}}
 \@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces Here it is shown how a name maps into name fragments used for storing link records pointing to a profile record.\relax }}{5}}
@@ -20,9 +16,9 @@ the key space distance between consecutive nodes involved in the lookup decrease
 \@writefile{toc}{\contentsline {subsection}{\numberline {0.7.2}Third party code used}{6}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {0.7.3}Process}{7}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {0.7.4}Components of my system}{7}}
+\@writefile{toc}{\contentsline {subsubsection}{The Search application}{8}}
 \@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces High level overview of the components of the search application. The arrows show how components interact.\relax }}{8}}
 \newlabel{figComponents}{{3}{8}}
-\@writefile{toc}{\contentsline {subsubsection}{The Search application}{8}}
 \@writefile{toc}{\contentsline {subsubsection}{Hub application}{9}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {0.7.5}Distributed Hash Tables - 101}{9}}
 \@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces The Hub Application interface. A bare-bones web application that allows me to start and stop nodes, change between using Chord and Pastry, and start and stop experiments\relax }}{10}}
@@ -31,7 +27,7 @@ the key space distance between consecutive nodes involved in the lookup decrease
 \newlabel{keyspaceChord}{{5}{11}}
 \@writefile{lof}{\contentsline {figure}{\numberline {6}{\ignorespaces Illustration of how the keyspace is divided between Pastry nodes.\relax }}{11}}
 \newlabel{keyspacePastry}{{6}{11}}
-\@writefile{toc}{\contentsline {paragraph}{The Chord approach to routing}{11}}
+\@writefile{toc}{\contentsline {paragraph}{The Chord approach to routing}{12}}
 \@writefile{toc}{\contentsline {paragraph}{The Pastry approach to routing}{12}}
 \@writefile{toc}{\contentsline {paragraph}{Differences between Chord and Pastry}{12}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {0.7.6}Supervision in the context of my project}{13}}
@@ -39,15 +35,56 @@ the key space distance between consecutive nodes involved in the lookup decrease
 \newlabel{supervisionTree}{{7}{14}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {0.7.7}Summary of the implementation chapter}{15}}
 \@writefile{toc}{\contentsline {section}{\numberline {0.8}Evaluation}{16}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {0.8.1}Experimental design}{16}}
-\@writefile{toc}{\contentsline {paragraph}{What will be tested}{16}}
-\@writefile{toc}{\contentsline {subparagraph}{The time it takes to perform a lookup}{16}}
-\@writefile{toc}{\contentsline {subparagraph}{Number of nodes involved in a lookup}{17}}
-\@writefile{toc}{\contentsline {subparagraph}{The amount of bandwidth required to do a lookup}{17}}
-\@writefile{toc}{\contentsline {subparagraph}{The amount of bandwidth required to maintain routing state}{17}}
-\@writefile{toc}{\contentsline {paragraph}{What will not be tested}{17}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {0.8.2}Experimental results}{18}}
-\@writefile{toc}{\contentsline {section}{\numberline {0.9}Conclusion}{18}}
-\@writefile{toc}{\contentsline {section}{\numberline {0.10}}{18}}
-\@writefile{toc}{\contentsline {section}{\numberline {0.11}}{18}}
-\@writefile{toc}{\contentsline {section}{\numberline {0.12}}{18}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {0.8.1}What to test}{16}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {0.8.2}Experimental design}{16}}
+\@writefile{toc}{\contentsline {subsubsection}{Experimental pattern}{16}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {0.8.3}Effects of Planet-Lab}{17}}
+\@writefile{toc}{\contentsline {subsubsection}{Experimental cleanliness and validity of results}{17}}
+\@writefile{lof}{\contentsline {figure}{\numberline {8}{\ignorespaces This graph shows how latency varies over time in a 15 minute experimental run of Chord.\relax }}{18}}
+\newlabel{figLatencyAgainstTime}{{8}{18}}
+\@writefile{lof}{\contentsline {figure}{\numberline {9}{\ignorespaces This graph shows how the request rate and success rate varies over a 15 minute experimental run of Chord.\relax }}{19}}
+\newlabel{figRateAgainstTime}{{9}{19}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {0.8.4}Results and comments on results}{19}}
+\@writefile{toc}{\contentsline {subsubsection}{Mean latency and success rate for Chord and Pastry}{19}}
+\@writefile{toc}{\contentsline {subsubsection}{Why does Chord perform worse that Pastry}{20}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {0.8.5}Effect of Pastry routing heuristics}{22}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {0.8.6}Viability of Distributed Hash Tables a backend store for a search engine}{22}}
+\@writefile{toc}{\contentsline {section}{\numberline {0.9}Conclusion}{22}}
+\@writefile{toc}{\contentsline {section}{\numberline {0.10}}{22}}
+\@writefile{toc}{\contentsline {section}{\numberline {0.11}}{22}}
+\@writefile{toc}{\contentsline {section}{\numberline {0.12}}{22}}
+\newlabel{figChordLatency}{{10(a)}{23}}
+\newlabel{sub@figChordLatency}{{(a)}{23}}
+\newlabel{figChordSuccessRate}{{10(b)}{23}}
+\newlabel{sub@figChordSuccessRate}{{(b)}{23}}
+\@writefile{lof}{\contentsline {figure}{\numberline {10}{\ignorespaces The graphs above show (a) latencies with 95\% confidence intervals, and (b) success rate for a Chord setup of slightly above 60 nodes.\relax }}{23}}
+\@writefile{lof}{\contentsline {subfigure}{\numberline{(a)}{\ignorespaces {Latency for Chord}}}{23}}
+\@writefile{lof}{\contentsline {subfigure}{\numberline{(b)}{\ignorespaces {Success rate for Chord}}}{23}}
+\newlabel{figPastryLatency}{{11(a)}{24}}
+\newlabel{sub@figPastryLatency}{{(a)}{24}}
+\newlabel{figPastrySuccessRate}{{11(b)}{24}}
+\newlabel{sub@figPastrySuccessRate}{{(b)}{24}}
+\@writefile{lof}{\contentsline {figure}{\numberline {11}{\ignorespaces The graphs above show (a) latencies with 95\% confidence intervals, and (b) success rate for a Pastry setup of slightly above 60 nodes.\relax }}{24}}
+\@writefile{lof}{\contentsline {subfigure}{\numberline{(a)}{\ignorespaces {Latency for Pastry}}}{24}}
+\@writefile{lof}{\contentsline {subfigure}{\numberline{(b)}{\ignorespaces {Success rate for Pastry}}}{24}}
+\newlabel{figChordCDF}{{12(a)}{25}}
+\newlabel{sub@figChordCDF}{{(a)}{25}}
+\newlabel{figPastryCDF}{{12(b)}{25}}
+\newlabel{sub@figPastryCDF}{{(b)}{25}}
+\@writefile{lof}{\contentsline {figure}{\numberline {12}{\ignorespaces The graphs above show the cumulative distribution function of a request being successful within the first 5 seconds for (a) Chord, and (b) Pastry.\relax }}{25}}
+\@writefile{lof}{\contentsline {subfigure}{\numberline{(a)}{\ignorespaces {Cumulative distribution function of success against latency for Chord}}}{25}}
+\@writefile{lof}{\contentsline {subfigure}{\numberline{(b)}{\ignorespaces {Cumulative distribution function of success against latency for Pastry}}}{25}}
+\newlabel{figChordNumNodes}{{13(a)}{26}}
+\newlabel{sub@figChordNumNodes}{{(a)}{26}}
+\newlabel{figPastryNumNodes}{{13(b)}{26}}
+\newlabel{sub@figPastryNumNodes}{{(b)}{26}}
+\@writefile{lof}{\contentsline {figure}{\numberline {13}{\ignorespaces The graphs show the number of nodes involved in a key lookup for (a) Chord and (b) Pastry for a particular experimental run.\relax }}{26}}
+\@writefile{lof}{\contentsline {subfigure}{\numberline{(a)}{\ignorespaces {Number of nodes involved in key lookup for Chord}}}{26}}
+\@writefile{lof}{\contentsline {subfigure}{\numberline{(b)}{\ignorespaces {Number of nodes involved in key lookup for Pastry}}}{26}}
+\newlabel{figChordFailedLookup}{{14(a)}{27}}
+\newlabel{sub@figChordFailedLookup}{{(a)}{27}}
+\newlabel{figPastryFailedLookip}{{14(b)}{27}}
+\newlabel{sub@figPastryFailedLookip}{{(b)}{27}}
+\@writefile{lof}{\contentsline {figure}{\numberline {14}{\ignorespaces The illustrations show the differences in the routing approach of Chord and Pastry in the case where one of the nodes in the lookup chain is not accessible (Node D). In the case of Pastry it routes around the failed node, while Chord if trying to route again will again get node D returned by node B.\relax }}{27}}
+\@writefile{lof}{\contentsline {subfigure}{\numberline{(a)}{\ignorespaces {Failed lookup in Chord}}}{27}}
+\@writefile{lof}{\contentsline {subfigure}{\numberline{(b)}{\ignorespaces {Failed lookup in Pastry}}}{27}}

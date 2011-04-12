@@ -73,6 +73,10 @@ class Request
   def has_start_and_end_time
     @start_time != 0 && @end_time != 0
   end
+
+  def is_valid_for_start_time?(base_time)
+    start_time > base_time
+  end
 end
 
 class LogParser
@@ -145,22 +149,23 @@ class LogParser
     puts "out of luck buddy... you need an output filename too. This feature is no longer supported"
   end
 
-  def to_file(filename, rate, dht)
-    filename = "output/#{filename}"
+  def to_file(filename)
+    # Create a directory for the result, if it doesn't already exist
+    dir_name = "output/#{filename}"
+    Dir.mkdir(dir_name) unless File.directory?(dir_name)
 
     ok_requests = valid_requests
 
-    shared_title = "\\n#{@start_metadata[:hosts]} hosts running a total of #{@start_metadata[:nodes]} nodes.\\n" +
-                   "Request rate per host: #{rate}/s."
+    output_metric(ok_requests, :nodes, "Nodes", "nodes_against_time", dir_name)
 
-    output_metric(ok_requests, :nodes, "Nodes", "nodes_against_time", filename,
-                  "Number of nodes involved in a lookup against time for #{dht}." + shared_title)
-
-    output_metric(ok_requests, :lat, "Latency", "latency_against_time", filename, 
-                  "Latency against time for #{dht}." + shared_title)
+    output_metric(ok_requests, :lat, "Latency", "latency_against_time", dir_name)
 
     total_num_req = @requests.size
-    File.open("#{filename}_meta_data.txt", "w") do |file|
+    File.open("#{dir_name}/num_requests.txt", "w") do |file|
+      file.write "#{total_num_req}"
+    end
+
+    File.open("#{dir_name}/meta_data.txt", "w") do |file|
       num_good_req = ok_requests.size
       num_bad_req = total_num_req - num_good_req
 
@@ -189,54 +194,11 @@ class LogParser
       file.write "Sample stdev:   #{sample_standard_deviation}\n"
       file.write "95% conf pm:    #{confidence}\n"
     end
-
-    # Write the cummulative distribution function for the successful requests
-    # over time
-    File.open("#{filename}_cdf.csv", "w") do |file|
-      num_reqs = total_num_req.to_f # I am using the total number, so I can see the failure rate
-      # Sorted by latency
-      sorted_requests = ok_requests.sort { |a,b| a.lat <=> b.lat }
-
-      current_interval = 0
-      max_range = 10 # 10 ms
-      accumulated_successes = 0
-
-      file.write "# Time Ratio\n"
-      file.write "0 0"
-
-      sorted_requests.each do |request|
-        if request.lat > current_interval + max_range
-          file.write "#{current_interval} #{accumulated_successes / num_reqs}\n"
-          current_interval += max_range
-        end
-        accumulated_successes += 1
-      end
-
-      # Write the same value up until the end of time
-      current_value = accumulated_successes / num_reqs
-      while current_interval < 5000
-        file.write "#{current_interval} #{current_value}\n"
-        current_interval += max_range
-      end
-    end
-
-    temp_gnufile = "output/temp_gnuplot_cdf_#{filename.gsub("/", "")}.gp"
-    File.open(temp_gnufile, "w") do |gnuplot|
-      gnuplot.write "set terminal postscript\n"
-      gnuplot.write "set output '#{filename}_cdf.ps'\n"
-      gnuplot.write "set xlabel 'Latency /ms'\n"
-      gnuplot.write "set xrange [ 0 : #{normalized_time} ]\n"
-      gnuplot.write "set ylabel 'Probability of having succeeded'\n"
-      gnuplot.write "set title \"CDF for #{dht + shared_title}\"\n"
-      gnuplot.write "plot '#{filename}_cdf.csv' using 1:2 t '' with lines\n"
-    end
-    `gnuplot #{temp_gnufile}`
-    File.delete(temp_gnufile)
   end
 
   private
-  def output_metric(ok_requests, metric, metric_name, file_ext, filename, graph_title)
-    File.open("#{filename}_#{file_ext}.csv", "w") do |file|
+  def output_metric(ok_requests, metric, metric_name, file_ext, dir_name)
+    File.open("#{dir_name}/#{file_ext}.csv", "w") do |file|
       file.write "Time #{metric_name}\n"
       
       base_time = @start_metadata[:time]
@@ -246,21 +208,9 @@ class LogParser
         file.write "#{time} #{request.send(metric)}\n" unless time < 0
       end
     end
-    temp_gnufile = "output/temp_gnuplot_#{file_ext}_#{metric}_#{filename.gsub("/", "_")}.gp"
-
-    File.open(temp_gnufile, "w") do |gnuplot|
-      gnuplot.write "set terminal postscript\n"
-      gnuplot.write "set output '#{filename}_#{file_ext}.ps'\n"
-      gnuplot.write "set xlabel 'Time /ms'\n"
-      gnuplot.write "set xrange [ 0 : #{normalized_time} ]\n"
-      gnuplot.write "set ylabel 'Latency /ms'\n"
-      gnuplot.write "set title \"#{graph_title}\"\n"
-      gnuplot.write "plot '#{filename}_#{file_ext}.csv' using 1:2 t ''\n"
-    end
-    `gnuplot #{temp_gnufile}`
-    File.delete(temp_gnufile)
   end
 
+  # Returns time rounded to a whole minute in ms
   def normalized_time
     start_time = @start_metadata[:time]
     end_time = @end_metadata[:time]
@@ -328,7 +278,7 @@ class LogParser
   end
 end
 
-if ARGV.size != 4 then
+if ARGV.size != 2 then
   puts "Please supply the name of the log file to parse, the name prefix of the output, rate and dht name"
   exit 1
 end
@@ -336,11 +286,9 @@ end
 filename = ARGV.first
 logParser = LogParser.new(filename)
 logParser.parse
-if ARGV.size == 4 then
+if ARGV.size == 2 then
   outputFilename = ARGV[1]
-  rate = ARGV[2]
-  dht = ARGV[3]
-  logParser.to_file(outputFilename, rate, dht)
+  logParser.to_file(outputFilename)
 else
   logParser.output
 end
