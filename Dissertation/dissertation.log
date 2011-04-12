@@ -1,4 +1,4 @@
-This is pdfTeXk, Version 3.1415926-1.40.9 (Web2C 7.5.7) (format=pdflatex 2009.3.30)  11 APR 2011 18:25
+This is pdfTeXk, Version 3.1415926-1.40.9 (Web2C 7.5.7) (format=pdflatex 2009.3.30)  12 APR 2011 09:45
 entering extended mode
 \write18 enabled.
  %&-line parsing enabled.
@@ -239,32 +239,32 @@ strations/KeySpace.pdf>] [4]
 system(epstopdf illustrations/LinkRecords.eps)...executed.
 
 
-<illustrations/LinkRecords.pdf, id=22, 82.3075pt x 54.2025pt>
+<illustrations/LinkRecords.pdf, id=28, 82.3075pt x 54.2025pt>
 File: illustrations/LinkRecords.pdf Graphic file (type pdf)
 
 <use illustrations/LinkRecords.pdf> [5 <./illustrations/LinkRecords.pdf>]
 [6]
 system(epstopdf illustrations/ComponentOverview.eps)...executed.
 
- <illustrations/ComponentOverview.pdf, id=40, 557.08125pt x 322.20375pt>
+ <illustrations/ComponentOverview.pdf, id=46, 557.08125pt x 322.20375pt>
 File: illustrations/ComponentOverview.pdf Graphic file (type pdf)
 
 <use illustrations/ComponentOverview.pdf> [7] [8 <./illustrations/ComponentOver
-view.pdf>] <illustrations/HubApp.png, id=53, 984.67876pt x 877.2775pt>
+view.pdf>] <illustrations/HubApp.png, id=59, 984.67876pt x 877.2775pt>
 File: illustrations/HubApp.png Graphic file (type png)
 
 <use illustrations/HubApp.png> [9] [10 <./illustrations/HubApp.png>]
 system(epstopdf illustrations/ChordKeySpace.eps)...executed.
 
 
-<illustrations/ChordKeySpace.pdf, id=63, 214.8025pt x 81.30376pt>
+<illustrations/ChordKeySpace.pdf, id=69, 214.8025pt x 81.30376pt>
 File: illustrations/ChordKeySpace.pdf Graphic file (type pdf)
 
 <use illustrations/ChordKeySpace.pdf>
 system(epstopdf illustrations/PastryKeySpace.eps)...executed.
 
 
-<illustrations/PastryKeySpace.pdf, id=64, 214.8025pt x 81.30376pt>
+<illustrations/PastryKeySpace.pdf, id=70, 214.8025pt x 81.30376pt>
 File: illustrations/PastryKeySpace.pdf Graphic file (type pdf)
 
 <use illustrations/PastryKeySpace.pdf> [11 <./illustrations/ChordKeySpace.pdf> 
@@ -272,7 +272,7 @@ File: illustrations/PastryKeySpace.pdf Graphic file (type pdf)
 system(epstopdf illustrations/ClientSupervisionTree.eps)...executed.
 
 
-<illustrations/ClientSupervisionTree.pdf, id=79, 537.00626pt x 753.81625pt>
+<illustrations/ClientSupervisionTree.pdf, id=91, 537.00626pt x 753.81625pt>
 File: illustrations/ClientSupervisionTree.pdf Graphic file (type pdf)
 
 <use illustrations/ClientSupervisionTree.pdf> [13]
@@ -284,14 +284,14 @@ LaTeX Warning: Text page 14 contains only floats.
 system(epstopdf illustrations/latency_aginst_time_chord.eps)...executed.
 
 
-<illustrations/latency_aginst_time_chord.pdf, id=98, 361.35pt x 252.945pt>
+<illustrations/latency_aginst_time_chord.pdf, id=110, 361.35pt x 252.945pt>
 File: illustrations/latency_aginst_time_chord.pdf Graphic file (type pdf)
 
 <use illustrations/latency_aginst_time_chord.pdf>
 system(epstopdf illustrations/rate_against_time_chord.eps)...executed.
 
 
-<illustrations/rate_against_time_chord.pdf, id=99, 361.35pt x 252.945pt>
+<illustrations/rate_against_time_chord.pdf, id=111, 361.35pt x 252.945pt>
 File: illustrations/rate_against_time_chord.pdf Graphic file (type pdf)
 
 <use illustrations/rate_against_time_chord.pdf> [17] [18 <./illustrations/laten
@@ -299,76 +299,76 @@ cy_aginst_time_chord.pdf>] [19 <./illustrations/rate_against_time_chord.pdf>]
 system(epstopdf illustrations/latency_chord.eps)...executed.
 
 
-<illustrations/latency_chord.pdf, id=120, 361.35pt x 252.945pt>
+<illustrations/latency_chord.pdf, id=132, 361.35pt x 252.945pt>
 File: illustrations/latency_chord.pdf Graphic file (type pdf)
 
 <use illustrations/latency_chord.pdf>
 system(epstopdf illustrations/success_rate_chord.eps)...executed.
 
 
-<illustrations/success_rate_chord.pdf, id=121, 361.35pt x 252.945pt>
+<illustrations/success_rate_chord.pdf, id=133, 361.35pt x 252.945pt>
 File: illustrations/success_rate_chord.pdf Graphic file (type pdf)
 
 <use illustrations/success_rate_chord.pdf>
 system(epstopdf illustrations/latency_pastry.eps)...executed.
 
 
-<illustrations/latency_pastry.pdf, id=122, 361.35pt x 252.945pt>
+<illustrations/latency_pastry.pdf, id=134, 361.35pt x 252.945pt>
 File: illustrations/latency_pastry.pdf Graphic file (type pdf)
 
 <use illustrations/latency_pastry.pdf>
 system(epstopdf illustrations/success_rate_pastry.eps)...executed.
 
 
-<illustrations/success_rate_pastry.pdf, id=123, 361.35pt x 252.945pt>
+<illustrations/success_rate_pastry.pdf, id=135, 361.35pt x 252.945pt>
 File: illustrations/success_rate_pastry.pdf Graphic file (type pdf)
 
 <use illustrations/success_rate_pastry.pdf>
 system(epstopdf illustrations/cdf_chord.eps)...executed.
 
 
-<illustrations/cdf_chord.pdf, id=124, 361.35pt x 252.945pt>
+<illustrations/cdf_chord.pdf, id=136, 361.35pt x 252.945pt>
 File: illustrations/cdf_chord.pdf Graphic file (type pdf)
 
 <use illustrations/cdf_chord.pdf>
 system(epstopdf illustrations/cdf_pastry.eps)...executed.
 
 
-<illustrations/cdf_pastry.pdf, id=125, 361.35pt x 252.945pt>
+<illustrations/cdf_pastry.pdf, id=137, 361.35pt x 252.945pt>
 File: illustrations/cdf_pastry.pdf Graphic file (type pdf)
 
 <use illustrations/cdf_pastry.pdf> [20]
 system(epstopdf illustrations/nodes_against_time_chord.eps)...executed.
 
 
-<illustrations/nodes_against_time_chord.pdf, id=129, 361.35pt x 252.945pt>
+<illustrations/nodes_against_time_chord.pdf, id=141, 361.35pt x 252.945pt>
 File: illustrations/nodes_against_time_chord.pdf Graphic file (type pdf)
 
 <use illustrations/nodes_against_time_chord.pdf>
 system(epstopdf illustrations/nodes_against_time_pastry.eps)...executed.
 
 
-<illustrations/nodes_against_time_pastry.pdf, id=130, 361.35pt x 252.945pt>
+<illustrations/nodes_against_time_pastry.pdf, id=142, 361.35pt x 252.945pt>
 File: illustrations/nodes_against_time_pastry.pdf Graphic file (type pdf)
 
 <use illustrations/nodes_against_time_pastry.pdf> [21]
-<illustrations/ChordRoutingFailed.png, id=134, 215.1237pt x 223.3143pt>
+<illustrations/ChordRoutingFailed.png, id=146, 215.1237pt x 223.3143pt>
 File: illustrations/ChordRoutingFailed.png Graphic file (type png)
 
 <use illustrations/ChordRoutingFailed.png>
-<illustrations/PastryRoutingFailed.png, id=135, 215.1237pt x 223.3143pt>
+<illustrations/PastryRoutingFailed.png, id=147, 215.1237pt x 223.3143pt>
 File: illustrations/PastryRoutingFailed.png Graphic file (type png)
 
 <use illustrations/PastryRoutingFailed.png>) (./chapters/conclusion.tex)
 (./chapters/bibliography.tex) (./chapters/appendices.tex) (./chapters/index.tex
-) [22] [23 <./illustrations/latency_chord.pdf> <./illustrations/success_rate_ch
-ord.pdf>] [24 <./illustrations/latency_pastry.pdf> <./illustrations/success_rat
-e_pastry.pdf>] [25 <./illustrations/cdf_chord.pdf> <./illustrations/cdf_pastry.
-pdf>] [26 <./illustrations/nodes_against_time_chord.pdf> <./illustrations/nodes
-_against_time_pastry.pdf>] [27 <./illustrations/ChordRoutingFailed.png> <./illu
-strations/PastryRoutingFailed.png>] [28
+) [22] [23] [24 <./illustrations/latency_chord.pdf> <./illustrations/success_ra
+te_chord.pdf>] [25 <./illustrations/latency_pastry.pdf> <./illustrations/succes
+s_rate_pastry.pdf>] [26 <./illustrations/cdf_chord.pdf> <./illustrations/cdf_pa
+stry.pdf>] [27 <./illustrations/nodes_against_time_chord.pdf> <./illustrations/
+nodes_against_time_pastry.pdf>] [28 <./illustrations/ChordRoutingFailed.png> <.
+/illustrations/PastryRoutingFailed.png>] (./proposal/propbody.tex [29
 
-] (./proposal/propbody.tex [29]
+]
 LaTeX Font Info:    Try loading font information for OMS+cmr on input line 53.
 
 (/usr/local/texlive/2008/texmf-dist/tex/latex/base/omscmr.fd
@@ -377,7 +377,11 @@ File: omscmr.fd 1999/05/25 v2.5h Standard LaTeX font definitions
 LaTeX Font Info:    Font shape `OMS/cmr/m/n' in size <12> not available
 (Font)              Font shape `OMS/cmsy/m/n' tried instead on input line 53.
  [30] [31]
-[32] [33]) [34] (./dissertation.aux) ) 
+[32] [33]) [34] (./dissertation.aux)
+
+LaTeX Warning: Label(s) may have changed. Rerun to get cross-references right.
+
+ ) 
 Here is how much of TeX's memory you used:
  3057 strings out of 493876
  47043 string characters out of 1150568
@@ -386,19 +390,18 @@ Here is how much of TeX's memory you used:
  10326 words of font info for 37 fonts, out of 3000000 for 5000
  714 hyphenation exceptions out of 8191
  36i,8n,38p,1049b,363s stack positions out of 5000i,500n,10000p,200000b,50000s
-</usr/local/texlive/2008/texmf-dist/fonts
-/type1/bluesky/cm/cmbx12.pfb></usr/local/texlive/2008/texmf-dist/fonts/type1/bl
-uesky/cm/cmr10.pfb></usr/local/texlive/2008/texmf-dist/fonts/type1/bluesky/cm/c
-mr12.pfb></usr/local/texlive/2008/texmf-dist/fonts/type1/bluesky/cm/cmr17.pfb><
-/usr/local/texlive/2008/texmf-dist/fonts/type1/bluesky/cm/cmr7.pfb></usr/local/
-texlive/2008/texmf-dist/fonts/type1/bluesky/cm/cmr8.pfb></usr/local/texlive/200
-8/texmf-dist/fonts/type1/bluesky/cm/cmsl12.pfb></usr/local/texlive/2008/texmf-d
-ist/fonts/type1/bluesky/cm/cmss10.pfb></usr/local/texlive/2008/texmf-dist/fonts
-/type1/bluesky/cm/cmsy10.pfb></usr/local/texlive/2008/texmf-dist/fonts/type1/bl
-uesky/cm/cmti12.pfb>
-Output written on dissertation.pdf (34 pages, 2914549 bytes).
+</usr/local/texlive/2008/texmf-dist/fonts/type1/bluesky/cm/cmbx12.pfb></usr/l
+ocal/texlive/2008/texmf-dist/fonts/type1/bluesky/cm/cmr10.pfb></usr/local/texli
+ve/2008/texmf-dist/fonts/type1/bluesky/cm/cmr12.pfb></usr/local/texlive/2008/te
+xmf-dist/fonts/type1/bluesky/cm/cmr17.pfb></usr/local/texlive/2008/texmf-dist/f
+onts/type1/bluesky/cm/cmr7.pfb></usr/local/texlive/2008/texmf-dist/fonts/type1/
+bluesky/cm/cmr8.pfb></usr/local/texlive/2008/texmf-dist/fonts/type1/bluesky/cm/
+cmsl12.pfb></usr/local/texlive/2008/texmf-dist/fonts/type1/bluesky/cm/cmss10.pf
+b></usr/local/texlive/2008/texmf-dist/fonts/type1/bluesky/cm/cmsy10.pfb></usr/l
+ocal/texlive/2008/texmf-dist/fonts/type1/bluesky/cm/cmti12.pfb>
+Output written on dissertation.pdf (34 pages, 3099352 bytes).
 PDF statistics:
- 253 PDF objects out of 1000 (max. 8388607)
+ 265 PDF objects out of 1000 (max. 8388607)
  0 named destinations out of 1000 (max. 131072)
  96 words of extra memory for PDF output out of 10000 (max. 10000000)
 

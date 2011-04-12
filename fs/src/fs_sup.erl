@@ -53,11 +53,11 @@ init([]) ->
       [Name]}
     end,
 
-  CreateSupWithArgs = fun(Name,Args) -> {Name,
-      {Name, start_link, [Args]},
-      permanent, infinity, supervisor,
-      []}
-    end,
+%   CreateSupWithArgs = fun(Name,Args) -> {Name,
+%       {Name, start_link, [Args]},
+%       permanent, infinity, supervisor,
+%       []}
+%     end,
   
   Processes = [
     CreateSup(logger_sup),
