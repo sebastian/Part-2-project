@@ -52,9 +52,8 @@ stop() ->
 % inequality does not hold.
 % Results are cached for increased performance
 -spec(distance/1::(Ip::ip()) -> number()).
-distance(_Ip) ->
-  0.
-  %gen_server:call(?SERVER, {get_distance, Ip}).
+distance(Ip) ->
+  gen_server:call(?SERVER, {get_distance, Ip}).
 
 
 %% ------------------------------------------------------------------
