@@ -30,6 +30,25 @@ plot "latency_against_time.csv" u 1:2 t ""
 ##################################################################
 
 ######################
+# Heuristic
+######################
+set terminal postscript eps color
+set output "pastry_heuristic.eps"
+
+set ylabel "Latency /ms"
+set xtics nomirror rotate by -45
+set style histogram errorbars
+set style data histograms
+set key top left
+
+set title "Latency for different experimental configurations\nwith and without using Pastry's routing heuristics."
+plot "output/pastry_heuristic.csv" u 2:3:xtic(1) t "With heuristic", \
+     "" u 4:5 t "Without heuristic"
+
+# Can include Chord for ref…
+     "" u 6:7 t "Chord for reference"
+
+######################
 # Latency
 ######################
 set terminal postscript eps color
@@ -93,9 +112,8 @@ set xtics ("0" 0, "1" 1000, "2" 2000, "3" 3000, "4" 4000, "5" 5000)
 set ytics ("0" 0, "20" 0.2, "40" 0.4, "60" 0.6, "80" 0.8, "100" 1)
 set yrange [0 : 1]
 set xrange [0 : 5000]
-set xlabel "Time /s"
+set xlabel "Latency /s"
 set ylabel "Percentage successful"
-set title "Cumulative distribution function of latency for Pastry"
 set key bottom right
 
 ######################
