@@ -12,11 +12,11 @@
 % ************
 
 % Word budget 4000 words. Try to keep it less
-\section{Implementation}
+\chapter{Implementation}
 In this chapter we will go from a high level overview of the components of my system to the more intricate details of how routing differs between Chord and Pastry.
 We will also look at Erlang process supervision and how hot code reloading shortened my development time.
 
-\subsection{Process}
+\section{Process}
 % How use testing throughout to get desired behaviour
 The implementation process was very goal oriented. The goals and milestones I had set in my project proposal had been clarified and expanded upon in the pre-development analysis phase and guided me through the implementation phase.
 
@@ -25,7 +25,7 @@ Whenever I found bugs during the development and testing of my system, I would r
 The Distributed Hash Tables Chord and Pastry being central parts of my design and the main focus of the subsequent evaluation efforts, took the majority of my development time. This will also be reflected by the attention I will give them in this chapter.
 
 
-\subsection{High level system components}
+\section{High level system components}
 % What components does the system consist of?
 % Want design that is DHT agnostic
 My search engine has two main parts. The search server itself, including the Distributed Hash Tables and supporting components, and a central control hub.
@@ -53,14 +53,14 @@ During experimental runs, the controller is also the component that issues reque
 
 The logger is used for logging events during experiments, and is specific to the experimental setup. It would not be included in final deployments of the system.
 
-\subsubsection{Third party code}
+\subsection{Third party code}
 % Which components are not developed by me?
 The Friend Search Web API in figure \ref{figComponents} uses an Erlang library called Webmachine in order to handle the HTTP negotiation process correctly. Webmachine in turn relies on another Erlang library called Mochiweb which the Friend Search Web API also uses in order to serialize the search results into JSON for consumption by the clients.
 
-\subsection{Distributed Hash Tables}
+\section{Distributed Hash Tables}
 I will now discuss Distributed Hash Tables in more detail. We will first look at the general ideas that Distributed Hash Tables are built upon, before going into detail on how Chord and Pastry perform routing, which is where they differ the most.
 
-\subsubsection{General idea}
+\subsection{General idea}
 % Design of DHT's
 % Distributed Hash Tables
 %   Key ideas
@@ -96,7 +96,7 @@ Chord and Pastry differ in how the key-space is divided between the nodes. While
 
 Just like in regular hash tables, the performance is best if a good hashing function is used to generate keys, such that the keys are evenly spread in the key-space. This minimizes collisions, and in the case of Distributed Hash Tables also ensures that the machines in the network get roughly equal shares of both the data and the traffic.
 
-\subsubsection{Routing}
+\subsection{Routing}
 %   What is different between Chord and Pastry?
 %   How is routing done?
 We will first look at how Chord does its routing, look at my implementation of the core algorithm, and then do the same for Pastry.
@@ -173,20 +173,20 @@ If all other routing approaches fail, the last resort the Pastry node has is to 
 
 \lstinputlisting[label=route_to_closer_node,caption=Routes a message to any closer node]{sourceCode/route_to_closer_node.erl}
 
-\subsubsection{Replication of data}
+\subsection{Replication of data}
 My implementations of Chord and Pastry both replicate data amongst their immediate neighbours for fault tolerance. While this is only proposed as extensions in the Chord and Pastry papers, I thought it worthwhile implementing this functionality.
 
 \mbox{}
 
 This concludes my discussion of the implementation of Chord and Pastry. We have seen how Distributed Hash Tables operate with circular integer key-spaces and how routing was implemented in Chord and Pastry.
 
-\subsection{Search server}
+\section{Search server}
 % Search server
 The search server is what glues together the client facing HTTP API and the Distributed Hash Tables. It receives the search queries from the clients, converts them into appropriate keys that it can lookup in the Distributed Hash Tables, and resolves link records it gets returned to full profile records that can be shown as search results.
 
 The current implementation is rather na\"ive, and while it does basic ranking of results, prioritising what it predicts are better matches, it performs no caching of results which would significantly improve the performance.
 
-\subsection{Central control hub}
+\section{Central control hub}
 % Hub control server
 % Focus on testing and evaluation
 The central control hub is a service that runs under a domain name known by all the search engine nodes.
@@ -209,7 +209,7 @@ Through a web interface (figure \ref{figHubApp}) it allows me to set the rate at
 
 Initially fully automated experiments were supported as outlined in my project briefing, but later, while evaluating my system, I removed the feature as it was impractical and didn't give me enough flexibility to run the experiments I needed.
 
-\subsection{Supervision for fault tolerance}
+\section{Supervision for fault tolerance}
 One of Erlang's main strengths is process supervision.
 The supervision behaviour is a part of the standard library. It makes it trivial to write processes supervising others. These processes are responsible for the lifetime behaviour of the processes they supervise. They start them when needed, restart if they terminate prematurely and stop them when the application terminates.
 
@@ -230,7 +230,7 @@ Notice how the main supervisor (the box in the middle) supervises a wide range o
 The Chord and Pastry supervisors are a special kind of supervisor. They do not initially start any children, but can be signalled to start and maintain an arbitrary amount of children. This feature allows my system to dynamically adjust the number of Distributed Hash Table nodes that are run at runtime.
 
 
-\subsection{Hot code reloading}
+\section{Hot code reloading}
 The Erlang virtual machine supports hot code reloading.
 I built a code distribution service on top of this functionality, that would automatically update the binary code of all running nodes whenever I pushed code changes to my code repository.
 

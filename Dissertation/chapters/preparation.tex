@@ -14,11 +14,11 @@
 % ************
 
 % Allowed roughly 1200 words
-\section{Preparation}
+\chapter{Preparation}
 % How did I prepare
 In this chapter we will look at what considerations dictated the design choices made, why I chose Erlang as the language of implementation and how software engineering principles played a role in the successful implementation of my project.
 
-\subsection{Requirements analysis}
+\section{Requirements analysis}
 % Requirements
 % Fit into into existing services? (webservice)
 % Ease of integration
@@ -35,7 +35,7 @@ From experience I know that web developers find it convenient to integrate servi
 
 Both search engines and address books today provide predictive search where results show as you type, and often also fuzzy matching allowing for partially misspelled names. A search engine like the one I wanted to build, would never become popular if it did not provide the same. I therefore promoted fuzzy searches, that I initially had proposed as a project extension, to a project requirement.
 
-\subsection{Underlying theory}
+\section{Underlying theory}
 % Read through different DHT's
 % Decided on three
 % Cut down to two, why?
@@ -72,7 +72,7 @@ When searching for a person the search system looks up \emph{link records} while
 
 There is an overhead in terms of both storage and lookup cost associated with this approach. I will try to classify and evaluate this overhead in the evaluation chapter.
 
-\subsection{Language and tools used}
+\section{Language and tools used}
 %     Learned Erlang
 %       Got to know standard libraries and frameworks (OTP)
 %       webmachine
@@ -90,7 +90,7 @@ For creating the HTTP based API I used Webmachine, an Erlang framework designed 
 
 Testing was done using the built in unit testing framework EUnit, and erlymock was used for testing functions with side effects.
 
-\subsection{Software engineering practises and planning}
+\section{Software engineering practises and planning}
 The first basic implementation of my project followed a water fall approach. Since I spent time up front clarifying  what I wanted my product to do, and had specified the interfaces the components of my system should expose, this allowed me to quickly get a basic version of my system up and running.
 
 Following the initial development cycle I changed into short iterative bursts where I would adapt and extend the project as I found shortcomings or realized weaknesses in my initial design.
