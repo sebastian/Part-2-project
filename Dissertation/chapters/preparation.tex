@@ -15,70 +15,94 @@
 
 % Allowed roughly 1200 words
 \section{Preparation}
-% Intro:
-%   Writing what I did to prepare
+% How did I prepare
+In this chapter we will look at what considerations dictated the design choices made, why I chose Erlang as the language of implementation and how software engineering principles played a role in the successful implementation of my project.
 
-In this chapter I will briefly describe how I prepared for my project, what led to the design decisions I made and how they influenced the final outcome.
+\subsection{Requirements analysis}
+% Requirements
+% Fit into into existing services? (webservice)
+% Ease of integration
+My goal was to write a very particular kind of search engine. A search engine which in the end would work very much like a distributed oversized address book.
+While directory services more or less solving the same problem do already exist, the benefit of keeping it distributed is that no one entity owns all the data, that it can scale to an arbitrary size and also that no single organization has to foot the bill for running the service.
 
-\mbox{} % Empty line
+The idea of not having a central authority with ownership over the data resonates especially well with independent distributed online social networks, most of which where inspired by the idea of allowing their users to themselves maintain ownership of their data and have fine grained control over what is made visible to the world at large.
 
-% Content
-%   How did I prepare
-%     Requirements
-%       Fit into into existing services? (webservice)
+Having established a distributed system was desirable, I needed to build it in such a way that nodes in the search engine could easily be hosted by independent providers of distributed online social networks. Not only would the search engine have to be easy to install and run, but it should also be easy to integrate into a wide variety of different services, all built by different teams. The search engine would also need to gracefully handle nodes joining and leaving without interruption to the service.
 
-I had two goals for my project:
+The requirement of handling high node churn in distributed environments without sacrificing reliability and speed is what Distributed Hash Tables are designed for. I therefore decided I wanted to use Distributed Hash Tables as the back end data store for my search engine.
 
-Firstly I wanted my search engine to be a program that would be run by the providers of online social networks alongside the installations of their online social networks.
-By having multiple online social networks run the program, the burden of keeping the search network I provide operational gets evenly distributed between the online social networks participating in it. 
+From experience I know that web developers find it convenient to integrate services that expose an HTTP interface, so to meet the requirement of easy integration, I decided my search engine would expose its functionality through a HTTP based API and that the data would be sent as JSON.
 
-Secondly I wanted to make it easy for the creators of the online social networks to integrate my service into their software.
-I decided to do this by exposing my service through an HTTP based API because I know from experience that web developers find that convenient. 
+Both search engines and address books today provide predictive search where results show as you type, and often also fuzzy matching allowing for partially misspelled names. A search engine like the one I wanted to build, would never become popular if it did not provide the same. I therefore promoted fuzzy searches, that I initially had proposed as a project extension, to a project requirement.
 
-% 
-%     Read through different DHT's
-%       Decided on three
-%         Cut down to two, why?
+\subsection{Underlying theory}
+% Read through different DHT's
+% Decided on three
+% Cut down to two, why?
+% Benefits and drawbacks of DHTs
+There are quite a few well known Distributed Hash Tables. After initial research I decided to implement and compare Chord, Pastry and Kademilia. Pastry differs from Chord by applying proximity heuristics when building up its routing tables to make the inter-node communication more efficient. Upon further research I realized Kademilia differs from Chord in ways similar to what Pastry already does, and decided to drop it from my implementation.
 
-I wanted to evaluate how successfully one can use Distributed Hash Tables as the backend datastore for a search engine of this particular kind. Bear in mind that my search engine would not be aimed at searching for arbitrary terms in a collection of documents, but rather well defined user profile records. 
+An added benefit of not implementing Kademilia was that it freed up time along my projects critical path, that could be spent on a more thorough evaluation of the relative performance of Chord and Pastry.
 
-Using Distributed Hash Tables immediately presents benefits and drawbacks: 
+\mbox{}
 
-The benefits are that Distributed Hash Tables promise key-lookups involving only a subset of the nodes in the network. The subset is proportional to the logarithm of the total number of nodes. 
+Distributed Hash Tables are key-value stores. In other words; unless you know the specific key under which a data item is stored, you will not be able to find it by other means than by doing a linear search through the system.
 
-If you are careful when assigning keys to data items so that they are uniformly spread across the keyspace, the data and computational workload gets evenly spread out between the nodes participating in the network. Also a plus, and what makes using a distributed hash table an excellent idea, is that it allows nodes to join and leave at will. This is extremely important for a search network spanning multiple independent online social networks, each potentially being run in multiple locations by independent providers. The social networks are also free to join as they themselves see fit, and there is no central authority that can guarantee computational resources being available or for that matter staying available.
+Having established that I wanted to support predictive search, and fuzzy searches where you should be allowed to misspell the name of the person you are trying to find, I had to come up with a mapping scheme that allowed me to predict the correct keys with insufficient data.
 
-A big drawback is that distributed hash tables are key-value stores. It is not immediately obvious how one can efficiently search across data stored under keys unless the keys are known. I arrived at a solution that in my opinion circumvents this shortcoming quite elegantly. I will discuss it further in the implementation chapter.
+I came up with the following solution:
 
+Just like in a regular address book I store records containing all the information a user wants to disclose to the network. These \emph{profile record} would include the users full name, a link to the users profile page hosted by his or her distributed online social network provider and preferably the address of a profile image that could be displayed alongside the search results.
+
+In order to to find a profile record given an incomplete or misspelled names, I also store \emph{link records}. The link records contain the users full name and the key of the full profile record, but are stored under keys generated by hashing fragments of a users name. 
+
+I decided to generate link records separately for each of a users names, and additionally generate a link record for each additional three characters in a users name.
+As can be seen in figure \ref{figLinkRecord}, my surname \emph{Eide} would result in link records for \emph{eid} and \emph{eide} while my first name \emph{Sebastian} would result in link records for \emph{seb}, \emph{sebast} and \emph{sebastian}.
+
+% How link records are generated
 \begin{figure}[!htb]
 \begin{center}
-	\includegraphics[width=0.9\linewidth]{illustrations/KeySpace.eps}
-\caption{This diagram illustrates the keyspace of a Distributed Hash Table network. The nodes in the network are shown as dots. The grey line show the nodes involved in a particular key-lookup.}
-\label{keySpace}
+	\includegraphics[width=0.6\linewidth]{illustrations/LinkRecords.eps}
+  \caption{Names are split into name fragments used to generate keys for link records.}
+  \label{figLinkRecord}
 \end{center}
 \end{figure}
 
-During my preparation I evaluated different distributed hash tables. The initial plan was to implement Chord, Pastry and Kademilia, and to compare their relative benefits and drawbacks. 
+When searching for a person the search system looks up \emph{link records} while the user types and then predicts which \emph{profile record} the user is looking for, pre-fetches it, and display it to the user before he or she has completed the search query.
 
-Chord and Pastry differ in the way the approach routing. While Chord keeps its routing tables as simple as possible, Pastry adds an additionally implementation specific proximity metric that favours closer nodes when routing. Implementing both Chord and Pastry allows me to evaluate the effectiveness of such heuristics. Upon realising Kademilia only differs from Chord in ways Pastry already differs, I decided to drop it as it superflous. The direct benefit of this decisions is that it allowed more time for compare Chord and Pastry and evaluate if Distributed Hash Tables can be successful datastores for my particular kind of search engines.
+There is an overhead in terms of both storage and lookup cost associated with this approach. I will try to classify and evaluate this overhead in the evaluation chapter.
 
+\subsection{Language and tools used}
 %     Learned Erlang
 %       Got to know standard libraries and frameworks (OTP)
 %       webmachine
 %       rebar
 %       how to do testing
+Wanting to build a highly fault tolerant and distributed system with soft real-time requirements, I decided to use the programming language Erlang.
 
-\mbox{}
+Erlang, while a language I had never previously used, was created exactly with these requirements in mind. It additionally has frameworks in its standard library that allow the creation of hierarchies of process supervisors that ensure processes are restarted if they terminate prematurely or become unresponsive.
 
-Programming distributed systems is one of the key strengths of the programming language Erlang. Additionally it has built in support through its standard libraries for writing fault tolerant systems wit hot code swapping. My project being highly distributed in nature made Erlang a natural choice. Using Erlang let me spend more time on the core algorithms instead of having to reimplement infrastructure for working with distributed systems on top of another language.
+Erlang also nicely abstracts away inter process communication and encourages immutable state, making problems classical programming languages have with efficient concurrency and shared memory into non-issues.
 
-I spent considerable time learning Erlang, its libraries and frameworks, and also how to use third party libraries for creating webservices through Erlang with Webmachine, and compiling and analysing code with rebar.
+I learned the fundamentals of Erlang and its standard libraries before starting the project, and picked up the rest as I went along.
 
-% 
+For creating the HTTP based API I used Webmachine, an Erlang framework designed for this purpose. I also used a build tool called rebar.
+
+Testing was done using the built in unit testing framework EUnit, and erlymock was used for testing functions with side effects.
+
+\subsection{Software engineering practises and planning}
+The first basic implementation of my project followed a water fall approach. Since I spent time up front clarifying  what I wanted my product to do, and had specified the interfaces the components of my system should expose, this allowed me to quickly get a basic version of my system up and running.
+
+Following the initial development cycle I changed into short iterative bursts where I would adapt and extend the project as I found shortcomings or realized weaknesses in my initial design.
+
+Especially the implementation of the Distributed Hash Tables allowed for a very structured approach. The theory is well understood and described in the respective research papers. I could therefore write specifications in forms of tests based on the examples presented in the papers, to ensure my implementations behaved as expected.
+
+As I am a big fan of test driven development, I applied test driver practises where I write tests before writing any code for all major parts of the system.
+
 % Summary:
 %   Which steps I took
+\mbox{}
 
-\mbox{} % Insert an empty line
+In this chapter we have seen how I analysed what was necessary for my project to be successful. How I decided to provide an HTTP based API for integration with existing distributed online social network and how I proposed a scheme for searching across a key-value store using \emph{link records}.
 
-In this chapter I discussed how I decided that my project should expose its functionality through an HTTP API, why I chose to use Distributed Hash Tables, and why Erlang was chosen as the language of implementation.
-In the next chapter I will discuss the implementation of my project.
+We also looked at why Erlang was chosen as the language of implementation and also how software engineering practises and planing played a role in the successful implementation of the project.

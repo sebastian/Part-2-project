@@ -30,7 +30,7 @@
 % * Does it work for search engine?
 
 \section{Evaluation}
-In this chapter I will look at how the performance of Chord and Pastry compare. I will also briefly discuss the benefits of the proximity heuristic used in routing by Pastry, and finally I will discuss if Distributed Hash Tables are good back end stores for a distributed search engine of the kind I have built.
+In this chapter I will look at how the performance of Chord and Pastry compare. I will also briefly discuss the benefits of the proximity heuristic used in routing by Pastry, and finally I will discuss if Distributed Hash Tables are good back end stores for a distributed search engine of the kind I have built based on both Distributed Hash Table performance and the viability of the link record scheme proposed in the preparation chapter.
 
 \subsection{What to evaluate}
 % Questions to answer:
@@ -65,9 +65,9 @@ Each experimental run followed a predefined pattern:
 \end{enumerate}
 
 \subsection{Effects of Planet-Lab}
-As previously mentioned my experiments ran on top of machines provided by Planet-Lab. I was allowed to run up to 100 machines, but never managed to get quite that many up and running at the same time.
+As mentioned my experiments ran on top of machines provided by Planet-Lab. I was allowed to run up to 100 machines, but never managed to get quite that many up and running at the same time.
 
-Using Planet-Lab as a test bed gave me several benefits: the machines at my disposal had a high geographical spread, and varied greatly in what computational resources they provided. Depending on the time of day the computational load on the machines would also vary and not only that, but I would have a different subset of the machines available for testing from day to day.
+Using Planet-Lab as a test bed gave me several benefits: the machines at my disposal had a high geographical spread and varied greatly in what computational resources they provided. Depending on the time of day the computational load on the machines would also vary and not only that, but I would have a different subset of the machines available for testing from day to day.
 
 This provided an excellent foundation for testing Distributed Hash Tables which are meant to be able to cope with high node churn and machines with widely different capabilities.
 
@@ -77,17 +77,17 @@ To work with Planet-Lab's strengths and not against it, and at the same time to 
 \subsubsection{Experimental cleanliness and validity of results}
 Performing experiments over longer periods of time showed that the success rate (figure \ref{figLatencyAgainstTime}) and latency (figure \ref{figRateAgainstTime}) for all practical purposes stay constant over time. This allowed me to cut down the length of individual experimental runs without lowering the quality of my results.
 
-\begin{figure}[!htb]
+\begin{figure}[!h]
   \begin{center}
-    \includegraphics[]{illustrations/latency_aginst_time_chord.eps}
+    \includegraphics[width=0.9\linewidth]{illustrations/latency_aginst_time_chord.eps}
     \caption{This graph shows how latency vary with time in a 15 minute experimental run of Chord.}
     \label{figLatencyAgainstTime}
   \end{center}
 \end{figure}
 
-\begin{figure}[!htb]
+\begin{figure}[!h]
   \begin{center}
-    \includegraphics[]{illustrations/rate_against_time_chord.eps}
+    \includegraphics[width=0.9\linewidth]{illustrations/rate_against_time_chord.eps}
     \caption{This graph shows how the request rate and success rate varies over a 15 minute experimental run of Chord.}
     \label{figRateAgainstTime}
   \end{center}
@@ -119,50 +119,50 @@ In figure \ref{figChordLatency} and \ref{figPastryLatency} you see the latency f
 What is immediately noticeable is how much more variance there is in the latencies for Chord than there is in the latencies for Pastry.
 In the case of Pastry (figure \ref{figPastryLatency}) we see how the latencies consistently grow for larger number of nodes. Intuitively this is what we would expect as the theory behind the Distributed Hash Tables tells us the number of nodes involved in a look up is proportional to the logarithm of the number of nodes in the network and the higher the number of nodes, the more the inter-node connectivity latency plays a role. The same trend is not apparent for Chord (figure \ref{figChordLatency}). On the contrary there is no apparent correlation between the number of nodes and the latency for a given rate. What is also peculiar in the Chord dataset is that, looking at the latencies for a fixed number of nodes per host, the latencies seem to decrease for higher loads.
 
-\begin{figure}[!htb]
+\begin{figure}[!h]
   \centering
   \subfigure[Latency for Chord]{
     \label{figChordLatency}
-    \includegraphics[]{illustrations/latency_chord.eps}
+    \includegraphics[width=0.9\linewidth]{illustrations/latency_chord.eps}
   }
   \subfigure[Latency for Pastry]{
     \label{figPastryLatency}
-    \includegraphics[]{illustrations/latency_pastry.eps}
+    \includegraphics[width=0.9\linewidth]{illustrations/latency_pastry.eps}
   }
   \caption{These graphs show the latencies for (a) Chord and (b) Pastry with 95\% confidence intervals for set-ups of slightly above 60 nodes.}
 \end{figure}
 
-\begin{figure}[!htb]
+\begin{figure}[!h]
   \centering
   \subfigure[Success rate for Pastry]{
     \label{figPastrySuccessRate}
-    \includegraphics[]{illustrations/success_rate_pastry.eps}
+    \includegraphics[width=0.9\linewidth]{illustrations/success_rate_pastry.eps}
   }
   \subfigure[Success rate for Chord]{
     \label{figChordSuccessRate}
-    \includegraphics[]{illustrations/success_rate_chord.eps}
+    \includegraphics[width=0.9\linewidth]{illustrations/success_rate_chord.eps}
   }
   \caption{These graphs show the instantaneous rate of request and the instantaneous rate of successfully completed requests sampled once per second for (a) Chord and (b) Pastry. In each case with experimental set-ups of slightly above 60 nodes.}
 \end{figure}
 
 The success rate is also dramatically different between Chord (figure \ref{figChordSuccessRate}) and Pastry (\ref{figPastrySuccessRate}). Chord seems to perform better when more than one node is run on the same machine, while Pastry's success rate slightly decreases the more nodes are run on the same physical hardware. It is also worth noting that even at its best, Chord can't compare with the worst case performance of Pastry.
 
-Unfortunately I have no good explanation for the variations we see within the different configurations for Chord, but I can explain why Chord in the general performs so much worse than Pastry, and I will do so shortly.
+Unfortunately I have no good explanation for the variations we see within the different configurations for Chord, but I can explain why Chord in general performs so much worse than Pastry, and I will do so shortly.
 
 Before that I want to discuss how Chord and Pastry behave when pushed to their limits. The cumulative distribution functions for Chord (figure \ref{figChordCDF}) and Pastry (figure \ref{figPastryCDF}) show the percentage of requests that succeed within five seconds. The experiments are run on roughly 60 machines hosting 1 node each. We see how the success rate gracefully drops for extreme rates with Pastry.
 In the case of Chord on the other hand, the success rate is only marginally worse for 128 and 64 requests per second per hosts than when there are 16 requests per second per machine. Also rather odd is how the rate of 2 requests per second performs significantly worse than what does the rate of 4 in the case of Chord. I have no good explanations for this behaviour.
 
-Please also notice how the cumulative distribution function graph seems to plateau relatively quickly after around twice the average latency. What this seems to tell us is that if a request does not succeed within a relative short window of time, the probability of it still returning successfully is vanishingly small. This knowledge could be used to set sensible time-out values for lookups.
+Please also notice how the cumulative distribution function graph seems to plateau relatively quickly after around twice the average latency. What this seems to tell us is that if a request does not succeed within a relative short window of time, the probability of it still completing successfully is vanishingly small. This knowledge could be used to set sensible time-out values for lookups.
 
-\begin{figure}[!htb]
+\begin{figure}[!h]
   \centering
   \subfigure[Cumulative distribution function of success against latency for Chord]{
     \label{figChordCDF}
-    \includegraphics[]{illustrations/cdf_chord.eps}
+    \includegraphics[width=0.9\linewidth]{illustrations/cdf_chord.eps}
   }
   \subfigure[Cumulative distribution function of success against latency for Pastry]{
     \label{figPastryCDF}
-    \includegraphics[]{illustrations/cdf_pastry.eps}
+    \includegraphics[width=0.9\linewidth]{illustrations/cdf_pastry.eps}
   }
   \caption{The graphs above show the cumulative distribution function of a request being successful within the first 5 seconds for (a) Chord, and (b) Pastry.}
 \end{figure}
@@ -172,19 +172,19 @@ The experimental evidence shown so far shows Pastry as superior to Chord both in
 
 \mbox{}
 
-The higher latencies of Chord are the easiest to explain. In figure \ref{figChordNumNodes} and \ref{figPastryNumNodes} you see how many nodes are involved in key lookups for Chord and Pastry respectively. It is clear from the graph that the average number of nodes involved in a key lookup are greater for Chord than for Pastry. If one multiplies the average time it takes two randomly chosen nodes to connect with the number of nodes involved in a key lookup, it should be clear that a Chord lookup should take longer if the only thing one is accounting for is the latency of the routing. We are also not factoring in that Pastry uses a heuristic when routing, favouring nodes closer by, which also affects the latency as each routing step is likely to take less time for Pastry than it does for Chord. I will shortly discuss the impact of the proximity heuristic in Pastry.
+The higher latencies of Chord are the easiest to explain. In figure \ref{figChordNumNodes} and \ref{figPastryNumNodes} you see how many nodes are involved in key lookups for Chord and Pastry respectively. It is clear from the graph that the average number of nodes involved in a key lookup are greater for Chord than for Pastry. If one multiplies the average time it takes two randomly chosen nodes to connect with the number of nodes involved in a key lookup, it should be clear that a Chord lookup should take longer if the only thing one is accounting for is the latency of the routing. Additionally Pastry uses a heuristic when routing, favouring nodes closer by, which also affects the latency as each routing step is likely to take less time for Pastry than it does for Chord. I will shortly discuss the impact of the proximity heuristic in Pastry.
 
 Whether the higher number of routing steps for Chord is a bug introduced by me or something inherent to the Chord algorithm is something I can't comment on. It is also possible that the difference would become less significant for larger networks of nodes. Unfortunately this is not something I was able to test given the infrastructure available to me.
 
-\begin{figure}[!htb]
+\begin{figure}[!h]
   \centering
   \subfigure[Number of nodes involved in key lookup for Chord]{
     \label{figChordNumNodes}
-    \includegraphics[]{illustrations/nodes_against_time_chord.eps}
+    \includegraphics[width=0.9\linewidth]{illustrations/nodes_against_time_chord.eps}
   }
   \subfigure[Number of nodes involved in key lookup for Pastry]{
     \label{figPastryNumNodes}
-    \includegraphics[]{illustrations/nodes_against_time_pastry.eps}
+    \includegraphics[width=0.9\linewidth]{illustrations/nodes_against_time_pastry.eps}
   }
   \caption{The graphs show the number of nodes involved in a key lookup for (a) Chord and (b) Pastry for a particular experimental run.}
 \end{figure}
@@ -200,22 +200,25 @@ Pastry follows a different approach. When a requesting node looks up a key it ma
 Now lets consider what happens when something goes wrong.
 In figure \ref{figChordFailedLookup} we see what happens when Chord node A gets returned node D as the next hop node from B. D is not accessible and the lookup fails. If A retries the routing step, B again returns D, unless it in the meantime itself has noticed that D is inaccessible.
 
-In the case of Pastry node B becomes responsible for routing the request forward towards the target node. Upon realising node D is unavailable it routes it to the next closest node it knows about, in this case C. Node C happens to know about a node closer to the target than B does and this way we managed to route around the unavailable node D.
+In the case of Pastry node B becomes responsible for routing the request forward towards the target node. Upon realising node D is unavailable it routes it to the next closest node it knows about, in this case C. Node C happens to know about a node closer to the target than D, and this way we managed to route around the unavailable node.
 
-There are workarounds for improving Chord's routing performance. One would be for the requesting node A to inform node B about node D's death upon retrying to route the message. An alternative could also have been for A to try to route the request through another intermediate node before D, but in this case we are not guaranteed that this intermediate node will not also return D.
+There are workarounds for improving Chord's routing performance. One would be for the requesting node A to inform node B about node D's death upon retrying to route the message. An alternative could also have been for node A to try to route the request through another intermediate node before D, but in this case we are not guaranteed that this intermediate node will not also return D.
 A third approach could be to look up D's predecessor, and then use that node in the same role previously filled by B. None of these methods have been used in my implementation as they would extend the core Chord routing algorithm and therefore skew the comparison in Chord's favour.
 
-\begin{figure}[!htb]
-  \centering
-  \subfigure[Failed lookup in Chord]{
-    \label{figChordFailedLookup}
-    \includegraphics[]{illustrations/ChordRoutingFailed.png}
-  }
-  \subfigure[Failed lookup in Pastry]{
-    \label{figPastryFailedLookip}
-    \includegraphics[]{illustrations/PastryRoutingFailed.png}
-  }
-  \caption{The illustrations show the differences in the routing approach of Chord and Pastry in the case where one of the nodes in the lookup chain is not accessible (Node D). In the case of Pastry it routes around the failed node, while Chord if trying to route again will again get node D returned by node B.}
+\begin{figure}[!h]
+\begin{center}
+  \label{figChordFailedLookup}
+  \includegraphics[width=0.9\linewidth]{illustrations/ChordRoutingFailed.png}
+  \caption{The illustration shows what happens when routing fails in Chord. We see how when node A gets the unavailable node D returned from B, it is stuck and the routing fails.}
+\end{center}
+\end{figure}
+
+\begin{figure}[!h]
+\begin{center}
+  \label{figPastryFailedLookip}
+  \includegraphics[width=0.9\linewidth]{illustrations/PastryRoutingFailed.png}
+  \caption{The illustration shows how Pastry deals with node failure during message routing. The unavailable node D is routed around by node B to get to the target node.}
+\end{center}
 \end{figure}
 
 % * Why is Chord so much slower than Pastry?
@@ -242,9 +245,9 @@ I also wanted to see how running 50 nodes across a few machines compared to runn
 
 The results seen in figure \ref{figPastryHeuristic} partly show what one would expect, in other words that the heuristic improves the routing performance.
 
-\begin{figure}[!htb]
+\begin{figure}[!h]
   \begin{center}
-    \includegraphics[]{illustrations/pastry_heuristic.eps}
+    \includegraphics[width=0.9\linewidth]{illustrations/pastry_heuristic.eps}
     \caption{Latencies for Pastry with and without the routing proximity heuristic activated. Shown with 95\% confidence intervals.}
     \label{figPastryHeuristic}
   \end{center}
@@ -261,19 +264,66 @@ Nothing much can be concluded from this, other than that heuristics do not neces
 
 Less interesting, but reassuring non the less, is that the latency grows with increasing number of nodes in the network, just like one would expect. Unfortunately this dataset does not allow for a general measure of how the latency grows with the network size.
 
+\subsection{Cost of the link record approach for achieving fuzzy and predictive search}
+As introduced in the preparation chapter, my implementation uses \emph{link records}, records pointing to full \emph{profile records} in order to provide predictive and fuzzy search.
+
+I will now evaluate how this affects the storage requirements of the Distributed Hash Table network, and also the number of key lookups that need be done for a particular search.
+
+First, let us look at the how the storage requirements are affected.
+I have a sample of 170 million names taken from Facebook. This sample might not follow the distribution of names in the real world, but most certainly quite accurately models the kind of names people give themselves in online social networks.
+
+I created \emph{link records} for 20 million of these names, and can with 99\% confidence say that the social network population mean name would require 5.322 $\pm$ 0.001 link records. I can also say that the population mean average length of a name is 14.959 $\pm$ 0.002 characters.
+
+If each link record consists of a users full name, the key of the \emph{profile record} and the key of the \emph{link record} itself, then the storage requirement of each \emph{link record} is roughly 2kbit, or 10kbit per \emph{profile record}.
+In my opinion this is not an issue.
+
+Now, let us consider the amount of extra lookups that would be required for a predictive search using link records. Figure \ref{figKeyLookup1} and figure \ref{figKeyLookup2} show the amount of link records that have to be downloaded when the user adds an extra character to the name being searched for. The data is based on link records generate for a sample of 40 million names evenly distributed in the bag of names taken off of Facebook.
+
+\begin{figure}[!h]
+\begin{center}
+	\includegraphics[width=0.9\linewidth]{illustrations/LinkRecordLookups.png}
+\caption{This illustration shows how many new link records result from an extra character in a search for the name Atchaya Pruedsakaran and the amount of data stored under that particular key. The data is from a sample of link records for 40 million names for the facebook database of names. Lines in bold indicate when one or more of the new link records point to the profile record for the full name we are searching for.}
+\label{figKeyLookup1}
+\end{center}
+\end{figure}
+
+\begin{figure}[!h]
+\begin{center}
+	\includegraphics[width=0.9\linewidth]{illustrations/LinkRecordLookups2.png}
+\caption{This illustration shows how many new link records result from an extra character in a search for the name Brad Catron and the amount of data stored under that particular key. The data is from a sample of link records for 40 million names for the facebook database of names. Lines in bold indicate when one or more of the new link records point to the profile record for the full name we are searching for.}
+\label{figKeyLookup2}
+\end{center}
+\end{figure}
+
+What we clearly see is that there seem to be a lot of link records for 1 character names (400k for a and 17k for b) and when the search term contains one or more three character words. That high number of link records for three character words can be explained by the fact that link records are generated for each additional three characters in a name.
+
+What gives this approach some hope is that there are far less link records for 6 character name fragments (11 for atchay, 190 for catron and 1 for prueds in the examples shown in figure \ref{figKeyLookup1} and \ref{figKeyLookup2}). I therefore believe that if one generates link records for each additional 4th or 5th character in a name instead of for every 3rd, one would see a significant drop in the number of link records system wide.
+
+Caching link records for all character combinations up to 3 characters unfortunately proves infeasible. Back of the envelope calculations based on the numbers presented would indicate that each host would need more than 1TB of local caches, and probably more than that if the system was also to accommodate non-latin character sets.
+
+It would therefore be interesting to evaluate what benefits could be gotten from generating link records for longer name fragments. Unfortunately there was no time for evaluating this hypothesis.
+
+Another performance enhancing procedure would also be to not start looking for link records unless the search term has reached a certain minimal length.
+
+Also notice how in both search cases illustrated, a link record for the correct person has already been found after a search for the first three characters. In the case of the search for Brad Catron, we could already suggest the full name as the user types in Brad C, without having to look for extra link records by just filtering based on the full name component of the link records.
+
+
 \subsection{Viability of Chord and Pastry as back end data stores for a search engine}
 % Conclude
 % * Does it work for search engine?
 In its current raw form, Chord is not really a viable data store for any application. Its high and variable latency, although undesirable, is something one could live with, if the key lookups would not have such a high failure rate.
 
-Pastry on the other hand proves a quite efficient key value data store, even in highly distributed environments. Its combination of high success rates and consistently low key lookup latencies and gradual degradation in performance under high load are all desirable properties.
+Pastry on the other hand proves a quite efficient key-value store, even in highly distributed environments. Its combination of high success rates and consistently low key lookup latencies and gradual degradation in performance under high load are all desirable properties.
 
-I would have to say that using key-value stores as back end data stores for a search engine is only a good solution if you can combine ways of getting the data evenly spread in the key-space with ways of easily querying it.
-A slightly optimized version of the link record system proposed in this dissertation can work for small to medium scale installations, but unfortunately it doesn't seem to scale well enough for larger implementations unless link records are aggressively cached at the end systems.
+If one uses a slightly more advanced and optimized version of the \emph{link record} scheme I have proposed, I think key-value stores could quite efficiently be used as the back end data store for a search engine. Especially considering the benefits Distributed Hash Tables bring along of built in load balancing, fault tolerance and predictable and scalable performance.
+
+If search servers also cache link records they have previously loaded and not just na\"ively loads new link records for every key-stroke the users types while searching, then I believe Distributed Hash Tables can be used quite successfully.
 
 \mbox{}
 
 In this chapter we have seen how my implementation of Pastry outperforms my implementation of Chord both in terms of latency and key lookup success rate.
 We have also discovered how the proximity heuristic used in routing by Pastry quite counter intuitively does not always yield performance improvements, and have understood the importance of relying on metrics rather than intuition when evaluating system performance.
 
-Finally we concluded that for small to medium scale search engines of the type proposed in this dissertation, using a distributed hash table as the back end data store might work reasonably well, and that caching link records at end the end systems might be used to increase performance.
+We also looked at the impact using link records has on the amount of data that needs to be stored in the network and the number of link records loaded during two sample searches.
+
+Finally we concluded that with a slightly altered link record scheme, Distributed Hash Tables can work quite well as the data store for a Distributed Search engine of the particular kind I have proposed.
