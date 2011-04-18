@@ -77,7 +77,7 @@ To work with Planet-Lab's strengths and not against it, and at the same time to 
 \subsection{Experimental cleanliness and validity of results}
 Performing experiments over longer periods of time showed that the success rate (figure \ref{figLatencyAgainstTime}) and latency (figure \ref{figRateAgainstTime}) for all practical purposes stay constant over time. This allowed me to cut down the length of individual experimental runs without lowering the quality of my results.
 
-\begin{figure}[!h]
+\begin{figure}[!htb]
   \begin{center}
     \includegraphics[width=0.9\linewidth]{illustrations/latency_aginst_time_chord.eps}
     \caption{This graph shows how latency vary with time in a 15 minute experimental run of Chord.}
@@ -85,7 +85,7 @@ Performing experiments over longer periods of time showed that the success rate 
   \end{center}
 \end{figure}
 
-\begin{figure}[!h]
+\begin{figure}[!htb]
   \begin{center}
     \includegraphics[width=0.9\linewidth]{illustrations/rate_against_time_chord.eps}
     \caption{This graph shows how the request rate and success rate varies over a 15 minute experimental run of Chord.}
@@ -217,7 +217,7 @@ In the case of Pastry node B becomes responsible for routing the request forward
 There are workarounds for improving Chord's routing performance. One would be for the requesting node A to inform node B about node D's death upon retrying to route the message. An alternative could also have been for node A to try to route the request through another intermediate node before D, but in this case we are not guaranteed that this intermediate node will not also return D.
 A third approach could be to look up D's predecessor, and then use that node in the same role previously filled by B. None of these methods have been used in my implementation as they would extend the core Chord routing algorithm and therefore skew the comparison in Chord's favour.
 
-\begin{figure}[!h]
+\begin{figure}[!htb]
 \begin{center}
   \label{figChordFailedLookup}
   \includegraphics[width=0.9\linewidth]{illustrations/ChordRoutingFailed.png}
@@ -225,7 +225,7 @@ A third approach could be to look up D's predecessor, and then use that node in 
 \end{center}
 \end{figure}
 
-\begin{figure}[!h]
+\begin{figure}[!htb]
 \begin{center}
   \label{figPastryFailedLookip}
   \includegraphics[width=0.9\linewidth]{illustrations/PastryRoutingFailed.png}
@@ -257,7 +257,7 @@ I also wanted to see how running 50 nodes across a few machines compared to runn
 
 The results seen in figure \ref{figPastryHeuristic} partly show what one would expect, in other words that the heuristic improves the routing performance.
 
-\begin{figure}[!h]
+\begin{figure}[!htb]
   \begin{center}
     \includegraphics[width=0.9\linewidth]{illustrations/pastry_heuristic.eps}
     \caption{Latencies for Pastry with and without the routing proximity heuristic activated. Shown with 95\% confidence intervals.}
@@ -276,7 +276,7 @@ Nothing much can be concluded from this, other than that heuristics do not neces
 
 Less interesting, but reassuring non the less, is that the latency grows with increasing number of nodes in the network, just like one would expect. Unfortunately this dataset does not allow for a general measure of how the latency grows with the network size.
 
-\section{Cost of the link record approach for achieving fuzzy and predictive search}
+\section{Cost of using link records}
 As introduced in the preparation chapter, my implementation uses \emph{link records}, records pointing to full \emph{profile records} in order to provide predictive and fuzzy search.
 
 I will now evaluate how this affects the storage requirements of the Distributed Hash Table network, and also the number of key lookups that need be done for a particular search.
@@ -291,17 +291,17 @@ In my opinion this is not an issue.
 
 Now, let us consider the amount of extra lookups that would be required for a predictive search using link records. Figure \ref{figKeyLookup1} and figure \ref{figKeyLookup2} show the amount of link records that have to be downloaded when the user adds an extra character to the name being searched for. The data is based on link records generate for a sample of 40 million names evenly distributed in the bag of names taken off of Facebook.
 
-\begin{figure}[!h]
+\begin{figure}[!htb]
 \begin{center}
-	\includegraphics[width=0.9\linewidth]{illustrations/LinkRecordLookups.png}
+	\includegraphics[width=0.8\linewidth]{illustrations/LinkRecordLookups.png}
 \caption{This illustration shows how many new link records result from an extra character in a search for the name Atchaya Pruedsakaran and the amount of data stored under that particular key. The data is from a sample of link records for 40 million names for the facebook database of names. Lines in bold indicate when one or more of the new link records point to the profile record for the full name we are searching for.}
 \label{figKeyLookup1}
 \end{center}
 \end{figure}
 
-\begin{figure}[!h]
+\begin{figure}[!htb]
 \begin{center}
-	\includegraphics[width=0.9\linewidth]{illustrations/LinkRecordLookups2.png}
+	\includegraphics[width=0.8\linewidth]{illustrations/LinkRecordLookups2.png}
 \caption{This illustration shows how many new link records result from an extra character in a search for the name Brad Catron and the amount of data stored under that particular key. The data is from a sample of link records for 40 million names for the facebook database of names. Lines in bold indicate when one or more of the new link records point to the profile record for the full name we are searching for.}
 \label{figKeyLookup2}
 \end{center}

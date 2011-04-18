@@ -80,24 +80,61 @@
 
 \stepcounter{footnote}
 
+\makeatletter
+\renewcommand{\@makechapterhead}[1]{%
+\vspace*{50 pt}%
+{\setlength{\parindent}{0pt} \raggedright \normalfont
+\bfseries\Huge\thechapter.\ #1
+\par\nobreak\vspace{40 pt}}}
+\makeatother
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Cover sheet
+
+\pagestyle{empty}
+
+\hfill{\small \bf Sebastian Probst Eide}
+
+\vspace*{60mm}
+\begin{center}
+\Huge
+{\bf Friend search for independent distributed online social networks} \\
+\vspace*{5mm}
+Computer Science Part 2 Honours \\
+\vspace*{5mm}
+St Edmunds College --- 2011 \\
+\vspace*{5mm}
+\end{center}
+
+\cleardoublepage
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\setcounter{page}{1}
+\pagenumbering{roman}
+\pagestyle{plain}
+
+\input{chapters/proforma}
+\input{chapters/declaration_of_originality}
+\input{chapters/table_of_contents}
+
 \setcounter{page}{1}
 \pagenumbering{arabic}
 \pagestyle{headings}
 
-\input{chapters/cover_sheet}
-\input{chapters/proforma}
-\input{chapters/declaration_of_originality}
-\input{chapters/table_of_contents}
 \input{chapters/introduction}
 \input{chapters/preparation}
 \input{chapters/implementation}
 \input{chapters/evaluation}
 \input{chapters/conclusion}
+\input{chapters/acknowledgments}
 \input{chapters/bibliography}
+
+\appendix
+\addtocontents{toc}{\protect\contentsline{chapter} {Appendix}{}}
 \input{chapters/appendices}
-\input{chapters/index}
 
 \cleardoublepage
+\chapter{Project Proposal}
 \input{proposal/propbody}
 
 \end{document}
