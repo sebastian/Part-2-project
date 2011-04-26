@@ -1,3 +1,81 @@
+\chapter{Routing state as Erlang data structures}
+\label{sec:appendixErlangRoutingState}
+I use Erlang records for the Chord and Pastry routing state.
+When regular tuples are used to pass data-structures between functions, the amount of code that needs updating when the data structure evolves is often substantial.
+While you need to write out the full structure of a tuple to pattern match on one of its values, records give you direct access to named members of the structure, abstracting away the physical layout of the data.
+Under the hood, records are still compiled down to regular tuples, but this is handled transparently  without the programmer needing to know about it or update code where the data-structure is being used.
+
+\subsection{Chord routing state}
+Code listing \ref{listingChordDataStructures} shows how I translated the Chord routing state described in section \ref{sec:chordRoutingState} on page \pageref{sec:chordRoutingState} into Erlang records.
+
+\lstinputlisting[label=listingChordDataStructures,caption=Chord routing table as Erlang records]{sourceCode/chord_routing_table.erl}
+
+\subsection{Pastry routing state}
+Code listing \ref{listingPastryDataStructures} shows how I translated the Pastry routing state described in section \ref{sec:pastryRoutingState} on page \pageref{sec:pastryRoutingState} into Erlang records.
+The distance field on line 6 in the node record in the listing is the numeric distance between a particular node and the node maintaining the routing state, as returned by the proximity heuristic used for routing.
+
+\lstinputlisting[label=listingPastryDataStructures,caption=Pastry routing table as Erlang records]{sourceCode/pastry_routing_table.erl}
+
+%-----------------------------------------------------------
+% Pastry Erlang Routing
+%-----------------------------------------------------------
+\chapter{Pastry routing algorithm in Erlang}
+\label{sec:appendixErlangRoutingAlgorithm}
+This section compliments section \ref{sec:routingInPastry} on page \pageref{sec:routingInPastry} and shows how I translated the Pastry pseudo code routing algorithm into Erlang.
+
+\mbox{}
+
+My Erlang implementation of the Pastry routing algorithm, rather than being a direct translation of the pseudo code (listing \ref{listingPastryPseudocode} on page \pageref{listingPastryPseudocode}), takes the essence of what the Pastry routing algorithm tries to accomplish, and implements that.
+
+The code in listing \ref{listingRouteMsg} shows my main Erlang \verb=route_msg= function. 
+Just like the pseudo code in pseudo code listing \ref{listingPastryPseudocode} on page \pageref{listingPastryPseudocode} it tries routing via the leaf set, then the routing table and if all else fails to any node that is closer to the target key.
+
+\lstinputlisting[label=listingRouteMsg,caption=Routes a message towards a recipient]{sourceCode/route_msg.erl}
+
+In listing \ref{listingRouteToLeafSet} we see that if the match in the leaf set is the node itself, then on line 5 the message is delivered to the main pastry application. Otherwise the message is forwarded to a closer node if appropriate on line 7.
+
+\lstinputlisting[label=listingRouteToLeafSet,caption=Routes a message to the leaf set if applicable]{sourceCode/route_to_leaf_set.erl}
+
+If routing to the leaf set fails (line 3 in listing \ref{listingRouteToLeafSet}), the node tries routing the message to a node in the routing table sharing more digits in the key with the message key than what itself does. Again, just like when routing to the leaf set, if the best match is itself, the message is delivered. This function is shown in code listing \ref{listingRouteToNodeInRoutingTable}.
+
+It is not quite as easy to see how this code listing corresponds to the pseudo code in listing \ref{listingPastryPseudocode} on page \pageref{listingPastryPseudocode}. For example, in the listing \ref{listingRouteToNodeInRoutingTable} there is nothing that directly correspond to getting the length of the shared key path as we see on line 9 in the Pastry pseudo code in listing \ref{listingPastryPseudocode} on page \pageref{listingPastryPseudocode}. Instead what the Erlang implementation does is find all the nodes in the routing table that share as many key digits with the message key as the node itself does (line 2) in addition to the \verb=PreferredKeyMatch= (also line 2) which is the shared key-segment plus the first digit in the message key that differs from the key of the node itself.
+On line 4 we look for a node in the list of nodes which shares all the digits in the \verb=PreferredKeyMatch=. If there is one then the message is passed on to that node and if there is none, we return empty handed.
+
+\lstinputlisting[label=listingRouteToNodeInRoutingTable,caption=Routes a message to a node in the routing table]{sourceCode/route_to_node_in_routing_table.erl}
+
+If all other routing approaches fail, the last resort the Pastry node has is to find any node that is numerically closer to the key than what itself is. Code listing \ref{listingRouteToCloserNode} shows the Erlang implementation finding the key segment shared between the message key and the node's key (line 2) and then finding all the nodes it knows about that share this key segment (line 3). On line 7 the node numerically closest to the message key is found and the message either forwarded or delivered.
+
+\lstinputlisting[label=listingRouteToCloserNode,caption=Routes a message to any closer node]{sourceCode/route_to_closer_node.erl}
+
+%---------------------------------------
+% Link record optimizations
+%---------------------------------------
+
+\chapter{Optimizing the link records approach}
+\label{sec:appendixLinkRecords}
+This appendix on optimizing the link record approach to search compliments section \ref{sec:costOfLinkRecords} on page \pageref{sec:costOfLinkRecords} where I discuss the cost of using link records to enable predictive and fuzzy searches on top of Distributed Hash Tables.
+
+\mbox{}
+
+An optimization that could be quite promising, but is not part of my current search server implementation, is to not start looking for link records unless the search term exceeds a minimum length.
+The immediate drawback of this approach is that it is less interactive, but this lack of interactivity could easily be camouflaged by having the search engine display matches taken from data cached from local caches resulting from previous searches, and adaptively load more results from the distributed search network as the query gets longer.
+The threshold has to be matched to the way the link records are generated. Say if we generated link records for each additional 5 characters and had set the threshold to 4, then no correct matches could ever be found for names longer than 5 characters before the 5th character in the search query has been entered. That is unless cached results already exist on the search engine node.
+The threshold value has to be set according to how long the average name is. There are a significant proportion of names 4 character or less in length, and by setting the threshold to a value higher than 4 these short names would never be found using the predictive search unless they had already been cached.
+One would also have to consider if the threshold should be a per name threshold, by which I mean that we do not look up link records for name fragments shorter than the threshold, or a per query threshold, in which case surnames would already trigger a link record lookup after their first character has been entered, which in the case of the letters \emph{a} and \emph{b} would trigger 47 and 21 MB downloads of link records respectively (from table \ref{tableIndianName} on page \pageref{tableIndianName} and \ref{tableAmericanName} on page \pageref{tableAmericanName} respectively). It could be a good idea to set the threshold on a per name basis, but continue to order and prioritize the already downloaded link records given the full name component they contain already from the very first character the user types in the subsequent names.
+I believe setting a search threshold of 2 or 3 characters combined with generating link records for each additional 4 characters could be a good compromise. It would allow us to find the short names interactively, and would still ensure a relative sparsity of link records.
+
+The danger with generating link records for too long name fragments is that it makes fuzzy searching harder to achieve, as fuzzy searches rely on either already having found the correct link record before the spelling mistake is done, or find a correct link record for one of the person's other names and then give that a higher priority due to it being a close match for the misspelled full name.
+
+\mbox{}
+
+Another optimisation to the link record worth considering is how one could compress the data they occupy in the search network and that needs to be transferred during search.
+In the current implementation link records quite unnecessarily store their own key. 160-bit keys also take up 192 bits of spate on 64-bit machines and the names themselves are not at all compressed.
+If one removed the self-referencing keys, used 128-bit keys and compressed the full name by a factor of 2, then a link record could take 125 bytes instead of 300 bytes per record, which would reduce the storage and transfer requirements by a factor of 2.4. 
+
+%---------------------------------------
+% Source code
+%---------------------------------------
+
 \chapter{Sample source code}
 Below follows the source code listing of the Pastry core implementations.
 Tests are not included.

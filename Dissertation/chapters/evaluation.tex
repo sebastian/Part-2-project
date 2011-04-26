@@ -279,21 +279,21 @@ The results seen in figure \ref{figPastryHeuristic} partly show what one would e
 As one would expect, the heuristic allowing nodes to preferentially route to geographically closer nodes for the most part improved the performance substantially. In the two cases where only 1 node was run per host we see a 15\% and 10\% gain for the 10 machine and 50 machine cases respectively.
 Quite surprisingly, the cases where multiple nodes are located on the same machine, scenarios where I would have expected the heuristic to shine, perform less well. In the case where 50 nodes are spread over 10 hosts we only see a 4\% performance gain when using the heuristic, and in the case where 50 machines run 16 nodes each, the performance drops by 20\% when the heuristic is being used.
 
-Unfortunately I have no conclusive evidence indicating what could cause the performance drop when there are many nodes running on the same machine. The heuristic is only calculated when nodes are added to the routing table during the routing state stabilization phase, and should therefore not affect the routing performance locally within a node.
+The heuristic is only calculated when nodes are added to the routing table during the routing state stabilization phase, and should therefore not affect the routing performance locally within a node.
 A reason could be that while the Pastry paper \cite{pastry} suggests nodes use an expanding ring multi-cast to find other Distributed Hash Table nodes to connect to, which would result in the node automatically getting to know all its nearby neighbour-nodes, I made all nodes contact the central control hub in order to get nodes to connect to. The central control hub does not take node proximity into account and as a result a node might not know about all the other nodes living on the same physical hardware. The reasoning behind this design decision originally came from the insight that most nodes would live in completely separate physical networks and that multicast messages would never be able to get from one node to the next, but making that decision I failed to account for multiple hosts living on the same machine.
 This is a weakness in my implementation rather than in Pastry itself, and something that would be interesting to look into for the future. While multicast might still not be an ideal solution, it would be interesting for Pastry nodes that are not the first node on a machine to use other nodes hosted on the same hardware as their entryway into the Distributed Hash Table network.
 Yet this does not explain why the performance is better without the heuristic as the nodes join the network the same way in both cases.
 
-It might also be that the heuristic of hop count in the underlying network is just suboptimal and that a pure latency based heuristic should be used instead.
-
-Nothing much can be concluded from this, other than that heuristics do not necessarily result in performance gains unless chosen carefully. This outcome also highlights the importance of relying on metrics when making design decisions rather than blindly implementing performance enhancements in the faith that optimisations are always for the better.
+It might be that the heuristic of hop count in the underlying network is just suboptimal and that a pure latency based heuristic should be used instead.
+These results highlight the importance of relying on metrics when making design decisions rather than blindly implementing performance enhancements in the faith that optimisations are always for the better.
 
 Less interesting, but reassuring non the less, is that the latency grows with increasing number of nodes in the network, just like one would expect. Unfortunately this dataset is too limited to give a general measure of how the latency grows with the network size.
 
 \section{Cost of using link records}
+\label{sec:costOfLinkRecords}
 As introduced in the preparation chapter, my implementation uses \emph{link records}, records pointing to full \emph{profile records}, in order to provide predictive and fuzzy search.
 
-I will now evaluate how this affects the storage requirements of the Distributed Hash Table network, and also the number of key lookups that need be done for a particular search.
+I will now evaluate how this affects the storage requirements of the Distributed Hash Table network, and also the number of key lookups that need to be done for a particular search.
 
 First, let us look at the how the storage requirements are affected.
 I have a sample of 170 million names taken from Facebook. This sample might not follow the distribution of names in the real world, but most certainly quite accurately models the kind of names people give themselves in online social networks.
@@ -303,23 +303,8 @@ Based on \emph{link records} for 20 million names, I can with 99\% confidence sa
 If each link record consists of a user's full name, the key of the \emph{profile record} and the key of the \emph{link record} itself, then the storage requirement of each \emph{link record} is roughly 55bytes, or 300bytes per \emph{profile record}, assuming each character is stored using 8 bits.
 In my opinion this is not an issue.
 
-Now, let us consider the number of extra lookups that would be required for a predictive search using link records. Table \ref{tableIndianName} and table \ref{tableAmericanName} show the amount of new link records that have to be downloaded when the user adds an extra character to the name being searched for and how much space those link records take. The second and third leftmost columns show the amount of link records given the link records currently used, where link records are generated for each additional three characters in a user's name. The subsequent columns show how many link records there would be if link records were generated for each additional 4, 5 and 6th character in a users name.
+Now, let us consider the number of extra lookups that would be required for a predictive search using link records. Table \ref{tableIndianName} and table \ref{tableAmericanName} show the amount of new link records that have to be downloaded when the user adds an extra character to the name being searched for and how much space these link records take. The second and third leftmost columns show the amount of link records given the link records currently used, where link records are generated for each additional three characters in a user's name. The subsequent columns show how many link records there would be if link records were generated for each additional 4, 5 and 6 characters in a users name.
 The link records are generated from a sample of 60 million names evenly distributed in the bag of names taken off of Facebook.
-
-What we clearly see is that there seem to be a lot of link records for 1 character search queries (163k for \emph{a} and 73k for \emph{b}) and in the case of link records generated for each 3 or 4 additional characters, also when the query is as long as the length at which the first link record is generated. Short common names like Brad also seem to generate a lot of link records.
-
-What gives this approach some hope is that there are significantly fewer link records when longer name fragments are used for generating link records, and also in the cases where we generate link records for each 3 additional characters, there seem to be much less link records for the second link record generated for a name.
-
-Caching link records for all character combinations up to 3 characters unfortunately proves infeasible. Back of the envelope calculations based on the numbers presented would indicate that each host would need more than 1TB of local caches, and probably more than that if the system was also to accommodate non-latin character sets.
-
-Another performance enhancing procedure would be to not start looking for link records unless the search term exceeds a minimum length. 
-The immediate drawback of this approach is that it is less interactive. This could be camouflaged by having the search engine display matches taken from data cached from previous searches, and adaptively load more results from the distributed search network as the query gets longer.
-The threshold has to be matched to the way the link records are generated. Say if we generated link records for each additional 5 characters and had set the threshold to 4, then no correct matches could ever be found for names longer than 5 characters before the 5th character in the search query has been entered. That is unless cached results already exist on the search engine node.
-The threshold value has to be set according to how long the average name is. There are a significant proportion of names 4 character or less in length, and by setting the threshold to a value higher than 4 these short names would never be found using the predictive search unless they had already been cached.
-One would also have to consider if the threshold should be a per name threshold, by which I mean that we do not look up link records for name fragments shorter than the threshold, or a per query threshold, in which case surnames would already trigger a link record lookup after their first character has been entered, which in the case of the letters \emph{a} and \emph{b} would trigger 47 and 21 MB downloads of link records respectively (from table \ref{tableIndianName} and \ref{tableAmericanName} respectively). It could be a good idea to set the threshold on a per name basis, but continue to order and prioritize the already downloaded link records given the full name component they contain already from the very first character the user types in the subsequent names.
-I believe setting a search threshold of 2 or 3 characters combined with generating link records for each additional 4 characters could be a good compromise. It would allow us to find the short names interactively, and would still ensure a relative sparsity of link records.
-
-The danger with generating link records for too long name fragments is that it makes fuzzy searching harder to achieve, as fuzzy searches rely on either already having found the correct link record before the spelling mistake is done, or find a correct link record for one of the person's other names and then give that a higher priority due to it being a close match for the misspelled full name.
 
 \begin{table}[!htb]
 \caption{Number of link new link records per additional character in the search term Archaya Pruedsakaran and the size of the link records for the cases where link records are generate for each additional 3, 4, 5 and 6 characters in a name. Green cells indicate that one of the new link records points to the profile record we are looking for.}
@@ -416,22 +401,26 @@ The danger with generating link records for too long name fragments is that it m
 \label{tableAmericanName}
 \end{table}
 
-Another thing to consider is that the link records in the current implementation quite unnecessarily store duplicate information. For example does each link record store its own key. 160-bit keys also take up 192 bits of data on 64-bit machines and the names themselves are not at all compressed.
-If one removed the self-referencing keys, used 128-bit keys and compressed the full name by a factor of 2, then a link record could take 125 bytes instead of 300 bytes per record, which would reduce the storage and transfer requirements by a factor of 2.4. 
+What we see is that there are a lot of link records for 1 character search queries (163k for \emph{a} and 73k for \emph{b}) and in the case of link records generated for each 3 or 4 additional characters also when the query is as long as the length at which the first link record is generated. Short common names like Brad also generate a lot of link records.
 
+What gives this approach some hope is that there are significantly fewer link records when longer name fragments are used for generating link records, and also in the cases where we generate link records for each 3 additional characters, there seem to be much less link records for the second link record generated for a name.
 
-\subsection{Utility of Chord and Pastry as back end data stores for a search engine}
+Caching link records for all character combinations up to 3 characters could be a possibility, but back of the envelope calculations based on the numbers presented indicate that this would require several gigabytes worth of local caches per host, and probably more than that if the system was also to accommodate non-latin character sets. While possible, this might be a bit too much to ask of the independent distributed online social networks.
+
+Other promising performance enhancements like adding query length thresholds and compressing the link record data are discussed and evaluated in Appendix \ref{sec:appendixLinkRecords}.
+
+\section{Utility of Chord and Pastry as back end data stores for a search engine}
 % Conclude
 % * Does it work for search engine?
 In its current raw form, Chord is not really a viable data store for any application. Its high and variable latency, although undesirable, is something one could live with, if the key lookups would not have such a high failure rate.
 Pastry on the other hand proves a quite efficient key-value store, even in highly distributed environments. Its combination of high success rates and consistently low key lookup latencies and gradual degradation in performance under high load are all desirable properties.
 
-If one uses a combination of caching link records at the search servers, add a query length threshold before which no requests are made to the search network, and make the search servers more capable of judging the relevance of link records, in addition to compressing and minimizing the size of link records as discussed in the previous section, I think key-value stores could quite efficiently be used as the back end data store for a search engine. Especially considering the benefits Distributed Hash Tables bring like built in load balancing, fault tolerance and predictable and scalable performance.
+If one uses a combination of caching link records at the search servers, add a query length threshold before which no requests are made to the search network, and make the search servers more capable of judging the relevance of link records, in addition to compressing and minimizing the size of link records, I think key-value stores could quite efficiently be used as the back end data store for a search engine. Especially considering the benefits Distributed Hash Tables bring like built in load balancing, fault tolerance and predictable and scalable performance.
 
 \mbox{}
 
 In this chapter we have seen how my implementation of Pastry outperforms my implementation of Chord both in terms of latency and key lookup success rate.
-We have also discovered how the proximity heuristic used in routing by Pastry quite counter intuitively does not always yield performance improvements, and have understood the importance of relying on metrics rather than intuition when evaluating system performance.
+We have also discovered how the proximity heuristic used in routing by Pastry quite counter intuitively does not always yield performance improvements, and have understood the importance of relying on metrics rather than intuition when evaluating performance.
 
 We also looked at the impact using link records has on the amount of data that needs to be stored in the network and the number of link records loaded during two sample searches.
 

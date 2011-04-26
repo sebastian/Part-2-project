@@ -96,7 +96,8 @@ In order to be able to use Chord or Pastry interchangeably I specified a minimal
 \subsection{Data structures}
 To better understand how the routing algorithms work, let us first look at the data structures used by Chord and Pastry for storing the routing information.
 
-\subsubsection{Chord's routing table}
+\subsubsection{Chord's routing state}
+\label{sec:chordRoutingState}
 The Chord routing table contains an array of what in the chord jargon are called fingers.
 Each finger contains a start value, depending on the fingers position in the array and the node's own id, and a reference to the first node in the Chord network with a key greater than that start value.
 Additionally each finger contains an interval consisting of its own start value and the start value of the next finger.
@@ -129,23 +130,20 @@ In our implementation m is always 160. Please note that the array starts at 1 an
 \label{tableChordRoutingTable}
 \end{table}
 
-In listing \ref{listingChordDataStructures} you see how I translated this into Erlang records.
 
-\lstinputlisting[label=listingChordDataStructures,caption=Chord routing table as Erlang records]{sourceCode/chord_routing_table.erl}
-
-\subsubsection{Pastry's routing table}
+\subsubsection{Pastry's routing state}
+\label{sec:pastryRoutingState}
 Now, how does Pastry's routing table differ from that used by Chord?
 A Pastry node maintains three separate data structures: a tuple called the leaf set containing a list of the nodes preceding and a list of nodes succeeding it in the key-space, a list of nodes called the neighbourhood set that are it's neighbours in terms of the proximity heuristic used by Pastry, and a routing table. 
 To make sense of the routing table let us first realize that while Chord looks at the key-space as an integer key-space in base 10, a Pastry node looks at the key-space as an integer key-space in an arbitrary base b.
 The routing table is a list of lists of nodes that share increasing number of digits in the key with the node itself. The first level entry in the routing table stores a list of nodes whose keys share no digits with the node, the second level entry stores nodes that share the first digit, and so on up until the last level entry where nodes share all but the very last digit.
 In a sparsely populated network, most of entries in the routing table will be left blank.
 On the $ n^{th} $ level of the routing table, a node stores a list of nodes with keys that do not differ in any of the most significant digits up until the $ n^{th} $ key-digit.
-A node will try to store nodes for all possible values of the $ n^{th} $ digit, so ideally a node that itself has an $ n^{th} $ digit of 0, will have entries for nodes with values 1 through b-1 in their $ n^{th} $ digit key positions.
+A node will try to store nodes for all possible values of the $ n^{th} $ digit, so ideally a node that itself has an $ n^{th} $ digit of 0, will have entries for nodes with values 1 through b - 1 in their $ n^{th} $ digit key positions.
 
-The following code listing shows the Erlang version of the Pastry routing state.
-The distance field on line 6 in the node record in listing \ref{listingPastryDataStructures} is the numeric distance between a particular node and the node maintaining the routing state, as returned by the proximity heuristic used for routing.
+\mbox{}
 
-\lstinputlisting[label=listingPastryDataStructures,caption=Pastry routing table as Erlang records]{sourceCode/pastry_routing_table.erl}
+In Appendix \ref{sec:appendixErlangRoutingState} on page \pageref{sec:appendixErlangRoutingState} I show how I translated the Chord and Pastry routing state into Erlang records.
 
 \subsubsection{Example routing state}
 The Chord and Pastry routing states can get quite abstract without a concrete example.
@@ -159,9 +157,9 @@ In figure \ref{figKeyspaceExample} I show a reference 8-bit key-space with nodes
 \end{center}
 \end{figure}
 
-Table \ref{tableChordRoutingTable} shows the routing state held by the Chord node with key 99, while table \ref{tablePastryRoutingTable} shows the corresponding routing state for the same dot but as a Pastry node with key 1203.
+Table \ref{tableChordRoutingTableImpl} shows the routing state held by the Chord node with key 99, while table \ref{tablePastryRoutingTableImpl} shows the corresponding routing state for the same dot but as a Pastry node with key 1203.
 
-\begin{table}[h]
+\begin{table}[!htb]
 \caption{Chord routing table for nodes in figure \ref{figKeyspaceExample}}
 \begin{center}
 \begin{tabular}{ | l | l | }
@@ -229,10 +227,10 @@ Table \ref{tableChordRoutingTable} shows the routing state held by the Chord nod
   \hline  
 \end{tabular}
 \end{center}
-\label{tableChordRoutingTable}
+\label{tableChordRoutingTableImpl}
 \end{table}
 
-\begin{table}[h]
+\begin{table}[!htb]
 \caption{The Pastry routing state from the Pastry nodes in figure \ref{figKeyspaceExample}. The bold digits in the routing table indicate at which digit the node keys differ from the node's own key.}
 \begin{center}
 \begin{tabular}{ | l | l | l | }
@@ -268,13 +266,13 @@ Table \ref{tableChordRoutingTable} shows the routing state held by the Chord nod
   \hline                       
 \end{tabular}
 \end{center}
-\label{tablePastryRoutingTable}
+\label{tablePastryRoutingTableImpl}
 \end{table}
 
 \subsection{Routing}
 %   What is different between Chord and Pastry?
 %   How is routing done?
-The routing algorithms for both Chord and Pastry are reasonably compact. I will try to give an intuition for how the routing works, and then just like I did for the routing state itself, show you pseudo-code from the Chord \cite{chord} and Pastry \cite{pastry} papers, before showing you the corresponding Erlang implementations.
+The routing algorithms for both Chord and Pastry are reasonably compact. I will try to give an intuition for how the routing works before showing you pseudo-code from the Chord \cite{chord} and Pastry \cite{pastry} papers before showing you the corresponding Erlang implementations.
 
 I have omitted supporting functions from the Erlang sample code that do not add to the understanding of the routing procedure in order to keep the source code listings short and to the point.
 
@@ -327,6 +325,7 @@ The bounds check is implemented in the helper function \verb=check_closest_prece
 \lstinputlisting[label=listingCheckClosestPrecedingFinger,caption=Check if a finger is the closest known finger to a key. Returns the node most closely preceding the key]{sourceCode/check_closest_preceding_finger.erl}
 
 \subsubsection{Routing in Pastry}
+\label{sec:routingInPastry}
 The Pastry approach differs quite significantly from Chord's approach to routing.
 The most significant difference is that while a Chord node actively looks for the node responsible for a key, and when that node has been found contacts it to have it perform whatever task needs doing, Pastry instead performs message passing, where the message itself can contain information about whatever task the node wants done.
 Also just like when sending mail through the postal system, the node loses visibility of the messages progress as soon as it has been sent. This has the benefit of reducing the communication overhead and giving the sender time to perform other tasks or aid other nodes in their message sending while making it harder to notice if a message get lost.
@@ -349,27 +348,7 @@ If there is no match in the leaf set, the routing table is used to find a node t
 
 \lstinputlisting[label=listingPastryPseudocode,caption=Message routing pseudo code for Pastry]{sourceCode/pastry_pseudocode.txt}
 
-My Erlang implementation, rather than being a direct translation of the pseudo code, takes the essence of what the Pastry routing algorithm tries to accomplish, and implements that.
-
-The code in listing \ref{listingRouteMsg} shows my main Erlang \verb=route_msg= function. 
-Just like the pseudo code n listing \ref{listingPastryPseudocode} it tries routing via the leaf set, then the routing table and if all else fails to any node that is closer to the target key.
-
-\lstinputlisting[label=listingRouteMsg,caption=Routes a message towards a recipient]{sourceCode/route_msg.erl}
-
-In listing \ref{listingRouteToLeafSet} we see that if the match in the leaf set is the node itself, then on line 5 the message is delivered to the main pastry application. Otherwise the message is forwarded to a closer node if appropriate on line 7.
-
-\lstinputlisting[label=listingRouteToLeafSet,caption=Routes a message to the leaf set if applicable]{sourceCode/route_to_leaf_set.erl}
-
-If routing to the leaf set fails (line 3 in listing \ref{listingRouteToLeafSet}), the node tries routing the message to a node in the routing table sharing more digits in the key with the message key than what itself does. Again, just like when routing to the leaf set, if the best match is itself, the message is delivered. This function is shown in code listing \ref{listingRouteToNodeInRoutingTable}.
-
-It is not quite as easy to see how this code listing corresponds to the pseudo code. For example, in listing \ref{listingPastryPseudocode} there is nothing that directly correspond to getting the length of the shared key path as we see on line 9 in the Pastry pseudo code in listing \ref{listingPastryPseudocode}. Instead what the Erlang implementation does is find all the nodes in the routing table that share as many key digits with the message key as the node itself does (line 2) in addition to the \verb=PreferredKeyMatch= (also line 2) which is the shared key-segment plus the first digit in the message key that differs from the key of the node itself.
-On line 4 we look for a node in the list of nodes which shares all the digits in the \verb=PreferredKeyMatch=. If there is one then the message is passed on to that node and if there is none, we return empty handed.
-
-\lstinputlisting[label=listingRouteToNodeInRoutingTable,caption=Routes a message to a node in the routing table]{sourceCode/route_to_node_in_routing_table.erl}
-
-If all other routing approaches fail, the last resort the Pastry node has is to find any node that is numerically closer to the key than what itself is. Code listing \ref{listingRouteToCloserNode} shows the Erlang implementation finding the key segment shared between the message key and the node's key (line 2) and then finding all the nodes it knows about that share this key segment (line 3). On line 7 the node numerically closest to the message key is found and the message either forwarded or delivered.
-
-\lstinputlisting[label=listingRouteToCloserNode,caption=Routes a message to any closer node]{sourceCode/route_to_closer_node.erl}
+The translation from Pastry pseudo code to Erlang implementation resembles the procedure used to implement the Chord algorithm in Erlang. It is described in more detail in Appendix \ref{sec:appendixErlangRoutingAlgorithm} on page \pageref{sec:appendixErlangRoutingAlgorithm}.
 
 \subsection{Replication of data}
 My implementations of Chord and Pastry both replicate data amongst their immediate neighbours for fault tolerance. While replication was only proposed as an extension in the Chord \cite{chord} and Pastry \cite{pastry} papers, I thought it worthwhile adding this functionality since my intended use case was a search engine where I did not want data to become unavailable if an online social network provider decided to stop using my search network.

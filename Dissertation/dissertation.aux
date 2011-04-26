@@ -2,7 +2,6 @@
 \bibstyle{plain}
 \@writefile{toc}{\contentsline {chapter}{Proforma}{i}}
 \@writefile{toc}{\contentsline {chapter}{Declaration of originality}{ii}}
-\@writefile{toc}{\contentsline {chapter}{List of Figures}{iv}}
 \@writefile{toc}{\contentsline {chapter}{\numberline {1}Introduction}{2}}
 \@writefile{lof}{\addvspace {10\p@ }}
 \@writefile{lot}{\addvspace {10\p@ }}
@@ -33,114 +32,106 @@
 \@writefile{lof}{\contentsline {figure}{\numberline {3.3}{\ignorespaces Illustration of how the keyspace is divided between Pastry nodes.\relax }}{13}}
 \newlabel{figKeyspacePastry}{{3.3}{13}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {3.3.1}Data structures}{13}}
-\@writefile{toc}{\contentsline {subsubsection}{Chord's routing table}{13}}
+\@writefile{toc}{\contentsline {subsubsection}{Chord's routing state}{13}}
+\newlabel{sec:chordRoutingState}{{3.3.1}{13}}
 \@writefile{lot}{\contentsline {table}{\numberline {3.1}{\ignorespaces Values in the Chord routing table for a node with key n, using m-bit identifiers. k is an arbitrary array index into the finger array.\relax }}{14}}
 \newlabel{tableChordRoutingTable}{{3.1}{14}}
-\newlabel{listingChordDataStructures}{{3.1}{14}}
-\@writefile{lol}{\contentsline {lstlisting}{\numberline {3.1}Chord routing table as Erlang records}{14}}
-\@writefile{toc}{\contentsline {subsubsection}{Pastry's routing table}{14}}
-\newlabel{listingPastryDataStructures}{{3.2}{15}}
-\@writefile{lol}{\contentsline {lstlisting}{\numberline {3.2}Pastry routing table as Erlang records}{15}}
+\@writefile{toc}{\contentsline {subsubsection}{Pastry's routing state}{14}}
+\newlabel{sec:pastryRoutingState}{{3.3.1}{14}}
 \citation{chord}
 \citation{pastry}
-\@writefile{toc}{\contentsline {subsubsection}{Example routing state}{16}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.3.2}Routing}{16}}
-\@writefile{toc}{\contentsline {subsubsection}{Routing in Chord}{16}}
-\@writefile{lof}{\contentsline {figure}{\numberline {3.4}{\ignorespaces Key-space with nodes. Each node has two keys. The top one is the key represented in base 10 as Chord sees it, and the bottom one in base 4 as seen by Pastry in this example.\relax }}{17}}
-\newlabel{figKeyspaceExample}{{3.4}{17}}
-\@writefile{lof}{\contentsline {figure}{\numberline {3.5}{\ignorespaces Chord's approach to routing.\relax }}{18}}
-\newlabel{figRoutingChord}{{3.5}{18}}
-\newlabel{listingChordPseudocode}{{3.3}{18}}
-\@writefile{lol}{\contentsline {lstlisting}{\numberline {3.3}Chord routing pseudo code}{18}}
-\newlabel{listingFindSuccessor}{{3.4}{19}}
-\@writefile{lol}{\contentsline {lstlisting}{\numberline {3.4}Finding the successor of a key}{19}}
-\newlabel{listingFindPredecessor}{{3.5}{19}}
-\@writefile{lol}{\contentsline {lstlisting}{\numberline {3.5}Finding the predecessor of a key}{19}}
-\newlabel{listingClosestPrecedingFinger}{{3.6}{20}}
-\@writefile{lol}{\contentsline {lstlisting}{\numberline {3.6}Returns the node most closely preceding the key}{20}}
-\newlabel{listingCheckClosestPrecedingFinger}{{3.7}{20}}
-\@writefile{lol}{\contentsline {lstlisting}{\numberline {3.7}Check if a finger is the closest known finger to a key. Returns the node most closely preceding the key}{20}}
-\citation{pastry}
+\@writefile{toc}{\contentsline {subsubsection}{Example routing state}{15}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.3.2}Routing}{15}}
+\@writefile{toc}{\contentsline {subsubsection}{Routing in Chord}{15}}
+\@writefile{lof}{\contentsline {figure}{\numberline {3.4}{\ignorespaces Key-space with nodes. Each node has two keys. The top one is the key represented in base 10 as Chord sees it, and the bottom one in base 4 as seen by Pastry in this example.\relax }}{16}}
+\newlabel{figKeyspaceExample}{{3.4}{16}}
+\@writefile{lot}{\contentsline {table}{\numberline {3.2}{\ignorespaces Chord routing table for nodes in figure 3.4\hbox {}\relax }}{17}}
+\newlabel{tableChordRoutingTableImpl}{{3.2}{17}}
+\newlabel{listingChordPseudocode}{{3.1}{17}}
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {3.1}Chord routing pseudo code}{17}}
+\@writefile{lot}{\contentsline {table}{\numberline {3.3}{\ignorespaces The Pastry routing state from the Pastry nodes in figure 3.4\hbox {}. The bold digits in the routing table indicate at which digit the node keys differ from the node's own key.\relax }}{18}}
+\newlabel{tablePastryRoutingTableImpl}{{3.3}{18}}
+\newlabel{listingFindSuccessor}{{3.2}{18}}
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {3.2}Finding the successor of a key}{18}}
+\@writefile{lof}{\contentsline {figure}{\numberline {3.5}{\ignorespaces Chord's approach to routing.\relax }}{19}}
+\newlabel{figRoutingChord}{{3.5}{19}}
+\newlabel{listingFindPredecessor}{{3.3}{20}}
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {3.3}Finding the predecessor of a key}{20}}
+\newlabel{listingClosestPrecedingFinger}{{3.4}{20}}
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {3.4}Returns the node most closely preceding the key}{20}}
+\newlabel{listingCheckClosestPrecedingFinger}{{3.5}{21}}
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {3.5}Check if a finger is the closest known finger to a key. Returns the node most closely preceding the key}{21}}
 \@writefile{toc}{\contentsline {subsubsection}{Routing in Pastry}{21}}
+\newlabel{sec:routingInPastry}{{3.3.2}{21}}
+\citation{pastry}
 \@writefile{lof}{\contentsline {figure}{\numberline {3.6}{\ignorespaces Pastry's approach to routing.\relax }}{22}}
 \newlabel{figRoutingPastry}{{3.6}{22}}
-\newlabel{listingPastryPseudocode}{{3.8}{22}}
-\@writefile{lol}{\contentsline {lstlisting}{\numberline {3.8}Message routing pseudo code for Pastry}{22}}
-\newlabel{listingRouteMsg}{{3.9}{23}}
-\@writefile{lol}{\contentsline {lstlisting}{\numberline {3.9}Routes a message towards a recipient}{23}}
-\newlabel{listingRouteToLeafSet}{{3.10}{23}}
-\@writefile{lol}{\contentsline {lstlisting}{\numberline {3.10}Routes a message to the leaf set if applicable}{23}}
 \citation{chord}
 \citation{pastry}
-\newlabel{listingRouteToNodeInRoutingTable}{{3.11}{24}}
-\@writefile{lol}{\contentsline {lstlisting}{\numberline {3.11}Routes a message to a node in the routing table}{24}}
-\newlabel{listingRouteToCloserNode}{{3.12}{24}}
-\@writefile{lol}{\contentsline {lstlisting}{\numberline {3.12}Routes a message to any closer node}{24}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.3.3}Replication of data}{25}}
-\@writefile{toc}{\contentsline {section}{\numberline {3.4}Search server}{25}}
-\@writefile{toc}{\contentsline {section}{\numberline {3.5}Central control hub}{25}}
-\@writefile{lof}{\contentsline {figure}{\numberline {3.7}{\ignorespaces The Hub Application interface running on the central control hub. Shown here is the web interface that allows me to start and stop nodes, change between using Chord and Pastry, and start and stop experiments\relax }}{26}}
-\newlabel{figHubApp}{{3.7}{26}}
-\@writefile{toc}{\contentsline {section}{\numberline {3.6}Supervision for fault tolerance}{27}}
-\@writefile{toc}{\contentsline {section}{\numberline {3.7}Hot code reloading}{27}}
-\@writefile{lof}{\contentsline {figure}{\numberline {3.8}{\ignorespaces This figure shows the hierarchy of supervisors and the servers they supervise.\relax }}{28}}
-\newlabel{figSupervisionTree}{{3.8}{28}}
-\@writefile{lot}{\contentsline {table}{\numberline {3.2}{\ignorespaces Chord routing table for nodes in figure 3.4\hbox {}\relax }}{30}}
-\newlabel{tableChordRoutingTable}{{3.2}{30}}
-\@writefile{lot}{\contentsline {table}{\numberline {3.3}{\ignorespaces The Pastry routing state from the Pastry nodes in figure 3.4\hbox {}. The bold digits in the routing table indicate at which digit the node keys differ from the node's own key.\relax }}{31}}
-\newlabel{tablePastryRoutingTable}{{3.3}{31}}
-\@writefile{toc}{\contentsline {chapter}{\numberline {4}Evaluation}{32}}
+\newlabel{listingPastryPseudocode}{{3.6}{23}}
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {3.6}Message routing pseudo code for Pastry}{23}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.3.3}Replication of data}{23}}
+\@writefile{toc}{\contentsline {section}{\numberline {3.4}Search server}{23}}
+\@writefile{toc}{\contentsline {section}{\numberline {3.5}Central control hub}{24}}
+\@writefile{toc}{\contentsline {section}{\numberline {3.6}Supervision for fault tolerance}{24}}
+\@writefile{lof}{\contentsline {figure}{\numberline {3.7}{\ignorespaces The Hub Application interface running on the central control hub. Shown here is the web interface that allows me to start and stop nodes, change between using Chord and Pastry, and start and stop experiments\relax }}{25}}
+\newlabel{figHubApp}{{3.7}{25}}
+\@writefile{toc}{\contentsline {section}{\numberline {3.7}Hot code reloading}{26}}
+\@writefile{lof}{\contentsline {figure}{\numberline {3.8}{\ignorespaces This figure shows the hierarchy of supervisors and the servers they supervise.\relax }}{27}}
+\newlabel{figSupervisionTree}{{3.8}{27}}
+\@writefile{toc}{\contentsline {chapter}{\numberline {4}Evaluation}{28}}
 \@writefile{lof}{\addvspace {10\p@ }}
 \@writefile{lot}{\addvspace {10\p@ }}
-\@writefile{toc}{\contentsline {section}{\numberline {4.1}What to evaluate}{32}}
-\@writefile{toc}{\contentsline {section}{\numberline {4.2}Experimental design}{33}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {4.2.1}Experimental pattern}{33}}
-\@writefile{toc}{\contentsline {section}{\numberline {4.3}Effects of Planet-Lab}{34}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {4.3.1}Experimental cleanliness and validity of results}{34}}
-\@writefile{lof}{\contentsline {figure}{\numberline {4.1}{\ignorespaces This graph shows how latency vary with time in a 15 minute experimental run of Chord.\relax }}{35}}
-\newlabel{figLatencyAgainstTime}{{4.1}{35}}
-\@writefile{lof}{\contentsline {figure}{\numberline {4.2}{\ignorespaces This graph shows how the request rate and success rate varies over a 15 minute experimental run of Chord.\relax }}{36}}
-\newlabel{figRateAgainstTime}{{4.2}{36}}
-\@writefile{toc}{\contentsline {section}{\numberline {4.4}Results}{37}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {4.4.1}Mean latency and success rate for Chord and Pastry}{37}}
-\@writefile{lof}{\contentsline {figure}{\numberline {4.3}{\ignorespaces This graph shows latencies for Chord with 95\% confidence intervals for setups of slightly above 60 nodes.\relax }}{38}}
-\newlabel{figChordLatency}{{4.3}{38}}
-\@writefile{lof}{\contentsline {figure}{\numberline {4.4}{\ignorespaces This graph shows latencies for Pastry with 95\% confidence intervals for setups of slightly above 60 nodes.\relax }}{39}}
-\newlabel{figPastryLatency}{{4.4}{39}}
-\@writefile{lof}{\contentsline {figure}{\numberline {4.5}{\ignorespaces This graph shows the instantaneous rate of requests and the instantaneous rate of successfully completed requests sampled once per second for Pastry. An experimental setup with slightly more than 60 nodes was used.\relax }}{40}}
-\newlabel{figPastrySuccessRate}{{4.5}{40}}
-\@writefile{lof}{\contentsline {figure}{\numberline {4.6}{\ignorespaces This graph shows the instantaneous rate of requests and the instantaneous rate of successfully completed requests sampled once per second for Chord. An experimental setup with slightly more than 60 nodes was used.\relax }}{41}}
-\newlabel{figChordSuccessRate}{{4.6}{41}}
-\@writefile{lof}{\contentsline {figure}{\numberline {4.7}{\ignorespaces This graph shows the cumulative distribution function of a request being successful within the first 5 seconds for Chord.\relax }}{42}}
-\newlabel{figChordCDF}{{4.7}{42}}
-\@writefile{lof}{\contentsline {figure}{\numberline {4.8}{\ignorespaces This graph shows the cumulative distribution function of a request being successful within the first 5 seconds for Pastry.\relax }}{43}}
-\newlabel{figPastryCDF}{{4.8}{43}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {4.4.2}Why Chord performs worse that Pastry}{44}}
-\@writefile{lof}{\contentsline {figure}{\numberline {4.9}{\ignorespaces This graph shows the number of nodes involved in a key lookup in a particular experimental run for Chord.\relax }}{45}}
-\newlabel{figChordNumNodes}{{4.9}{45}}
-\@writefile{lof}{\contentsline {figure}{\numberline {4.10}{\ignorespaces This graph shows the number of nodes involved in a key lookup in a particular experimental run for Chord.\relax }}{46}}
-\newlabel{figPastryNumNodes}{{4.10}{46}}
-\@writefile{toc}{\contentsline {section}{\numberline {4.5}Effect of Pastry routing heuristics}{47}}
-\@writefile{lof}{\contentsline {figure}{\numberline {4.11}{\ignorespaces The illustration shows what happens when routing fails in Chord. We see how when node A gets the unavailable node D returned from B, it is stuck and the routing fails.\relax }}{48}}
-\newlabel{figureChordFailedLookup}{{4.11}{48}}
+\@writefile{toc}{\contentsline {section}{\numberline {4.1}What to evaluate}{28}}
+\@writefile{toc}{\contentsline {section}{\numberline {4.2}Experimental design}{29}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.2.1}Experimental pattern}{29}}
+\@writefile{toc}{\contentsline {section}{\numberline {4.3}Effects of Planet-Lab}{30}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.3.1}Experimental cleanliness and validity of results}{30}}
+\@writefile{lof}{\contentsline {figure}{\numberline {4.1}{\ignorespaces This graph shows how latency vary with time in a 15 minute experimental run of Chord.\relax }}{31}}
+\newlabel{figLatencyAgainstTime}{{4.1}{31}}
+\@writefile{lof}{\contentsline {figure}{\numberline {4.2}{\ignorespaces This graph shows how the request rate and success rate varies over a 15 minute experimental run of Chord.\relax }}{32}}
+\newlabel{figRateAgainstTime}{{4.2}{32}}
+\@writefile{toc}{\contentsline {section}{\numberline {4.4}Results}{33}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.4.1}Mean latency and success rate for Chord and Pastry}{33}}
+\@writefile{lof}{\contentsline {figure}{\numberline {4.3}{\ignorespaces This graph shows latencies for Chord with 95\% confidence intervals for setups of slightly above 60 nodes.\relax }}{35}}
+\newlabel{figChordLatency}{{4.3}{35}}
+\@writefile{lof}{\contentsline {figure}{\numberline {4.4}{\ignorespaces This graph shows latencies for Pastry with 95\% confidence intervals for setups of slightly above 60 nodes.\relax }}{36}}
+\newlabel{figPastryLatency}{{4.4}{36}}
+\@writefile{lof}{\contentsline {figure}{\numberline {4.5}{\ignorespaces This graph shows the instantaneous rate of requests and the instantaneous rate of successfully completed requests sampled once per second for Pastry. An experimental setup with slightly more than 60 nodes was used.\relax }}{37}}
+\newlabel{figPastrySuccessRate}{{4.5}{37}}
+\@writefile{lof}{\contentsline {figure}{\numberline {4.6}{\ignorespaces This graph shows the instantaneous rate of requests and the instantaneous rate of successfully completed requests sampled once per second for Chord. An experimental setup with slightly more than 60 nodes was used.\relax }}{38}}
+\newlabel{figChordSuccessRate}{{4.6}{38}}
+\@writefile{lof}{\contentsline {figure}{\numberline {4.7}{\ignorespaces This graph shows the cumulative distribution function of a request being successful within the first 5 seconds for Chord.\relax }}{39}}
+\newlabel{figChordCDF}{{4.7}{39}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.4.2}Why Pastry performs better that Chord}{39}}
+\@writefile{lof}{\contentsline {figure}{\numberline {4.8}{\ignorespaces This graph shows the cumulative distribution function of a request being successful within the first 5 seconds for Pastry.\relax }}{40}}
+\newlabel{figPastryCDF}{{4.8}{40}}
+\@writefile{lof}{\contentsline {figure}{\numberline {4.9}{\ignorespaces This graph shows the number of nodes involved in a key lookup in a particular experimental run for Chord.\relax }}{41}}
+\newlabel{figChordNumNodes}{{4.9}{41}}
+\@writefile{lof}{\contentsline {figure}{\numberline {4.10}{\ignorespaces This graph shows the number of nodes involved in a key lookup in a particular experimental run for Chord.\relax }}{42}}
+\newlabel{figPastryNumNodes}{{4.10}{42}}
+\@writefile{toc}{\contentsline {section}{\numberline {4.5}Effect of Pastry routing heuristics}{43}}
+\@writefile{lof}{\contentsline {figure}{\numberline {4.11}{\ignorespaces The illustration shows what happens when routing fails in Chord. We see how when node A gets the unavailable node D returned from B, it is stuck and the routing fails.\relax }}{44}}
+\newlabel{figureChordFailedLookup}{{4.11}{44}}
+\@writefile{lof}{\contentsline {figure}{\numberline {4.12}{\ignorespaces The illustration shows how Pastry deals with node failure during message routing. The unavailable node D is routed around by node B to get to the target node.\relax }}{45}}
+\newlabel{figurePastryFailedLookup}{{4.12}{45}}
 \citation{pastry}
-\@writefile{lof}{\contentsline {figure}{\numberline {4.12}{\ignorespaces The illustration shows how Pastry deals with node failure during message routing. The unavailable node D is routed around by node B to get to the target node.\relax }}{49}}
-\newlabel{figurePastryFailedLookup}{{4.12}{49}}
-\@writefile{lof}{\contentsline {figure}{\numberline {4.13}{\ignorespaces Latencies for Pastry with and without the routing proximity heuristic activated. Shown with 95\% confidence intervals.\relax }}{50}}
-\newlabel{figPastryHeuristic}{{4.13}{50}}
-\@writefile{toc}{\contentsline {section}{\numberline {4.6}Cost of using link records}{51}}
-\@writefile{lot}{\contentsline {table}{\numberline {4.1}{\ignorespaces Number of link new link records per additional character in the search term Archaya Pruedsakaran and the size of the link records for the cases where link records are generate for each additional 3, 4, 5 and 6 characters in a name. Green cells indicate that one of the new link records points to the profile record we are looking for.\relax }}{53}}
-\newlabel{tableIndianName}{{4.1}{53}}
-\@writefile{lot}{\contentsline {table}{\numberline {4.2}{\ignorespaces Number of link new link records per additional character in the search term Brad Catron and the size of the link records for the cases where link records are generate for each additional 3, 4, 5 and 6 characters in a name. Green cells indicate that one of the new link records points to the profile record we are looking for.\relax }}{54}}
-\newlabel{tableAmericanName}{{4.2}{54}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {4.6.1}Viability of Chord and Pastry as back end data stores for a search engine}{54}}
-\@writefile{toc}{\contentsline {chapter}{\numberline {5}Conclusion}{56}}
+\@writefile{lof}{\contentsline {figure}{\numberline {4.13}{\ignorespaces Latencies for Pastry with and without the routing proximity heuristic activated. Shown with 95\% confidence intervals.\relax }}{46}}
+\newlabel{figPastryHeuristic}{{4.13}{46}}
+\@writefile{toc}{\contentsline {section}{\numberline {4.6}Cost of using link records}{47}}
+\newlabel{sec:costOfLinkRecords}{{4.6}{47}}
+\@writefile{lot}{\contentsline {table}{\numberline {4.1}{\ignorespaces Number of link new link records per additional character in the search term Archaya Pruedsakaran and the size of the link records for the cases where link records are generate for each additional 3, 4, 5 and 6 characters in a name. Green cells indicate that one of the new link records points to the profile record we are looking for.\relax }}{48}}
+\newlabel{tableIndianName}{{4.1}{48}}
+\@writefile{lot}{\contentsline {table}{\numberline {4.2}{\ignorespaces Number of link new link records per additional character in the search term Brad Catron and the size of the link records for the cases where link records are generate for each additional 3, 4, 5 and 6 characters in a name. Green cells indicate that one of the new link records points to the profile record we are looking for.\relax }}{49}}
+\newlabel{tableAmericanName}{{4.2}{49}}
+\@writefile{toc}{\contentsline {section}{\numberline {4.7}Utility of Chord and Pastry as back end data stores for a search engine}{50}}
+\@writefile{toc}{\contentsline {chapter}{\numberline {5}Conclusion}{51}}
 \@writefile{lof}{\addvspace {10\p@ }}
 \@writefile{lot}{\addvspace {10\p@ }}
-\@writefile{toc}{\contentsline {chapter}{\numberline {6}Acknowledgements}{58}}
+\@writefile{toc}{\contentsline {chapter}{\numberline {6}Acknowledgements}{53}}
 \@writefile{lof}{\addvspace {10\p@ }}
 \@writefile{lot}{\addvspace {10\p@ }}
-\@writefile{toc}{\contentsline {chapter}{Bibliography}{58}}
+\@writefile{toc}{\contentsline {chapter}{Bibliography}{53}}
 \bibcite{progerlang}{1}
 \bibcite{erlangprog}{2}
 \bibcite{chord}{3}
@@ -155,11 +146,37 @@
 \bibcite{erlangtdd}{12}
 \bibcite{webmachine}{13}
 \@writefile{toc}{\contentsline {chapter} {Appendix}{}}
-\@writefile{toc}{\contentsline {chapter}{\numberline {A}Sample source code}{61}}
+\@writefile{toc}{\contentsline {chapter}{\numberline {A}Routing state as Erlang data structures}{56}}
 \@writefile{lof}{\addvspace {10\p@ }}
 \@writefile{lot}{\addvspace {10\p@ }}
-\newlabel{pastry_implementation}{{A.1}{61}}
-\@writefile{lol}{\contentsline {lstlisting}{\numberline {A.1}Implementation of Pastry}{61}}
-\@writefile{toc}{\contentsline {chapter}{\numberline {B}Project Proposal}{75}}
+\newlabel{sec:appendixErlangRoutingState}{{A}{56}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {A.0.1}Chord routing state}{56}}
+\newlabel{listingChordDataStructures}{{A.1}{56}}
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {A.1}Chord routing table as Erlang records}{56}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {A.0.2}Pastry routing state}{57}}
+\newlabel{listingPastryDataStructures}{{A.2}{57}}
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {A.2}Pastry routing table as Erlang records}{57}}
+\@writefile{toc}{\contentsline {chapter}{\numberline {B}Pastry routing algorithm in Erlang}{58}}
+\@writefile{lof}{\addvspace {10\p@ }}
+\@writefile{lot}{\addvspace {10\p@ }}
+\newlabel{sec:appendixErlangRoutingAlgorithm}{{B}{58}}
+\newlabel{listingRouteMsg}{{B.1}{58}}
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {B.1}Routes a message towards a recipient}{58}}
+\newlabel{listingRouteToLeafSet}{{B.2}{58}}
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {B.2}Routes a message to the leaf set if applicable}{58}}
+\newlabel{listingRouteToNodeInRoutingTable}{{B.3}{59}}
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {B.3}Routes a message to a node in the routing table}{59}}
+\newlabel{listingRouteToCloserNode}{{B.4}{59}}
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {B.4}Routes a message to any closer node}{59}}
+\@writefile{toc}{\contentsline {chapter}{\numberline {C}Optimizing the link records approach}{61}}
+\@writefile{lof}{\addvspace {10\p@ }}
+\@writefile{lot}{\addvspace {10\p@ }}
+\newlabel{sec:appendixLinkRecords}{{C}{61}}
+\@writefile{toc}{\contentsline {chapter}{\numberline {D}Sample source code}{63}}
+\@writefile{lof}{\addvspace {10\p@ }}
+\@writefile{lot}{\addvspace {10\p@ }}
+\newlabel{pastry_implementation}{{D.1}{63}}
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {D.1}Implementation of Pastry}{63}}
+\@writefile{toc}{\contentsline {chapter}{\numberline {E}Project Proposal}{77}}
 \@writefile{lof}{\addvspace {10\p@ }}
 \@writefile{lot}{\addvspace {10\p@ }}

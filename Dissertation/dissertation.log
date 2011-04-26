@@ -1,4 +1,4 @@
-This is pdfTeXk, Version 3.1415926-1.40.9 (Web2C 7.5.7) (format=pdflatex 2009.3.30)  24 APR 2011 15:15
+This is pdfTeXk, Version 3.1415926-1.40.9 (Web2C 7.5.7) (format=pdflatex 2009.3.30)  26 APR 2011 21:06
 entering extended mode
 \write18 enabled.
  %&-line parsing enabled.
@@ -249,11 +249,7 @@ This is `epsf.tex' v2.7.3 <23 July 2005>
 \epsfxsize=\dimen133
 \epsfysize=\dimen134
 \pspoints=\dimen135
-) (./dissertation.aux
-
-LaTeX Warning: Label `tableChordRoutingTable' multiply defined.
-
-)
+) (./dissertation.aux)
 \openout1 = `dissertation.aux'.
 
 LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 79.
@@ -268,7 +264,8 @@ LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 79.
 LaTeX Font Info:    ... okay on input line 79.
 LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 79.
 LaTeX Font Info:    ... okay on input line 79.
- (/usr/local/texlive/2008/texmf-dist/tex/context/base/supp-pdf.tex
+
+(/usr/local/texlive/2008/texmf-dist/tex/context/base/supp-pdf.tex
 [Loading MPS to PDF converter (version 2006.09.02).]
 \scratchcounter=\count114
 \scratchdimen=\dimen136
@@ -309,14 +306,7 @@ LaTeX Font Info:    Font shape `OMS/cmr/m/n' in size <12> not available
 \tf@toc=\write3
 \openout3 = `dissertation.toc'.
 
- [4] (./dissertation.lof [5
-
-])
-\tf@lof=\write4
-\openout4 = `dissertation.lof'.
-
-)
-(./chapters/introduction.tex [1]
+) (./chapters/introduction.tex [1]
 Chapter 1.
 ) (./chapters/preparation.tex [2
 
@@ -324,7 +314,7 @@ Chapter 1.
 Chapter 2.
 [4
 
-] [5] <illustrations/LinkRecords.png, id=46, 82.3878pt x 53.7207pt>
+] [5] <illustrations/LinkRecords.png, id=40, 82.3878pt x 53.7207pt>
 File: illustrations/LinkRecords.png Graphic file (type png)
 
 <use illustrations/LinkRecords.png> [6 <./illustrations/LinkRecords.png (PNG co
@@ -335,224 +325,187 @@ Chapter 3.
 ]
 system(epstopdf illustrations/ComponentOverview.eps)...executed.
 
- <illustrations/ComponentOverview.pdf, id=62, 557.08125pt x 322.20375pt>
+ <illustrations/ComponentOverview.pdf, id=56, 557.08125pt x 322.20375pt>
 File: illustrations/ComponentOverview.pdf Graphic file (type pdf)
 
 <use illustrations/ComponentOverview.pdf> [10 <./illustrations/ComponentOvervie
-w.pdf>] [11] <illustrations/ChordKeySpace.png, id=75, 215.1237pt x 81.4242pt>
+w.pdf>] [11] <illustrations/ChordKeySpace.png, id=69, 215.1237pt x 81.4242pt>
 File: illustrations/ChordKeySpace.png Graphic file (type png)
 
 <use illustrations/ChordKeySpace.png>
-<illustrations/PastryKeySpace.png, id=77, 215.1237pt x 81.4242pt>
+<illustrations/PastryKeySpace.png, id=71, 215.1237pt x 81.4242pt>
 File: illustrations/PastryKeySpace.png Graphic file (type png)
 
 <use illustrations/PastryKeySpace.png> [12 <./illustrations/ChordKeySpace.png>]
-[13 <./illustrations/PastryKeySpace.png>]
-Overfull \hbox (6.0pt too wide) in paragraph at lines 134--134
-[][][][][][][] 
- []
+[13 <./illustrations/PastryKeySpace.png>] [14]
+<illustrations/KeyspaceExample.png, id=88, 243.5499pt x 251.7405pt>
+File: illustrations/KeyspaceExample.png Graphic file (type png)
 
-LaTeX Font Info:    Try loading font information for OT1+pcr on input line 134.
+<use illustrations/KeyspaceExample.png> [15]
+<illustrations/ChordRoutingSuccess.png, id=92, 215.1237pt x 223.3143pt>
+File: illustrations/ChordRoutingSuccess.png Graphic file (type png)
+
+<use illustrations/ChordRoutingSuccess.png>
+LaTeX Font Info:    Try loading font information for OT1+pcr on input line 294.
+
 
 (/usr/local/texlive/2008/texmf-dist/tex/latex/psnfss/ot1pcr.fd
 File: ot1pcr.fd 2001/06/04 font definitions for OT1/pcr.
-)
-(./sourceCode/chord_routing_table.erl) [14]
-Overfull \hbox (6.0pt too wide) in paragraph at lines 148--148
+) [16 <./illustrations/KeyspaceExample.png>]
+Overfull \hbox (6.0pt too wide) in paragraph at lines 298--298
 [][][][][][][] 
  []
 
-(./sourceCode/pastry_routing_table.erl [15])
-<illustrations/KeyspaceExample.png, id=99, 243.5499pt x 251.7405pt>
-File: illustrations/KeyspaceExample.png Graphic file (type png)
-
-<use illustrations/KeyspaceExample.png>
-
-LaTeX Warning: `h' float specifier changed to `ht'.
-
-
-LaTeX Warning: `h' float specifier changed to `ht'.
-
-[16] <illustrations/ChordRoutingSuccess.png, id=103, 215.1237pt x 223.3143pt>
-File: illustrations/ChordRoutingSuccess.png Graphic file (type png)
-
-<use illustrations/ChordRoutingSuccess.png> [17 <./illustrations/KeyspaceExampl
-e.png>]
-Overfull \hbox (6.0pt too wide) in paragraph at lines 300--300
+(./sourceCode/chord_pseudocode.txt [17])
+Overfull \hbox (6.0pt too wide) in paragraph at lines 307--307
 [][][][][][][] 
  []
 
-(./sourceCode/chord_pseudocode.txt [18 <./illustrations/ChordRoutingSuccess.png
->])
-Overfull \hbox (6.0pt too wide) in paragraph at lines 309--309
-[][][][][][][] 
- []
-
-(./sourceCode/find_successor.erl)
-Underfull \hbox (badness 5374) in paragraph at lines 311--315
-[]\OT1/cmr/m/n/12 In code list-ing 3.5[] I show the Er-lang equiv-a-lent of the
+(./sourceCode/find_successor.erl [18])
+Underfull \hbox (badness 5374) in paragraph at lines 309--313
+[]\OT1/cmr/m/n/12 In code list-ing 3.3[] I show the Er-lang equiv-a-lent of the
  Chord
  []
 
-
-Overfull \hbox (6.0pt too wide) in paragraph at lines 316--316
+[19 <./illustrations/ChordRoutingSuccess.png>]
+Overfull \hbox (6.0pt too wide) in paragraph at lines 314--314
 [][][][][][][] 
  []
 
-(./sourceCode/find_predecessor.erl [19])
-Overfull \hbox (6.0pt too wide) in paragraph at lines 323--323
+(./sourceCode/find_predecessor.erl)
+Overfull \hbox (6.0pt too wide) in paragraph at lines 321--321
 [][][][][][][] 
  []
 
-(./sourceCode/closest_preceding_finger.erl)
-Underfull \hbox (badness 10000) in paragraph at lines 325--326
+(./sourceCode/closest_preceding_finger.erl [20])
+Underfull \hbox (badness 10000) in paragraph at lines 323--324
 []\OT1/cmr/m/n/12 The bounds check is im-ple-mented in the helper func-tion
  []
 
 
-Overfull \hbox (6.0pt too wide) in paragraph at lines 327--327
+Overfull \hbox (6.0pt too wide) in paragraph at lines 325--325
 [][][][][][][] 
  []
 
-(./sourceCode/check_closest_preceding_finger.erl [20])
-<illustrations/PastryRoutingSuccess.png, id=119, 215.1237pt x 223.3143pt>
+(./sourceCode/check_closest_preceding_finger.erl) [21]
+<illustrations/PastryRoutingSuccess.png, id=116, 215.1237pt x 223.3143pt>
 File: illustrations/PastryRoutingSuccess.png Graphic file (type png)
 
-<use illustrations/PastryRoutingSuccess.png> [21]
-Overfull \hbox (6.0pt too wide) in paragraph at lines 350--350
+<use illustrations/PastryRoutingSuccess.png> [22 <./illustrations/PastryRouting
+Success.png>]
+Overfull \hbox (6.0pt too wide) in paragraph at lines 349--349
 [][][][][][][] 
  []
 
-(./sourceCode/pastry_pseudocode.txt [22 <./illustrations/PastryRoutingSuccess.p
-ng>])
-Overfull \hbox (6.0pt too wide) in paragraph at lines 357--357
-[][][][][][][] 
- []
-
-(./sourceCode/route_msg.erl)
-Overfull \hbox (6.0pt too wide) in paragraph at lines 361--361
-[][][][][][][] 
- []
-
-(./sourceCode/route_to_leaf_set.erl) [23]
-Overfull \hbox (6.0pt too wide) in paragraph at lines 368--368
-[][][][][][][] 
- []
-
-(./sourceCode/route_to_node_in_routing_table.erl)
-Overfull \hbox (6.0pt too wide) in paragraph at lines 372--372
-[][][][][][][] 
- []
-
-(./sourceCode/route_to_closer_node.erl) [24] [25]
-<illustrations/HubApp.png, id=137, 984.67876pt x 877.2775pt>
+(./sourceCode/pastry_pseudocode.txt) [23]
+<illustrations/HubApp.png, id=124, 984.67876pt x 877.2775pt>
 File: illustrations/HubApp.png Graphic file (type png)
 
-<use illustrations/HubApp.png> [26 <./illustrations/HubApp.png>]
+<use illustrations/HubApp.png> [24] [25 <./illustrations/HubApp.png>]
 system(epstopdf illustrations/ClientSupervisionTree.eps)...executed.
 
 
-<illustrations/ClientSupervisionTree.pdf, id=142, 537.00626pt x 753.81625pt>
+<illustrations/ClientSupervisionTree.pdf, id=132, 537.00626pt x 753.81625pt>
 File: illustrations/ClientSupervisionTree.pdf Graphic file (type pdf)
 
 <use illustrations/ClientSupervisionTree.pdf>) (./chapters/evaluation.tex
-[27] [28 <./illustrations/ClientSupervisionTree.pdf>] [29] [30] [31]
+[26] [27 <./illustrations/ClientSupervisionTree.pdf>]
 Chapter 4.
-[32
+[28
 
-] [33] [34]
+] [29]
 system(epstopdf illustrations/latency_aginst_time_chord.eps)...executed.
 
 
-<illustrations/latency_aginst_time_chord.pdf, id=173, 361.35pt x 252.945pt>
+<illustrations/latency_aginst_time_chord.pdf, id=151, 361.35pt x 252.945pt>
 File: illustrations/latency_aginst_time_chord.pdf Graphic file (type pdf)
 
 <use illustrations/latency_aginst_time_chord.pdf>
 system(epstopdf illustrations/rate_against_time_chord.eps)...executed.
 
 
-<illustrations/rate_against_time_chord.pdf, id=174, 361.35pt x 252.945pt>
+<illustrations/rate_against_time_chord.pdf, id=152, 361.35pt x 252.945pt>
 File: illustrations/rate_against_time_chord.pdf Graphic file (type pdf)
 
-<use illustrations/rate_against_time_chord.pdf> [35 <./illustrations/latency_ag
-inst_time_chord.pdf>] [36 <./illustrations/rate_against_time_chord.pdf>]
-[37]
+<use illustrations/rate_against_time_chord.pdf> [30] [31 <./illustrations/laten
+cy_aginst_time_chord.pdf>] [32 <./illustrations/rate_against_time_chord.pdf>]
+[33]
 system(epstopdf illustrations/latency_chord.eps)...executed.
 
- <illustrations/latency_chord.pdf, id=195, 361.35pt x 252.945pt>
+ <illustrations/latency_chord.pdf, id=176, 361.35pt x 252.945pt>
 File: illustrations/latency_chord.pdf Graphic file (type pdf)
 
 <use illustrations/latency_chord.pdf>
 system(epstopdf illustrations/latency_pastry.eps)...executed.
 
 
-<illustrations/latency_pastry.pdf, id=196, 361.35pt x 252.945pt>
+<illustrations/latency_pastry.pdf, id=177, 361.35pt x 252.945pt>
 File: illustrations/latency_pastry.pdf Graphic file (type pdf)
 
 <use illustrations/latency_pastry.pdf>
 system(epstopdf illustrations/success_rate_pastry.eps)...executed.
 
 
-<illustrations/success_rate_pastry.pdf, id=197, 361.35pt x 252.945pt>
+<illustrations/success_rate_pastry.pdf, id=178, 361.35pt x 252.945pt>
 File: illustrations/success_rate_pastry.pdf Graphic file (type pdf)
 
 <use illustrations/success_rate_pastry.pdf>
 system(epstopdf illustrations/success_rate_chord.eps)...executed.
 
 
-<illustrations/success_rate_chord.pdf, id=198, 361.35pt x 252.945pt>
+<illustrations/success_rate_chord.pdf, id=179, 361.35pt x 252.945pt>
 File: illustrations/success_rate_chord.pdf Graphic file (type pdf)
 
-<use illustrations/success_rate_chord.pdf> [38 <./illustrations/latency_chord.p
-df>] [39 <./illustrations/latency_pastry.pdf>] [40 <./illustrations/success_rat
-e_pastry.pdf>] [41 <./illustrations/success_rate_chord.pdf>]
+<use illustrations/success_rate_chord.pdf> [34] [35 <./illustrations/latency_ch
+ord.pdf>] [36 <./illustrations/latency_pastry.pdf>] [37 <./illustrations/succes
+s_rate_pastry.pdf>] [38 <./illustrations/success_rate_chord.pdf>]
 system(epstopdf illustrations/cdf_chord.eps)...executed.
 
 
-<illustrations/cdf_chord.pdf, id=231, 361.35pt x 252.945pt>
+<illustrations/cdf_chord.pdf, id=216, 361.35pt x 252.945pt>
 File: illustrations/cdf_chord.pdf Graphic file (type pdf)
 
 <use illustrations/cdf_chord.pdf>
 system(epstopdf illustrations/cdf_pastry.eps)...executed.
 
 
-<illustrations/cdf_pastry.pdf, id=232, 361.35pt x 252.945pt>
+<illustrations/cdf_pastry.pdf, id=217, 361.35pt x 252.945pt>
 File: illustrations/cdf_pastry.pdf Graphic file (type pdf)
 
-<use illustrations/cdf_pastry.pdf> [42 <./illustrations/cdf_chord.pdf>]
-[43 <./illustrations/cdf_pastry.pdf>]
+<use illustrations/cdf_pastry.pdf> [39 <./illustrations/cdf_chord.pdf>]
+[40 <./illustrations/cdf_pastry.pdf>]
 system(epstopdf illustrations/nodes_against_time_chord.eps)...executed.
 
 
-<illustrations/nodes_against_time_chord.pdf, id=250, 361.35pt x 252.945pt>
+<illustrations/nodes_against_time_chord.pdf, id=234, 361.35pt x 252.945pt>
 File: illustrations/nodes_against_time_chord.pdf Graphic file (type pdf)
 
 <use illustrations/nodes_against_time_chord.pdf>
 system(epstopdf illustrations/nodes_against_time_pastry.eps)...executed.
 
 
-<illustrations/nodes_against_time_pastry.pdf, id=251, 361.35pt x 252.945pt>
+<illustrations/nodes_against_time_pastry.pdf, id=235, 361.35pt x 252.945pt>
 File: illustrations/nodes_against_time_pastry.pdf Graphic file (type pdf)
 
-<use illustrations/nodes_against_time_pastry.pdf> [44] [45 <./illustrations/nod
-es_against_time_chord.pdf>] [46 <./illustrations/nodes_against_time_pastry.pdf>
-] <illustrations/ChordRoutingFailed.png, id=271, 215.1237pt x 223.3143pt>
+<use illustrations/nodes_against_time_pastry.pdf> [41 <./illustrations/nodes_ag
+ainst_time_chord.pdf>] [42 <./illustrations/nodes_against_time_pastry.pdf>]
+<illustrations/ChordRoutingFailed.png, id=252, 215.1237pt x 223.3143pt>
 File: illustrations/ChordRoutingFailed.png Graphic file (type png)
 
 <use illustrations/ChordRoutingFailed.png>
-<illustrations/PastryRoutingFailed.png, id=272, 215.1237pt x 223.3143pt>
+<illustrations/PastryRoutingFailed.png, id=253, 215.1237pt x 223.3143pt>
 File: illustrations/PastryRoutingFailed.png Graphic file (type png)
 
-<use illustrations/PastryRoutingFailed.png> [47]
+<use illustrations/PastryRoutingFailed.png> [43] [44 <./illustrations/ChordRout
+ingFailed.png>]
 system(epstopdf illustrations/pastry_heuristic.eps)...executed.
 
 
-<illustrations/pastry_heuristic.pdf, id=276, 361.35pt x 252.945pt>
+<illustrations/pastry_heuristic.pdf, id=262, 361.35pt x 252.945pt>
 File: illustrations/pastry_heuristic.pdf Graphic file (type pdf)
 
-<use illustrations/pastry_heuristic.pdf> [48 <./illustrations/ChordRoutingFaile
-d.png>] [49 <./illustrations/PastryRoutingFailed.png>] [50 <./illustrations/pas
-try_heuristic.pdf>] [51] [52]
+<use illustrations/pastry_heuristic.pdf> [45 <./illustrations/PastryRoutingFail
+ed.png>] [46 <./illustrations/pastry_heuristic.pdf>] [47]
 Missing character: There is no Â in font cmr8!
 Missing character: There is no   in font cmr8!
 Missing character: There is no Â in font cmr8!
@@ -592,7 +545,7 @@ Missing character: There is no   in font cmr8!
 Missing character: There is no Â in font cmr8!
 Missing character: There is no   in font cmr8!
 
-Overfull \hbox (28.99094pt too wide) in paragraph at lines 330--378
+Overfull \hbox (28.99094pt too wide) in paragraph at lines 313--361
  [] 
  []
 
@@ -616,16 +569,13 @@ Missing character: There is no Â in font cmr8!
 Missing character: There is no   in font cmr8!
 Missing character: There is no Â in font cmr8!
 Missing character: There is no   in font cmr8!
-
-LaTeX Warning: `h' float specifier changed to `ht'.
-
-[53] [54]) (./chapters/conclusion.tex [55]
+[48] [49]) (./chapters/conclusion.tex [50]
 Chapter 5.
-) (./chapters/acknowledgments.tex [56
+) (./chapters/acknowledgments.tex [51
 
-] [57]
+] [52]
 Chapter 6.
-) (./chapters/bibliography.tex [58
+) (./chapters/bibliography.tex [53
 
 ]
 Overfull \hbox (63.2685pt too wide) in paragraph at lines 36--38
@@ -657,60 +607,99 @@ Overfull \hbox (44.52547pt too wide) in paragraph at lines 55--58
 ithub.org / https://github.com/nialscorva/erlymock/wiki. 
  []
 
-[59
+[54
 
-]) (./chapters/appendices.tex [60]
+]) (./chapters/appendices.tex [55]
 Appendix A.
 
-Underfull \hbox (badness 10000) in paragraph at lines 5--6
+Overfull \hbox (6.0pt too wide) in paragraph at lines 11--11
+[][][][][][][] 
+ []
+
+(./sourceCode/chord_routing_table.erl) [56
+
+]
+Overfull \hbox (6.0pt too wide) in paragraph at lines 17--17
+[][][][][][][] 
+ []
+
+(./sourceCode/pastry_routing_table.erl) [57]
+Appendix B.
+
+Overfull \hbox (6.0pt too wide) in paragraph at lines 33--33
+[][][][][][][] 
+ []
+
+(./sourceCode/route_msg.erl)
+Overfull \hbox (6.0pt too wide) in paragraph at lines 37--37
+[][][][][][][] 
+ []
+
+(./sourceCode/route_to_leaf_set.erl) [58
+
+]
+Overfull \hbox (6.0pt too wide) in paragraph at lines 44--44
+[][][][][][][] 
+ []
+
+(./sourceCode/route_to_node_in_routing_table.erl)
+Overfull \hbox (6.0pt too wide) in paragraph at lines 48--48
+[][][][][][][] 
+ []
+
+(./sourceCode/route_to_closer_node.erl [59]) [60]
+Appendix C.
+[61
+
+] [62]
+Appendix D.
+
+Underfull \hbox (badness 10000) in paragraph at lines 83--84
 []\OT1/cmr/m/n/12 The full project source code can be found on github:
  []
 
 
-Overfull \hbox (6.0pt too wide) in paragraph at lines 7--7
+Overfull \hbox (6.0pt too wide) in paragraph at lines 85--85
 [][][][][][][] 
  []
 
-(./sourceCode/pastry.erl [61
+(./sourceCode/pastry.erl [63
 
-] [62] [63] [64] [65] [66] [67] [68] [69] [70]
-[71] [72])) [73] [74
+] [64] [65] [66] [67] [68] [69] [70] [71] [72]
+[73] [74])) [75] [76
 
 ]
-Appendix B.
-(./proposal/propbody.tex [75
+Appendix E.
+(./proposal/propbody.tex [77
 
-] [76] [77] [78] [79]) [80] (./dissertation.aux)
-
-LaTeX Warning: There were multiply-defined labels.
-
- ) 
+] [78] [79] [80] [81]) [82] (./dissertation.aux) ) 
 Here is how much of TeX's memory you used:
- 4630 strings out of 493876
- 71596 string characters out of 1150568
+ 4635 strings out of 493876
+ 71774 string characters out of 1150568
  358514 words of memory out of 3000000
- 7737 multiletter control sequences out of 10000+50000
+ 7745 multiletter control sequences out of 10000+50000
  12887 words of font info for 46 fonts, out of 3000000 for 5000
  714 hyphenation exceptions out of 8191
- 36i,12n,39p,921b,1496s stack positions out of 5000i,500n,10000p,200000b,50000s
-{/usr/local/texlive/2008/texmf-dist/fonts/enc/dvips/base/8r.enc}</usr/local/t
-exlive/2008/texmf-dist/fonts/type1/bluesky/cm/cmbx10.pfb></usr/local/texlive/20
-08/texmf-dist/fonts/type1/bluesky/cm/cmbx12.pfb></usr/local/texlive/2008/texmf-
-dist/fonts/type1/bluesky/cm/cmbx8.pfb></usr/local/texlive/2008/texmf-dist/fonts
-/type1/bluesky/cm/cmex10.pfb></usr/local/texlive/2008/texmf-dist/fonts/type1/bl
-uesky/cm/cmmi12.pfb></usr/local/texlive/2008/texmf-dist/fonts/type1/bluesky/cm/
-cmmi8.pfb></usr/local/texlive/2008/texmf-dist/fonts/type1/bluesky/cm/cmr10.pfb>
-</usr/local/texlive/2008/texmf-dist/fonts/type1/bluesky/cm/cmr12.pfb></usr/loca
-l/texlive/2008/texmf-dist/fonts/type1/bluesky/cm/cmr17.pfb></usr/local/texlive/
-2008/texmf-dist/fonts/type1/bluesky/cm/cmr6.pfb></usr/local/texlive/2008/texmf-
-dist/fonts/type1/bluesky/cm/cmr7.pfb></usr/local/texlive/2008/texmf-dist/fonts/
-type1/bluesky/cm/cmr8.pfb></usr/local/texlive/2008/texmf-dist/fonts/type1/blues
-ky/cm/cmsl12.pfb></usr/local/texlive/2008/texmf-dist/fonts/type1/bluesky/cm/cms
-s10.pfb></usr/local/texlive/2008/texmf-dist/fonts/type1/bluesky/cm/cmsy10.pfb><
-/usr/local/texlive/2008/texmf-dist/fonts/type1/bluesky/cm/cmsy8.pfb></usr/local
-/texlive/2008/texmf-dist/fonts/type1/bluesky/cm/cmti12.pfb></usr/local/texlive/
-2008/texmf-dist/fonts/type1/urw/courier/ucrr8a.pfb>
-Output written on dissertation.pdf (87 pages, 3236784 bytes).
+ 36i,12n,39p,921b,1495s stack positions out of 5000i,500n,10000p,200000b,50000s
+{/usr/local/texlive/2008/texm
+f-dist/fonts/enc/dvips/base/8r.enc}</usr/local/texlive/2008/texmf-dist/fonts/ty
+pe1/bluesky/cm/cmbx10.pfb></usr/local/texlive/2008/texmf-dist/fonts/type1/blues
+ky/cm/cmbx12.pfb></usr/local/texlive/2008/texmf-dist/fonts/type1/bluesky/cm/cmb
+x8.pfb></usr/local/texlive/2008/texmf-dist/fonts/type1/bluesky/cm/cmex10.pfb></
+usr/local/texlive/2008/texmf-dist/fonts/type1/bluesky/cm/cmmi12.pfb></usr/local
+/texlive/2008/texmf-dist/fonts/type1/bluesky/cm/cmmi8.pfb></usr/local/texlive/2
+008/texmf-dist/fonts/type1/bluesky/cm/cmr10.pfb></usr/local/texlive/2008/texmf-
+dist/fonts/type1/bluesky/cm/cmr12.pfb></usr/local/texlive/2008/texmf-dist/fonts
+/type1/bluesky/cm/cmr17.pfb></usr/local/texlive/2008/texmf-dist/fonts/type1/blu
+esky/cm/cmr6.pfb></usr/local/texlive/2008/texmf-dist/fonts/type1/bluesky/cm/cmr
+7.pfb></usr/local/texlive/2008/texmf-dist/fonts/type1/bluesky/cm/cmr8.pfb></usr
+/local/texlive/2008/texmf-dist/fonts/type1/bluesky/cm/cmsl12.pfb></usr/local/te
+xlive/2008/texmf-dist/fonts/type1/bluesky/cm/cmss10.pfb></usr/local/texlive/200
+8/texmf-dist/fonts/type1/bluesky/cm/cmsy10.pfb></usr/local/texlive/2008/texmf-d
+ist/fonts/type1/bluesky/cm/cmsy8.pfb></usr/local/texlive/2008/texmf-dist/fonts/
+type1/bluesky/cm/cmti12.pfb></usr/local/texlive/2008/texmf-dist/fonts/type1/urw
+/courier/ucrr8a.pfb>
+Output written on dissertation.pdf (87 pages, 3236215 bytes).
 PDF statistics:
  452 PDF objects out of 1000 (max. 8388607)
  0 named destinations out of 1000 (max. 131072)
