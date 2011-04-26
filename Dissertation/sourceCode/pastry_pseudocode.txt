@@ -1,0 +1,19 @@
+n.route_msg(msg, k)
+  // Node n forwards a message to the node responsible for key k
+  if (LeafSetSmaller =< k =< LeafSetGreater) {
+    // k is within range of our leaf set
+    forward the message to node in leaf set 
+        with key n' such that |k - n'| is minimal
+  } else {
+    // use the routing table
+    Let l = length_of_shared_key(k, n)
+    if (there is a node n' in level l of the routing table
+        that shares it's lth key digit with k) {
+      forward the message to node n'
+    } else {
+      forward to any known node n' that shares
+          at least as many digits with k as n does
+          but is numerically closer to k than n is.
+    }
+  }
+}

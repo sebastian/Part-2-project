@@ -1,0 +1,18 @@
+// ask node with key n to find key k's successor
+n.find_successor(k)
+  n' = find_predecessor(k);
+  return n'.successor;
+
+// ask node with key n to find key k's predecessor
+n.find_predecessor(k)
+  n' = n;
+  while (k not in (n', n'.successor])
+    n' = n'.closest_preceding_finger(k);
+  return n';
+
+// return closest finger preceding key k
+n.closest_preceding_finger(k)
+  for i = m downto 1
+    if (finger[i].node in (n, key))
+      return finger[i].node;
+  return n;

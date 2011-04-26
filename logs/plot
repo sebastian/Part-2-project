@@ -3,12 +3,12 @@
 # Rate against time
 ######################
 set terminal postscript eps color
-set output "rate_against_time_colour.eps"
+set output "rate_against_time_chord.eps"
 set xtics ("0" 0, "5" 300, "10" 600, "15" 900)
 set xrange [0 : 900]
 set yrange [0 : 900]
-set xlabel "Time /min"
-set ylabel "Instantaneous number of requests /s"
+set xlabel "Time (min)"
+set ylabel 'Instantaneous number of requests (1/s)'
 set title "Number of requests per second over time for Chord\n65 hosts running a total of 65 nodes.\nRequest rate per host: 8/s"
 plot "rate_against_time.csv" u 1:2 t "Total rate", \
      "" u 1:3 t "Success rate"
@@ -16,13 +16,13 @@ plot "rate_against_time.csv" u 1:2 t "Total rate", \
 # Latency against time
 ######################
 set terminal postscript eps color
-set output "latency_aginst_time_colour.eps"
+set output "latency_aginst_time_chord.eps"
 set xtics ("0" 0, "5" 300000, "10" 600000, "15" 900000)
 set ytics ("0" 0, "1" 1000, "2" 2000, "3" 3000, "4" 4000, "5" 5000)
 set xrange [0 : 900000]
 set yrange [0 : 5000]
-set xlabel "Time /min"
-set ylabel "Latency /s"
+set xlabel "Time (min)"
+set ylabel "Latency (1/s)"
 set title "Latency against time for Chord\n65 hosts running a total of 65 nodes.\nRequest rate per host: 8/s"
 plot "latency_against_time.csv" u 1:2 t ""
 
@@ -35,7 +35,7 @@ plot "latency_against_time.csv" u 1:2 t ""
 set terminal postscript eps color
 set output "pastry_heuristic.eps"
 
-set ylabel "Latency /ms"
+set ylabel "Latency (ms)"
 set xtics nomirror rotate by -45
 set style histogram errorbars
 set style data histograms
@@ -58,8 +58,8 @@ set boxwidth 0.3
 set yrange [0 : 800]
 set style histogram errorbars
 set style data histograms
-set xlabel "Rate /s"
-set ylabel "Latency /ms"
+set xlabel "Rate (1/s)"
+set ylabel "Latency (ms)"
 
 set title "Latency vs. request rate and number of nodes per host for Pastry"
 plot "output/pastry_latency_histogram.csv" using 2:3 title '1 node per host', \
@@ -86,8 +86,8 @@ set style histogram
 set style data histograms
 set yrange [0 : 100]
 set xrange [0.5 : 6.5]
-set xlabel "Rate /s"
-set ylabel "Success rate"
+set xlabel "Rate of requests (1/s)"
+set ylabel "Percentage of requests completing successfully"
 
 set title "Success rate vs. request rate and number nodes per host for Pastry"
 plot "output/pastry_success_rate_histogram.csv" u 2 t '1 node per host', \
@@ -109,12 +109,31 @@ plot "output/chord_success_rate_histogram.csv" u 2 t '1 node per host', \
 set terminal postscript eps color
 set output ""
 set xtics ("0" 0, "1" 1000, "2" 2000, "3" 3000, "4" 4000, "5" 5000)
-set ytics ("0" 0, "20" 0.2, "40" 0.4, "60" 0.6, "80" 0.8, "100" 1)
+set ytics ("0.0" 0, "0.2" 0.2, "0.4" 0.4, "0.6" 0.6, "0.8" 0.8, "1.0" 1)
 set yrange [0 : 1]
 set xrange [0 : 5000]
-set xlabel "Latency /s"
-set ylabel "Percentage successful"
+set xlabel "Latency (s)"
+set ylabel "Fraction of requests that have completed successfully"
 set key bottom right
+
+plot'output/summary/chord1rate1/cdf.csv' u 1:2 t "1 nodes at rate 1" with lines, \
+'output/summary/chord1rate2/cdf.csv' u 1:2 t "1 node at rate 2" with lines, \
+'output/summary/chord1rate4/cdf.csv' u 1:2 t "1 nodes at rate 4" with lines, \
+'output/summary/chord1rate8/cdf.csv' u 1:2 t "1 nodes at rate 8" with lines, \
+'output/summary/chord1rate16/cdf.csv' u 1:2 t "1 nodes at rate 16" with lines, \
+'output/summary/chord1rate32/cdf.csv' u 1:2 t "1 nodes at rate 32" with lines, \
+'output/summary/chord1rate64/cdf.csv' u 1:2 t "1 nodes at rate 64" with lines, \
+'output/summary/chord1rate128/cdf.csv' u 1:2 t "1 nodes at rate 128" with lines
+
+plot'output/summary/pastry1rate1/cdf.csv' u 1:2 t "1 nodes at rate 1" with lines, \
+'output/summary/pastry1rate2/cdf.csv' u 1:2 t "1 node at rate 2" with lines, \
+'output/summary/pastry1rate4/cdf.csv' u 1:2 t "1 nodes at rate 4" with lines, \
+'output/summary/pastry1rate8/cdf.csv' u 1:2 t "1 nodes at rate 8" with lines, \
+'output/summary/pastry1rate16/cdf.csv' u 1:2 t "1 nodes at rate 16" with lines, \
+'output/summary/pastry1rate32/cdf.csv' u 1:2 t "1 nodes at rate 32" with lines, \
+'output/summary/pastry1rate64/cdf.csv' u 1:2 t "1 nodes at rate 64" with lines, \
+'output/summary/pastry1rate128/cdf.csv' u 1:2 t "1 nodes at rate 128" with lines
+
 
 ######################
 # Nodes against time
@@ -122,7 +141,7 @@ set key bottom right
 set terminal postscript eps color
 set xtics ("0" 0, "0.5" 30000, "1" 60000, "1.5" 90000, "2" 120000) 
 set xrange [0 : 120000]
-set xlabel "Time /min"
+set xlabel "Time (min)"
 set ylabel "Number of nodes involved in lookup"
 
 set title "Number of nodes involved in lookup against time for Chord.\n69 hosts running a total of 932 nodes.\nRequest rate per host: 4/s."

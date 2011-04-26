@@ -1,0 +1,249 @@
+#########################################
+# For link records of length 1 (25 million names)
+#########################################
+
+link_records:lookup("Atchaya Pruedsakaran", 1).
+Looking up "Atchaya Pruedsakaran":
+"A": 18663811 links (2 matches for name)
+"At": 184713 links (2 matches for name)
+"Atc": 2262 links (2 matches for name)
+"Atch": 2080 links (2 matches for name)
+"Atcha": 700 links (2 matches for name)
+"Atchay": 22 links (2 matches for name)
+"Atchaya": 20 links (2 matches for name)
+"Atchaya ": 0 links (0 matches for name)
+"Atchaya P": 1383044 links (2 matches for name)
+"Atchaya Pr": 164417 links (2 matches for name)
+"Atchaya Pru": 6074 links (2 matches for name)
+"Atchaya Prue": 940 links (2 matches for name)
+"Atchaya Prued": 3 links (2 matches for name)
+"Atchaya Prueds": 2 links (2 matches for name)
+"Atchaya Pruedsa": 2 links (2 matches for name)
+"Atchaya Pruedsak": 2 links (2 matches for name)
+"Atchaya Pruedsaka": 2 links (2 matches for name)
+"Atchaya Pruedsakar": 2 links (2 matches for name)
+"Atchaya Pruedsakara": 2 links (2 matches for name)
+"Atchaya Pruedsakaran": 2 links (2 matches for name)
+
+
+link_records:lookup("Brad Catron", 1).
+Looking up "Brad Catron":
+"B": 10240003 links (6 matches for name)
+"Br": 3295264 links (6 matches for name)
+"Bra": 827711 links (6 matches for name)
+"Brad": 267185 links (6 matches for name)
+"Brad ": 0 links (0 matches for name)
+"Brad C": 2526043 links (6 matches for name)
+"Brad Ca": 1123288 links (6 matches for name)
+"Brad Cat": 24359 links (6 matches for name)
+"Brad Catr": 752 links (6 matches for name)
+"Brad Catro": 311 links (6 matches for name)
+"Brad Catron": 279 links (6 matches for name)
+
+
+#########################################
+# For link records of length 2 (40 million names)
+#########################################
+
+link_records:lookup("Atchaya Pruedsakaran", 2).
+Looking up "Atchaya Pruedsakaran":
+"A": 111537 links (0 matches for name)
+"At": 206707 links (2 matches for name)
+"Atc": 101 links (0 matches for name)
+"Atch": 2891 links (2 matches for name)
+"Atcha": 73 links (0 matches for name)
+"Atchay": 22 links (2 matches for name)
+"Atchaya": 14 links (2 matches for name)
+"Atchaya ": 0 links (0 matches for name)
+"Atchaya P": 28545 links (0 matches for name)
+"Atchaya Pr": 254717 links (2 matches for name)
+"Atchaya Pru": 40 links (0 matches for name)
+"Atchaya Prue": 1692 links (2 matches for name)
+"Atchaya Prued": 0 links (0 matches for name)
+"Atchaya Prueds": 2 links (2 matches for name)
+"Atchaya Pruedsa": 0 links (0 matches for name)
+"Atchaya Pruedsak": 2 links (2 matches for name)
+"Atchaya Pruedsaka": 0 links (0 matches for name)
+"Atchaya Pruedsakar": 2 links (2 matches for name)
+"Atchaya Pruedsakara": 0 links (0 matches for name)
+"Atchaya Pruedsakaran": 2 links (2 matches for name)
+
+link_records:lookup("Brad Catron", 2).
+Looking up "Brad Catron":
+"B": 51482 links (0 matches for name)
+"Br": 3586871 links (6 matches for name)
+"Bra": 422 links (0 matches for name)
+"Brad": 286935 links (6 matches for name)
+"Brad ": 0 links (0 matches for name)
+"Brad C": 63450 links (0 matches for name)
+"Brad Ca": 3798531 links (6 matches for name)
+"Brad Cat": 19996 links (0 matches for name)
+"Brad Catr": 12850 links (6 matches for name)
+"Brad Catro": 23 links (0 matches for name)
+"Brad Catron": 531 links (6 matches for name)
+
+
+#########################################
+# For link records of length 3 (60 million names)
+#########################################
+
+link_records:lookup("Atchaya Pruedsakaran", 3).
+Looking up "Atchaya Pruedsakaran":
+link_records:lookup("Atchaya Pruedsakaran", 3).
+Looking up "Atchaya Pruedsakaran":
+"A": 163600 links (0 matches for name)
+"At": 4357 links (0 matches for name)
+"Atc": 3966 links (2 matches for name)
+"Atch": 38 links (0 matches for name)
+"Atcha": 106 links (0 matches for name)
+"Atchay": 24 links (2 matches for name)
+"Atchaya": 15 links (2 matches for name)
+"Atchaya ": 0 links (0 matches for name)
+"Atchaya P": 45741 links (0 matches for name)
+"Atchaya Pr": 175 links (0 matches for name)
+"Atchaya Pru": 15091 links (2 matches for name)
+"Atchaya Prue": 244 links (0 matches for name)
+"Atchaya Prued": 0 links (0 matches for name)
+"Atchaya Prueds": 2 links (2 matches for name)
+"Atchaya Pruedsa": 0 links (0 matches for name)
+"Atchaya Pruedsak": 0 links (0 matches for name)
+"Atchaya Pruedsaka": 2 links (2 matches for name)
+"Atchaya Pruedsakar": 0 links (0 matches for name)
+"Atchaya Pruedsakara": 0 links (0 matches for name)
+"Atchaya Pruedsakaran": 2 links (2 matches for name)
+
+link_records:lookup("Brad Catron", 3).
+Looking up "Brad Catron":
+"B": 73400 links (0 matches for name)
+"Br": 434 links (0 matches for name)
+"Bra": 956906 links (6 matches for name)
+"Brad": 157479 links (6 matches for name)
+"Brad ": 0 links (0 matches for name)
+"Brad C": 91473 links (0 matches for name)
+"Brad Ca": 3800 links (0 matches for name)
+"Brad Cat": 463292 links (6 matches for name)
+"Brad Catr": 2 links (0 matches for name)
+"Brad Catro": 30 links (0 matches for name)
+"Brad Catron": 748 links (6 matches for name)
+
+#########################################
+# For link records of length 4 (60 million names)
+#########################################
+
+link_records:lookup("Atchaya Pruedsakaran", 4).
+Looking up "Atchaya Pruedsakaran":
+"A": 163600 links (0 matches for name)
+"At": 4357 links (0 matches for name)
+"Atc": 112 links (0 matches for name)
+"Atch": 3716 links (2 matches for name)
+"Atcha": 106 links (0 matches for name)
+"Atchay": 2 links (0 matches for name)
+"Atchaya": 15 links (2 matches for name)
+"Atchaya ": 0 links (0 matches for name)
+"Atchaya P": 45741 links (0 matches for name)
+"Atchaya Pr": 175 links (0 matches for name)
+"Atchaya Pru": 55 links (0 matches for name)
+"Atchaya Prue": 2372 links (2 matches for name)
+"Atchaya Prued": 0 links (0 matches for name)
+"Atchaya Prueds": 0 links (0 matches for name)
+"Atchaya Pruedsa": 0 links (0 matches for name)
+"Atchaya Pruedsak": 2 links (2 matches for name)
+"Atchaya Pruedsaka": 0 links (0 matches for name)
+"Atchaya Pruedsakar": 0 links (0 matches for name)
+"Atchaya Pruedsakara": 0 links (0 matches for name)
+"Atchaya Pruedsakaran": 2 links (2 matches for name)
+
+link_records:lookup("Brad Catron", 4).
+Looking up "Brad Catron":
+"B": 73400 links (0 matches for name)
+"Br": 434 links (0 matches for name)
+"Bra": 475 links (0 matches for name)
+"Brad": 305181 links (6 matches for name)
+"Brad ": 0 links (0 matches for name)
+"Brad C": 91473 links (0 matches for name)
+"Brad Ca": 3800 links (0 matches for name)
+"Brad Cat": 22172 links (0 matches for name)
+"Brad Catr": 13414 links (6 matches for name)
+"Brad Catro": 30 links (0 matches for name)
+"Brad Catron": 703 links (6 matches for name)
+
+#########################################
+# For link records of length 5 (60 million names)
+#########################################
+
+link_records:lookup("Atchaya Pruedsakaran", 5).
+Looking up "Atchaya Pruedsakaran":
+"A": 163600 links (0 matches for name)
+"At": 4357 links (0 matches for name)
+"Atc": 112 links (0 matches for name)
+"Atch": 38 links (0 matches for name)
+"Atcha": 792 links (2 matches for name)
+"Atchay": 2 links (0 matches for name)
+"Atchaya": 15 links (2 matches for name)
+"Atchaya ": 0 links (0 matches for name)
+"Atchaya P": 45741 links (0 matches for name)
+"Atchaya Pr": 175 links (0 matches for name)
+"Atchaya Pru": 55 links (0 matches for name)
+"Atchaya Prue": 244 links (0 matches for name)
+"Atchaya Prued": 5 links (2 matches for name)
+"Atchaya Prueds": 0 links (0 matches for name)
+"Atchaya Pruedsa": 0 links (0 matches for name)
+"Atchaya Pruedsak": 0 links (0 matches for name)
+"Atchaya Pruedsaka": 0 links (0 matches for name)
+"Atchaya Pruedsakar": 2 links (2 matches for name)
+"Atchaya Pruedsakara": 0 links (0 matches for name)
+"Atchaya Pruedsakaran": 2 links (2 matches for name)
+
+link_records:lookup("Brad Catron", 5).
+Looking up "Brad Catron":
+"B": 73400 links (0 matches for name)
+"Br": 434 links (0 matches for name)
+"Bra": 475 links (0 matches for name)
+"Brad": 157479 links (6 matches for name)
+"Brad ": 0 links (0 matches for name)
+"Brad C": 91473 links (0 matches for name)
+"Brad Ca": 3800 links (0 matches for name)
+"Brad Cat": 22172 links (0 matches for name)
+"Brad Catr": 2 links (0 matches for name)
+"Brad Catro": 857 links (6 matches for name)
+"Brad Catron": 703 links (6 matches for name)
+
+#########################################
+# For link records of length 6 (60 million names)
+#########################################
+
+link_records:lookup("Atchaya Pruedsakaran", 6).
+"A": 163600 links (0 matches for name)
+"At": 4357 links (0 matches for name)
+"Atc": 112 links (0 matches for name)
+"Atch": 38 links (0 matches for name)
+"Atcha": 106 links (0 matches for name)
+"Atchay": 24 links (2 matches for name)
+"Atchaya": 15 links (2 matches for name)
+"Atchaya ": 0 links (0 matches for name)
+"Atchaya P": 45741 links (0 matches for name)
+"Atchaya Pr": 175 links (0 matches for name)
+"Atchaya Pru": 55 links (0 matches for name)
+"Atchaya Prue": 244 links (0 matches for name)
+"Atchaya Prued": 0 links (0 matches for name)
+"Atchaya Prueds": 2 links (2 matches for name)
+"Atchaya Pruedsa": 0 links (0 matches for name)
+"Atchaya Pruedsak": 0 links (0 matches for name)
+"Atchaya Pruedsaka": 0 links (0 matches for name)
+"Atchaya Pruedsakar": 0 links (0 matches for name)
+"Atchaya Pruedsakara": 0 links (0 matches for name)
+"Atchaya Pruedsakaran": 2 links (2 matches for name)
+
+link_records:lookup("Brad Catron", 6).
+Looking up "Brad Catron":
+"B": 73400 links (0 matches for name)
+"Br": 434 links (0 matches for name)
+"Bra": 475 links (0 matches for name)
+"Brad": 157479 links (6 matches for name)
+"Brad ": 0 links (0 matches for name)
+"Brad C": 91473 links (0 matches for name)
+"Brad Ca": 3800 links (0 matches for name)
+"Brad Cat": 22172 links (0 matches for name)
+"Brad Catr": 2 links (0 matches for name)
+"Brad Catro": 30 links (0 matches for name)
+"Brad Catron": 748 links (6 matches for name)

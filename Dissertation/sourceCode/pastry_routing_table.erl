@@ -10,8 +10,6 @@
     nodes = [] :: [#node{}]
   }).
 -record(pastry_state, {
-    % ...
-
     % The routing table contains log base 2^b rows of 2^b - 1 
     % entries each. Entries at row n share the first n digits
     % with the current node, but differ in digit n + 1
