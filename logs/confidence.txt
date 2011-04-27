@@ -1,0 +1,11 @@
+Standard deviation of sampling distribution
+= Sample standard deviation / root(num samples)
+
+99% confidence
+.995
+2.58 from z table gives 99.2%
+There is a 99% chance that a random sample mean is 
+within 2.58 sampling standard deviations of the sampling 
+the population mean.
+
+There is a 99% chance that p is within 0.08 of .568
