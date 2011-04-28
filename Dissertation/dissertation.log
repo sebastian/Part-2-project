@@ -1,4 +1,4 @@
-This is pdfTeXk, Version 3.1415926-1.40.9 (Web2C 7.5.7) (format=pdflatex 2009.3.30)  27 APR 2011 18:22
+This is pdfTeXk, Version 3.1415926-1.40.9 (Web2C 7.5.7) (format=pdflatex 2009.3.30)  28 APR 2011 12:18
 entering extended mode
 \write18 enabled.
  %&-line parsing enabled.
@@ -314,7 +314,7 @@ Chapter 1.
 Chapter 2.
 [4
 
-] [5] <illustrations/LinkRecords.png, id=40, 82.3878pt x 53.7207pt>
+] [5] <illustrations/LinkRecords.png, id=39, 82.3878pt x 53.7207pt>
 File: illustrations/LinkRecords.png Graphic file (type png)
 
 <use illustrations/LinkRecords.png> [6 <./illustrations/LinkRecords.png (PNG co
@@ -545,7 +545,7 @@ Missing character: There is no   in font cmr8!
 Missing character: There is no Â in font cmr8!
 Missing character: There is no   in font cmr8!
 
-Overfull \hbox (28.99094pt too wide) in paragraph at lines 313--361
+Overfull \hbox (28.99094pt too wide) in paragraph at lines 315--363
  [] 
  []
 
@@ -578,38 +578,38 @@ Chapter 6.
 ) (./chapters/bibliography.tex [53
 
 ]
-Overfull \hbox (63.2685pt too wide) in paragraph at lines 36--38
+Overfull \hbox (63.2685pt too wide) in paragraph at lines 41--43
 []\OT1/cmr/m/it/12 Wikipedia: Dis-tributed Hash Ta-bles\OT1/cmr/m/n/12 . http:/
 /en.wikipedia.org/wiki/Distributed[]hash[]table. 
  []
 
 
-Underfull \hbox (badness 5217) in paragraph at lines 45--48
+Underfull \hbox (badness 3758) in paragraph at lines 50--53
 []\OT1/cmr/m/n/12 Serge Aleynikov, \OT1/cmr/m/it/12 Build-ing a Non-blocking TC
 P server us-ing OTP
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 45--48
+Underfull \hbox (badness 10000) in paragraph at lines 50--53
 \OT1/cmr/m/it/12 prin-ci-ple\OT1/cmr/m/n/12 . TrapExit.org / http://www.trapexi
 t.org/Building[]a[]Non-
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 50--53
+Underfull \hbox (badness 10000) in paragraph at lines 55--58
 []\OT1/cmr/m/n/12 Andreas Ste-nius, \OT1/cmr/m/it/12 gen[]listener[]tcp\OT1/cmr
 /m/n/12 . Github.org /
  []
 
+[54
 
-Overfull \hbox (44.52547pt too wide) in paragraph at lines 55--58
+]
+Overfull \hbox (44.52547pt too wide) in paragraph at lines 60--63
 []\OT1/cmr/m/n/12 Jason Wag-ner, \OT1/cmr/m/it/12 er-ly-mock\OT1/cmr/m/n/12 . G
 ithub.org / https://github.com/nialscorva/erlymock/wiki. 
  []
 
-[54
-
-]) (./chapters/appendices.tex [55]
+) (./chapters/appendices.tex [55]
 Appendix A.
 
 Overfull \hbox (6.0pt too wide) in paragraph at lines 11--11
@@ -663,10 +663,10 @@ Appendix E.
 
 ] [66] [67] [68] [69]) [70] (./dissertation.aux) ) 
 Here is how much of TeX's memory you used:
- 4630 strings out of 493876
- 71683 string characters out of 1150568
+ 4631 strings out of 493876
+ 71690 string characters out of 1150568
  252514 words of memory out of 3000000
- 7743 multiletter control sequences out of 10000+50000
+ 7744 multiletter control sequences out of 10000+50000
  12887 words of font info for 46 fonts, out of 3000000 for 5000
  714 hyphenation exceptions out of 8191
  36i,12n,39p,921b,1495s stack positions out of 5000i,500n,10000p,200000b,50000s
@@ -688,7 +688,7 @@ xlive/2008/texmf-dist/fonts/type1/bluesky/cm/cmss10.pfb></usr/local/texlive/200
 ist/fonts/type1/bluesky/cm/cmsy8.pfb></usr/local/texlive/2008/texmf-dist/fonts/
 type1/bluesky/cm/cmti12.pfb></usr/local/texlive/2008/texmf-dist/fonts/type1/urw
 /courier/ucrr8a.pfb>
-Output written on dissertation.pdf (75 pages, 3212447 bytes).
+Output written on dissertation.pdf (75 pages, 3212971 bytes).
 PDF statistics:
  414 PDF objects out of 1000 (max. 8388607)
  0 named destinations out of 1000 (max. 131072)

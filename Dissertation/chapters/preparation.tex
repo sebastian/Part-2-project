@@ -48,7 +48,8 @@ There are quite a few well known Distributed Hash Tables. After initial research
 
 Distributed Hash Tables are key-value stores. In other words; unless you know the specific key under which a data item is stored, you will not be able to find it by other means than by doing a linear search through the system.
 
-Having established that I wanted to support predictive search, and fuzzy searches where you should be allowed to misspell the name of the person you are trying to find, I had to come up with a mapping scheme that allowed me to predict the correct keys with insufficient data.
+Having established that I wanted to support predictive search, and fuzzy searches where you should be allowed to misspell the name of the person you are trying to find, I had to come up with a mapping scheme that allowed me to predict the correct keys with insufficient data. 
+Schemes looking up keywords in inverse indexes through flooding and random walks on top of structured and unstructured peer to peer networks have been proposed \cite{myths}, but do not give performance in the sub-second latency range that I require in order to provide predictive search.
 
 I came up with the following solution:
 

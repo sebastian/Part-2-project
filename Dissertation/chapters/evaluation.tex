@@ -45,6 +45,8 @@ I also want to evaluate the success rate of requests as failed requests would ne
 It is also interesting to look at how the performance, again in terms of latency, is affected by the number of nodes in the Distributed Hash Table.
 In evaluating if Distributed Hash Tables are viable data stores for my search engine it is also interesting to compare the performance of Chord and Pastry to see if one is a better choice than the other.
 
+I will not look at the overhead of maintaining routing state as it is negligible for a well tuned Distributed Hash Table \cite{myths} and does not affect my dependent variable.
+
 \section{Experimental design}
 % Discuss how started with factorial design with factors of nodes and rate.
 % Found doesn't vary over length of run, so any run viable.
