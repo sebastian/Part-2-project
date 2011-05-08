@@ -8,3 +8,11 @@ hub_app/priv/log
 fs/priv/log
 fs/erl_crash.dump
 */*.log
+rel
+logs
+hub_app/priv/www/dht.log
+facebook\ names/
+Dissertation/ref
+Dissertation/dissertation.lof
+Dissertation/dissertation.toc
+Dissertation/original\ ref\ files/
