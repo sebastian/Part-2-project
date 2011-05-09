@@ -148,19 +148,20 @@ What we seem to see in figure \ref{figPastryLatency} is that as the number of no
 
 \begin{figure}[!htbp]
   \begin{center}
-    \includegraphics[width=0.9\linewidth]{illustrations/success_rate_pastry.eps}
-    \caption{This graph shows the instantaneous rate of requests and the instantaneous rate of successfully completed requests sampled once per second for Pastry. An experimental setup with slightly more than 60 nodes was used.}
-    \label{figPastrySuccessRate}
+    \includegraphics[width=0.9\linewidth]{illustrations/success_rate_chord.eps}
+    \caption{This graph shows the percentage of successful requests for different request rates and number of nodes per host for an experimental setup with slightly more than 60 Chord nodes.}
+    \label{figChordSuccessRate}
   \end{center}
 \end{figure}
 
 \begin{figure}[!htbp]
   \begin{center}
-    \includegraphics[width=0.9\linewidth]{illustrations/success_rate_chord.eps}
-    \caption{This graph shows the instantaneous rate of requests and the instantaneous rate of successfully completed requests sampled once per second for Chord. An experimental setup with slightly more than 60 nodes was used.}
-    \label{figChordSuccessRate}
+    \includegraphics[width=0.9\linewidth]{illustrations/success_rate_pastry.eps}
+    \caption{This graph shows the percentage of successful requests for different request rates and number of nodes per host for an experimental setup with slightly more than 60 Pastry nodes.}
+    \label{figPastrySuccessRate}
   \end{center}
 \end{figure}
+
 
 The success rate is also dramatically different between Chord (figure \ref{figChordSuccessRate}) and Pastry (\ref{figPastrySuccessRate}). Chord seems to perform better when more than one node is run on the same machine, while Pastry's success rate slightly decreases the more nodes are run on the same physical hardware. It is also worth noting that even at its best, Chord can't compare with the worst case performance of Pastry.
 

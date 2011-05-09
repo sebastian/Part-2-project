@@ -26,7 +26,7 @@ The Distributed Hash Tables Chord and Pastry are central parts of my design and 
 \section{High level system components}
 % What components does the system consist of?
 % Want design that is DHT agnostic
-It is important that ones understands the difference between a host and a node in terms of this project. A host is defined to be a physical machine with a publicly accessible IP-address. 
+It is important that one understands the difference between a host and a node in terms of this project. A host is defined to be a physical machine with a publicly accessible IP-address. 
 Each host runs a single instance of the application, but each application instance can itself contain several Distributed Hash Table nodes running independently of each other. I can therefore scale the number of nodes in the my Distributed Hash Table networks, and by extension the search engine, by keeping the number of hosts, in other words machines, fixed, and just change how many Distributed Hash Table nodes each physical machine runs.
 
 \mbox{}
@@ -59,12 +59,12 @@ While a logger would certainly be included in the final release of the search en
 The Friend Search Web API in figure \ref{figComponents} uses an Erlang library called Webmachine for correctly handling HTTP requests. Webmachine in turn relies on another Erlang library called Mochiweb which the Friend Search Web API also uses in order to serialize the search results into JSON for consumption by the clients.
 
 \section{Distributed Hash Tables}
-Distributed Hash Tables are nothing but key-value stores where the data is stored across an array of machines --- yet I am implementing two of them. The reason is that Chord and Pastry differ quite significantly in the way they approach finding out which nodes data-items are stored. Not only do they differ in the way they organize and store their routing information, but unlike Chord, Pastry uses a proximity heuristic to favour nodes geographically closer to itself when routing. These differences in routing directly translate into differences in performance as is discussed in the evaluation chapter.
+Distributed Hash Tables are nothing but key-value stores where the data is stored across an array of machines --- yet I am implementing two of them. The reason is that Chord and Pastry differ quite significantly in the way they approach finding out on which nodes data-items are stored. Not only do they differ in the way they organize and store their routing information, but unlike Chord, Pastry uses a proximity heuristic to favour nodes geographically closer to itself when routing. These differences in routing directly translate into differences in performance as is discussed in the evaluation chapter.
 
 My implementation used a bag approach where I allow multiple items to be stored under the same key. This is necessary to avoid link records with common keys replacing each other.
 
 The Chord key-space is an integer key-space ranging from 0 up to $2^{160} - 1$. It wraps around such that $2^{160} - 1$ immediately precedes 0. It can be useful to think of the key-space as circular. Just like the Chord key-space the Pastry key-space is also an integer key-space. While the Pastry paper \cite{pastry} suggests using keys in the range of 0 up to $2^{128} - 1$, I decided to let the Pastry key-space range from 0 to $2^{160} - 1$ just like for Chord, to increase code reuse between my Chord and Pastry implementations.
-The Pastry paper suggests using a 128-bit key space since they are easier to store efficiently in memory on 64-bit machines, which are common today, but other than that there is no evidence in the Pastry paper \cite{pastry} indicating that the performance of the Pastry algorithm should be any worse using 160-bit rather than 128-bit keys.
+128-bit keys, as suggested in the Pastry paper \cite{pastry}, are easier to store efficiently in memory on 64-bit machines, which are common today, but other than that there is no evidence in the paper indicating that the performance of the Pastry algorithm should be any worse using 160-bit rather than 128-bit keys.
 
 All data in Chord and Pastry is stored under 160-bit keys. The Chord and Pastry nodes themselves are also associated with keys in the same key-space as the data items. I use a hash of the machines public IP-address and the port number a given node is listening to in order to determine a Distributed Hash Table node's key.
 
@@ -309,7 +309,7 @@ What complicates the Erlang code slightly is that I wanted to implement the \ver
 In code listing \ref{listingFindPredecessor}, I show the Erlang equivalent of the Chord \verb=find_predecessor= pseudo code. 
 In the pseudo code there are two remote procedure calls being done. One is to get a node's successor, and, only conditionally, one requests the node's closest preceding finger.
 In my implementation, these two remote procedure calls have been made into one and for this reason this call has been moved to the very front of the function.
-Notice how on line 11 in the Erlang implementation we use recursion rather than the while loop used in the pseudo code. The equivalent of line 8 in the Chord pseudo code had to be moved out to the \verb=find_successor= function.
+Notice how on line 11 in the Erlang implementation we use recursion rather than the while-loop used in the pseudo code. The equivalent of line 8 in the Chord pseudo code had to be moved out to the \verb=find_successor= function.
 
 \lstinputlisting[label=listingFindPredecessor,caption=Finding the predecessor of a key]{sourceCode/find_predecessor.erl}
 
@@ -363,7 +363,7 @@ While the current implementation does basic ranking of results, prioritising wha
 % Hub control server
 % Focus on testing and evaluation
 The central control hub is an application that runs under a domain name known by all instances of the search engine application.
-When the search engine application is started on a machine, it registers itself with the control hub which in turn tells it what Distributed Hash Table should be used and how many nodes and of what Distributed Hash Table type should be run.
+When the search engine application is started on a machine, it registers itself with the control hub which in turn tells it how many nodes and of what Distributed Hash Table type should be run.
 
 When new Distributed Hash Table nodes are started they also contact the control hub to get information about which other nodes they should try to connect to in order to join the Distributed Hash Table network.
 
@@ -380,7 +380,7 @@ The experiments used to evaluate the system are also initiated by the central co
 \end{center}
 \end{figure}
 
-Initially fully automated experiments were supported as outlined in my project briefing, but later, while evaluating my system, I removed the feature as it was impractical and didn't allow enough flexibility to run the experiments needed.
+Initially fully automated experiments were supported as outlined in my project proposal, but later, while evaluating my system, I removed the feature as it was impractical and didn't allow enough flexibility to run the experiments needed.
 
 \section{Supervision for fault tolerance}
 One of Erlang's main strengths is process supervision.

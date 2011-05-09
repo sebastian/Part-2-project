@@ -116,23 +116,23 @@ set xlabel "Latency (s)"
 set ylabel "Fraction of requests that have completed successfully"
 set key bottom right
 
-plot'output/summary/chord1rate1/cdf.csv' u 1:2 t "1 nodes at rate 1" with lines, \
-'output/summary/chord1rate2/cdf.csv' u 1:2 t "1 node at rate 2" with lines, \
-'output/summary/chord1rate4/cdf.csv' u 1:2 t "1 nodes at rate 4" with lines, \
-'output/summary/chord1rate8/cdf.csv' u 1:2 t "1 nodes at rate 8" with lines, \
-'output/summary/chord1rate16/cdf.csv' u 1:2 t "1 nodes at rate 16" with lines, \
-'output/summary/chord1rate32/cdf.csv' u 1:2 t "1 nodes at rate 32" with lines, \
-'output/summary/chord1rate64/cdf.csv' u 1:2 t "1 nodes at rate 64" with lines, \
-'output/summary/chord1rate128/cdf.csv' u 1:2 t "1 nodes at rate 128" with lines
+plot'output/summary/chord1rate1/cdf.csv' u 1:2 t "1 request per host per second" with lines, \
+'output/summary/chord1rate2/cdf.csv' u 1:2 t "2 requests per host per second" with lines, \
+'output/summary/chord1rate4/cdf.csv' u 1:2 t "4 requests per host per second" with lines, \
+'output/summary/chord1rate8/cdf.csv' u 1:2 t "8 requests per host per second" with lines, \
+'output/summary/chord1rate16/cdf.csv' u 1:2 t "16 requests per host per second" with lines, \
+'output/summary/chord1rate32/cdf.csv' u 1:2 t "32 requests per host per second" with lines, \
+'output/summary/chord1rate64/cdf.csv' u 1:2 t "64 requests per host per second" with lines, \
+'output/summary/chord1rate128/cdf.csv' u 1:2 t "128 requests per host per second" with lines
 
-plot'output/summary/pastry1rate1/cdf.csv' u 1:2 t "1 nodes at rate 1" with lines, \
-'output/summary/pastry1rate2/cdf.csv' u 1:2 t "1 node at rate 2" with lines, \
-'output/summary/pastry1rate4/cdf.csv' u 1:2 t "1 nodes at rate 4" with lines, \
-'output/summary/pastry1rate8/cdf.csv' u 1:2 t "1 nodes at rate 8" with lines, \
-'output/summary/pastry1rate16/cdf.csv' u 1:2 t "1 nodes at rate 16" with lines, \
-'output/summary/pastry1rate32/cdf.csv' u 1:2 t "1 nodes at rate 32" with lines, \
-'output/summary/pastry1rate64/cdf.csv' u 1:2 t "1 nodes at rate 64" with lines, \
-'output/summary/pastry1rate128/cdf.csv' u 1:2 t "1 nodes at rate 128" with lines
+plot'output/summary/pastry1rate1/cdf.csv' u 1:2 t "1 request per host per second" with lines, \
+'output/summary/pastry1rate2/cdf.csv' u 1:2 t "2 requests per host per second" with lines, \
+'output/summary/pastry1rate4/cdf.csv' u 1:2 t "4 requests per host per second" with lines, \
+'output/summary/pastry1rate8/cdf.csv' u 1:2 t "8 requests per host per second" with lines, \
+'output/summary/pastry1rate16/cdf.csv' u 1:2 t "16 requests per host per second" with lines, \
+'output/summary/pastry1rate32/cdf.csv' u 1:2 t "32 requests per host per second" with lines, \
+'output/summary/pastry1rate64/cdf.csv' u 1:2 t "64 requests per host per second" with lines, \
+'output/summary/pastry1rate128/cdf.csv' u 1:2 t "128 requests per host per second" with lines
 
 
 ######################

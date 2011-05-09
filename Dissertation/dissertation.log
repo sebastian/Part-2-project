@@ -1,4 +1,4 @@
-This is pdfTeXk, Version 3.1415926-1.40.9 (Web2C 7.5.7) (format=pdflatex 2009.3.30)  9 MAY 2011 08:59
+This is pdfTeXk, Version 3.1415926-1.40.9 (Web2C 7.5.7) (format=pdflatex 2009.3.30)  9 MAY 2011 16:23
 entering extended mode
 \write18 enabled.
  %&-line parsing enabled.
@@ -252,18 +252,18 @@ This is `epsf.tex' v2.7.3 <23 July 2005>
 ) (./dissertation.aux)
 \openout1 = `dissertation.aux'.
 
-LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 79.
-LaTeX Font Info:    ... okay on input line 79.
-LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 79.
-LaTeX Font Info:    ... okay on input line 79.
-LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 79.
-LaTeX Font Info:    ... okay on input line 79.
-LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 79.
-LaTeX Font Info:    ... okay on input line 79.
-LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 79.
-LaTeX Font Info:    ... okay on input line 79.
-LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 79.
-LaTeX Font Info:    ... okay on input line 79.
+LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 81.
+LaTeX Font Info:    ... okay on input line 81.
+LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 81.
+LaTeX Font Info:    ... okay on input line 81.
+LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 81.
+LaTeX Font Info:    ... okay on input line 81.
+LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 81.
+LaTeX Font Info:    ... okay on input line 81.
+LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 81.
+LaTeX Font Info:    ... okay on input line 81.
+LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 81.
+LaTeX Font Info:    ... okay on input line 81.
 
 (/usr/local/texlive/2008/texmf-dist/tex/context/base/supp-pdf.tex
 [Loading MPS to PDF converter (version 2006.09.02).]
@@ -443,22 +443,22 @@ system(epstopdf illustrations/latency_pastry.eps)...executed.
 File: illustrations/latency_pastry.pdf Graphic file (type pdf)
 
 <use illustrations/latency_pastry.pdf>
-system(epstopdf illustrations/success_rate_pastry.eps)...executed.
-
-
-<illustrations/success_rate_pastry.pdf, id=178, 361.35pt x 252.945pt>
-File: illustrations/success_rate_pastry.pdf Graphic file (type pdf)
-
-<use illustrations/success_rate_pastry.pdf>
 system(epstopdf illustrations/success_rate_chord.eps)...executed.
 
 
-<illustrations/success_rate_chord.pdf, id=179, 361.35pt x 252.945pt>
+<illustrations/success_rate_chord.pdf, id=178, 361.35pt x 252.945pt>
 File: illustrations/success_rate_chord.pdf Graphic file (type pdf)
 
-<use illustrations/success_rate_chord.pdf> [34] [35 <./illustrations/latency_ch
-ord.pdf>] [36 <./illustrations/latency_pastry.pdf>] [37 <./illustrations/succes
-s_rate_pastry.pdf>] [38 <./illustrations/success_rate_chord.pdf>]
+<use illustrations/success_rate_chord.pdf>
+system(epstopdf illustrations/success_rate_pastry.eps)...executed.
+
+
+<illustrations/success_rate_pastry.pdf, id=179, 361.35pt x 252.945pt>
+File: illustrations/success_rate_pastry.pdf Graphic file (type pdf)
+
+<use illustrations/success_rate_pastry.pdf> [34] [35 <./illustrations/latency_c
+hord.pdf>] [36 <./illustrations/latency_pastry.pdf>] [37 <./illustrations/succe
+ss_rate_chord.pdf>] [38 <./illustrations/success_rate_pastry.pdf>]
 system(epstopdf illustrations/cdf_chord.eps)...executed.
 
 
@@ -545,7 +545,7 @@ Missing character: There is no   in font cmr8!
 Missing character: There is no Â in font cmr8!
 Missing character: There is no   in font cmr8!
 
-Overfull \hbox (28.99094pt too wide) in paragraph at lines 315--363
+Overfull \hbox (28.99094pt too wide) in paragraph at lines 316--364
  [] 
  []
 
@@ -688,7 +688,7 @@ xlive/2008/texmf-dist/fonts/type1/bluesky/cm/cmss10.pfb></usr/local/texlive/200
 ist/fonts/type1/bluesky/cm/cmsy8.pfb></usr/local/texlive/2008/texmf-dist/fonts/
 type1/bluesky/cm/cmti12.pfb></usr/local/texlive/2008/texmf-dist/fonts/type1/urw
 /courier/ucrr8a.pfb>
-Output written on dissertation.pdf (75 pages, 3212322 bytes).
+Output written on dissertation.pdf (75 pages, 3212242 bytes).
 PDF statistics:
  414 PDF objects out of 1000 (max. 8388607)
  0 named destinations out of 1000 (max. 131072)
