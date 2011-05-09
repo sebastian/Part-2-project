@@ -5,12 +5,12 @@ When regular tuples are used to pass data-structures between functions, the amou
 While you need to write out the full structure of a tuple to pattern match on one of its values, records give you direct access to named members of the structure, abstracting away the physical layout of the data.
 Under the hood, records are still compiled down to regular tuples, but this is handled transparently  without the programmer needing to know about it or update code where the data-structure is being used.
 
-\subsection{Chord routing state}
+\section{Chord routing state}
 Code listing \ref{listingChordDataStructures} shows how I translated the Chord routing state described in section \ref{sec:chordRoutingState} on page \pageref{sec:chordRoutingState} into Erlang records.
 
 \lstinputlisting[label=listingChordDataStructures,caption=Chord routing table as Erlang records]{sourceCode/chord_routing_table.erl}
 
-\subsection{Pastry routing state}
+\section{Pastry routing state}
 Code listing \ref{listingPastryDataStructures} shows how I translated the Pastry routing state described in section \ref{sec:pastryRoutingState} on page \pageref{sec:pastryRoutingState} into Erlang records.
 The distance field on line 6 in the node record in the listing is the numeric distance between a particular node and the node maintaining the routing state, as returned by the proximity heuristic used for routing.
 
