@@ -30,7 +30,7 @@
 % * Does it work for search engine?
 
 \chapter{Evaluation}
-In this chapter I will look at if Distributed Hash Table are suitable back end data stores for distributed search engines of the very specific kind I set out to build. We will furthermore look at how the performance of Chord and Pastry compares in terms of latency and also briefly discuss the benefits of the proximity heuristic used in routing by Pastry. 
+In this chapter I look at whether or not Distributed Hash Table are suitable back end data stores for distributed search engines of the specific kind I set out to build. We will furthermore look at how the performance of Chord and Pastry compares in terms of latency and also briefly discuss the benefits of the proximity heuristic used in routing by Pastry. 
 
 \section{What to evaluate}
 % Questions to answer:
@@ -38,9 +38,9 @@ In this chapter I will look at if Distributed Hash Table are suitable back end d
 % * Do they scale with size?
 % * How do Chord and Pastry compare?
 % What looked at was latency and success rate.
-My main concern in this evaluation is if Distributed Hash Tables can be used as data stores for my distributed search engine. The determining factor will be the latency between issuing a key lookup request and receiving its value. Therefore the only dependent variable I will look at in depth is latency.
-The latency directly affects the response time as it is seen by the end users using the search engine and also directly affects to what extent predictive searches are possible or not as there are latency requirements associated with something being perceived as real-time.
-Latency also affects if my proposed \emph{link record} scheme can be used or not, and by extension if predictive and fuzzy searches on top of Distributed Hash Tables can be done since link records in my implementation is a prerequisite for that to be possible.
+My main concern in this evaluation is if Distributed Hash Tables can be used as data stores for my distributed search engine. The determining factor will be the latency between issuing a key lookup request and receiving its value. Therefore, the only dependent variable I will look at in depth is latency.
+The latency directly affects the response time as it is seen by the end users using the search engine and also directly affects to what extent predictive searches are possible as there are latency requirements associated with something being perceived as real-time.
+Latency also affects whether or not my proposed \emph{link record} scheme can be used, and, by extension, if predictive and fuzzy searches on top of Distributed Hash Tables can be done since link records in my implementation is a prerequisite for that to be possible.
 I also want to evaluate the success rate of requests as failed requests would need to be repeated, and therefore directly affect the latency.
 It is also interesting to look at how the performance, again in terms of latency, is affected by the number of nodes in the Distributed Hash Table.
 In evaluating if Distributed Hash Tables are viable data stores for my search engine it is also interesting to compare the performance of Chord and Pastry to see if one is a better choice than the other.
@@ -56,7 +56,7 @@ I ran my Distributed Hash Tables on machines in the Planet-Lab network. With tha
 In my tests I used all the machines available to me to give some scale to the experiments, and limited the experimental factors to the number of nodes run on each machine and the rate at which requests were issued.
 
 My experiments follow a factorial design where both node count and rate varied between 1 and 16 in powers of two. Since the theory behind Distributed Hash Tables indicate that the number of routing hops is proportional to the logarithm of the number of nodes in the system, and the number of hops directly affect our dependent variable latency, increasing the number of hops in powers of two is reasonable. Doing the same for the rate allows us higher resolution into the lower rates while still giving us data from a wide range of rates to evaluate.
-Each configuration was run at three different occasions for both Chord and Pastry, and the log files for all three runs with the same configurations were then used to give the results I am about to present.
+Each configuration was run at three different occasions for both Chord and Pastry, and the log files for all three runs with the same configurations were then used to give the following results.
 
 \subsection{Experimental pattern}
 Each experimental run followed a predefined pattern:
@@ -70,7 +70,7 @@ Each experimental run followed a predefined pattern:
 \end{enumerate}
 
 \section{Effects of Planet-Lab}
-As mentioned my experiments ran on top of machines provided by Planet-Lab. I was allowed to use up to 100 machines, but never managed to get quite that many up and running at the same time.
+As mentioned, my experiments ran on top of machines provided by Planet-Lab. I was allowed to use up to 100 machines, but never managed to have them all running at the same time.
 
 Using Planet-Lab as a test bed gave me several benefits: the machines at my disposal had a high geographical spread and varied greatly in what computational resources they provided. Depending on the time of day the computational load on the machines would also vary and not only that, but I would have a different subset of the machines available for testing from day to day.
 This provided an excellent foundation for testing Distributed Hash Tables which are meant to be able to cope with high node churn and machines with widely different capabilities and additionally abstracts away the specific topology used for the experiments.
@@ -81,8 +81,8 @@ To work with Planet-Lab's strengths and not against it, and at the same time get
 \subsection{Experimental cleanliness and validity of results}
 Performing experiments over longer periods of time showed that the latency (figure \ref{figLatencyAgainstTime}) and success rate (figure \ref{figRateAgainstTime}) for all practical purposes stay constant over time.
 This allowed me to cut down the length of individual experimental runs without lowering the quality of my results.
-Figure \ref{figLatencyAgainstTime} show the latencies of individual requests plotted against time for an experiment with 65 hosts running 1 Distributed Hash Table node each issued 8 requests per second.
-Figure \ref{figRateAgainstTime} show the instantaneous rate of requests per second network wide against time and the success rate against time for the same experimental run used to generate the latency data in figure \ref{figLatencyAgainstTime}. 
+Figure \ref{figLatencyAgainstTime} shows the latencies of individual requests plotted against time for an experiment with 65 hosts running 1 Distributed Hash Table node each issued 8 requests per second.
+Figure \ref{figRateAgainstTime} shows the instantaneous rate of requests per second network wide against time and the success rate against time for the same experimental run used to generate the latency data in figure \ref{figLatencyAgainstTime}. 
 
 \begin{figure}[!htbp]
   \begin{center}
@@ -101,17 +101,17 @@ Figure \ref{figRateAgainstTime} show the instantaneous rate of requests per seco
 \end{figure}
 
 % * How logging not affect results
-During experimental runs I would turn off all functionality not directly needed for serving the requests. This would include turning off the mechanisms that kept the nodes routing state up to date. If a node disappeared during an experiment, nodes contacting it directly would take note of it, but other nodes wouldn't have the node's disappearance reflected in their routing state like they would under normal operation. This might seem a somewhat unnatural choice, but makes sense for my experiments for the following reasons:
-In my experimental builds of Chord and Pastry I had turned up the rate at which routing information was dissipated through the network to an extreme to cut down the waiting time between experimental runs. Since what I wanted to test was the latency of routing requests through the network rather than ancillaries like maintaining the routing state, removing the overhead of keeping the routing state up to date is the right thing to do. This overhead differs between Chord and Pastry, and depends on parameters that would have to be tweaked before using this system in any real world deployment, and therefore would unfavourably affect the test results.
+During experimental runs I would turn off all functionality not directly needed for serving the requests. This would include turning off the mechanisms that kept the nodes routing state up to date. If a node disappeared during an experiment, nodes contacting it directly would take note of it, but other nodes wouldn't have the node's disappearance reflected in their routing state like they would under normal operation. This might seem somewhat counter-intuitive, but makes sense for my experiments for several reasons.
+In my experimental builds of Chord and Pastry I had turned up the rate at which routing information was dissipated through the network to an extreme in order to cut down the waiting time between experimental runs. Since what I wanted to test was the latency of routing requests through the network rather than ancillaries like maintaining the routing state, removing the overhead of keeping the routing state up to date was the right thing to do. This overhead differs between Chord and Pastry, and depends on parameters that would have to be tweaked before using this system in any real world deployment, and therefore would unfavourably affect the test results.
 
 % * How load spread evenly
 \mbox{}
 
-To spread the load as evenly as possible across the network of nodes, each search engine host, hosting Distributed Hash Table nodes, would issue requests to the network through it's locally hosted nodes.
-The keys used in the requests were randomly generated by hashing a combination of the IP-address of the machine issuing the request and a time stamp. This approach gives keys with a nice spread, but results in keys that differ from experimental run to experimental run. While this makes doing repeatable experiments impossible, it evenly spreads the load between the machines.
+To spread the load as evenly as possible across the network of nodes, each search engine host, hosting Distributed Hash Table nodes, would issue requests to the network through its locally hosted nodes.
+The keys used in the requests were randomly generated by hashing a combination of the IP-address of the machine issuing the request and a time stamp. This approach gives keys with a nice spread, but results in keys that differ from experimental run to experimental run. While this makes repeatable experiments impossible, it evenly spreads the load between the machines.
 
 % * What constitutes a valid run
-Data from experimental runs where a significant number of machines disappeared during the run would be discarded.
+Data from experimental runs where a significant number of machines disappeared during the run was discarded.
 
 
 \section{Results}
@@ -125,8 +125,8 @@ In figure \ref{figChordLatency} and \ref{figPastryLatency} you see the latency f
 It is noticeable how the latencies for Chord (figure \ref{figChordLatency}) are higher than they are for Pastry (figure \ref{figPastryLatency}), and also how there is less of a correlation between different experimental configurations and the resulting latencies.
 For Chord there seems to be a trend showing that the latencies for a fixed number of nodes per host decreases for higher request rates.
 
-In the case of Pastry (figure \ref{figPastryLatency}) we see how the latencies consistently grow larger for increasing total numbers of nodes. Intuitively one would think this is as it should be as the number of nodes involved in any given key-lookup on average should increase proportionally to the logarithm of the number of nodes in the Distributed Hash Table network, but for this set-up with Pastry nodes it is somewhat counter intuitive. The number of hosts the nodes are run on is constant resulting in there being more nodes per host, which one would expect should let Pastry's proximity heuristic reduce rather than increase the latency as more nodes running on the same physical hosts allow some of the message passes being between nodes with close to no latency.
-Unfortunately these results, where performance decreases when more nodes are run on the same hardware, agree with the results I see when evaluating the performance improvements given by running multiple nodes on the same host and using the Pastry proximity heuristic (figure \ref{figPastryHeuristic}) presented later in this chapter. 
+In the case of Pastry (figure \ref{figPastryLatency}) we see how the latencies consistently grow larger for increasing total numbers of nodes. Intuitively one would think this is as it should be as the number of nodes involved in any given key-lookup on average should increase proportionally to the logarithm of the number of nodes in the Distributed Hash Table network, but for this set-up with Pastry nodes it is somewhat counter intuitive. The number of hosts the nodes are run on is constant resulting in more nodes per host. One would expect this should let Pastry's proximity heuristic reduce rather than increase the latency as more nodes running on the same physical hosts allow some of the message passes being between nodes with close to no latency.
+Unfortunately, these results where performance decreases when more nodes are run on the same hardware agree with the results seen when evaluating the performance improvements given by running multiple nodes on the same host and using the Pastry proximity heuristic (figure \ref{figPastryHeuristic}) presented later in this chapter. 
 
 What we seem to see in figure \ref{figPastryLatency} is that as the number of nodes in the network as a whole grows, the average number of nodes involved in each requests also increases resulting in the inter-node connection latency playing a greater role in routing messages.
 
@@ -164,13 +164,13 @@ What we seem to see in figure \ref{figPastryLatency} is that as the number of no
 
 The success rate is also dramatically different between Chord (figure \ref{figChordSuccessRate}) and Pastry (\ref{figPastrySuccessRate}). Chord seems to perform better when more than one node is run on the same machine, while Pastry's success rate slightly decreases the more nodes are run on the same physical hardware. It is also worth noting that even at its best, Chord can't compare with the worst case performance of Pastry.
 
-Unfortunately I have no good explanation for the variations we see within the different configurations for Chord, but I can explain why Chord in general performs so much worse than Pastry, and I will do so shortly.
+Unfortunately, there is no good explanation for the variations we see within the different configurations for Chord, but it can be explained why Chord, in general, performs so much worse than Pastry.
 
-Before that I want to discuss how Chord and Pastry behave when pushed to their limits. The cumulative distribution functions for Chord (figure \ref{figChordCDF}) and Pastry (figure \ref{figPastryCDF}) show the fraction of requests succeeding within a certain time. The experiments are run on roughly 60 machines hosting 1 node each. 
+First, however, I want to discuss how Chord and Pastry behave when pushed to their limits. The cumulative distribution functions for Chord (figure \ref{figChordCDF}) and Pastry (figure \ref{figPastryCDF}) show the fraction of requests succeeding within a certain time. The experiments are run on roughly 60 machines hosting 1 node each. 
 For Chord the success rate is only marginally worse for 128 and 64 requests per second per hosts than when there are 16 requests per second per machine. Also rather odd is how the rate of 2 requests per second performs significantly worse than what does the rate of 4 in the case of Chord. I have no good explanations for this behaviour.
-For Pastry on the other hand we see how the success rate gracefully drops for extreme rates with Pastry.
+For Pastry on the other hand, we see how the success rate gradually drops for extreme rates with Pastry.
 
-Please also notice how the cumulative distribution function graph seems to plateau relatively quickly after around twice the average latency. What this seems to tell us is that if a request does not succeed within a relative short window of time, the probability of it still completing successfully is vanishingly small. This knowledge could be used to set sensible time-out values for lookups.
+It can also be noticed how the cumulative distribution function graph seems to plateau relatively quickly after around twice the average latency. What this tells us is that if a request does not succeed within a relative short window of time, the probability of it still completing successfully is small. This knowledge could be used to set sensible time-out values for lookups.
 
 \begin{figure}[!htbp]
   \begin{center}
@@ -189,13 +189,13 @@ Please also notice how the cumulative distribution function graph seems to plate
 \end{figure}
 
 \subsection{Why Pastry performs better that Chord}
-The experimental evidence shown so far shows Pastry as superior to Chord both in terms of latency and in the success rate of requests. I will now try to explain in turn what the causes might be.
+The experimental evidence shown so far shows Pastry as superior to Chord both in terms of latency and in the success rate of requests. I will now explain in turn what the causes might be.
 
 \mbox{}
 
-The higher latencies of Chord are the easiest to explain. In figure \ref{figChordNumNodes} and \ref{figPastryNumNodes} you see how many nodes are involved in key lookups for Chord and Pastry respectively. It is clear from the graph that the average number of nodes involved in a key lookup are greater for Chord than for Pastry. If one multiplies the average time it takes two randomly chosen nodes to connect with the number of nodes involved in a key lookup, it should be clear that a Chord lookup should take longer if the only thing one is accounting for is the latency of the routing. Additionally Pastry uses a heuristic when routing, favouring nodes closer by, which also affects the latency as each routing step is likely to take less time for Pastry than it does for Chord. I will shortly discuss the impact of the proximity heuristic in Pastry.
+The higher latencies of Chord are the easiest to explain. In figure \ref{figChordNumNodes} and \ref{figPastryNumNodes} you see how many nodes are involved in key lookups for Chord and Pastry respectively. It is clear from the graph that the average number of nodes involved in a key lookup are greater for Chord than for Pastry. If one multiplies the average time it takes two randomly chosen nodes to connect with the number of nodes involved in a key lookup, it should be clear that a Chord lookup should take longer if the only thing one is accounting for is the latency of the routing. Additionally, Pastry uses a heuristic when routing, favouring nodes closer by, which also affects the latency as each routing step is likely to take less time for Pastry than it does for Chord. I will shortly discuss the impact of the proximity heuristic in Pastry.
 
-Whether the higher number of routing steps for Chord is a bug introduced by me or something inherent to the Chord algorithm is something I can't comment on. It is also possible that the difference would become less significant for larger networks of nodes. Unfortunately this is not something I was able to test given the infrastructure available to me.
+Whether the higher number of routing steps for Chord is an implementation specific bug or something inherent to the Chord algorithm is unclear. It is possible that the difference would become less significant for larger networks of nodes. Unfortunately, this is not something I was able to test given the infrastructure available.
 
 \begin{figure}[!htbp]
   \begin{center}
@@ -214,21 +214,21 @@ Whether the higher number of routing steps for Chord is a bug introduced by me o
 \end{figure}
 
 \mbox{}
-Now that we have an idea of why the latency might be higher for Chord than for Pastry, let me try to explain why the failure rate is higher as well.
+Now that we have an idea of why the latency might be higher for Chord than for Pastry, let me explain why the failure rate is higher as well.
 
-First let us recall how Chord and Pastry perform their routing.
+First, let us recall how Chord and Pastry perform their routing.
 In Chord, the node that wants to lookup a key (the requester) asks the node closest to the key that it knows about if it knows about other nodes closer to the target key. It then asks the node it gets returned the same question, and the pattern continues until it finds the node immediately preceding the key. Its successor is the target node responsible for the key.
 
-Pastry follows a different approach. When a requesting node sends a message addressed a key it forwards the message to the node it knows about that is closest to the message key. Where it differs from the Chord approach is that the requester hands over the responsibility for having the message forwarded onwards to its destination to the node it itself forwarded it to.
+Pastry follows a different approach. When a requesting node sends a message addressed to a key it forwards the message to the node it knows about that is closest to the message key. Where it differs from the Chord approach is that the requester hands over the responsibility for having the message forwarded onwards to its destination to the node it itself forwarded it to.
 
 Now lets consider what happens when something goes wrong.
-In figure \ref{figureChordFailedLookup} we see what happens when Chord node A gets returned node D as the next hop node from B. D is not accessible and the lookup fails. If A retries the routing step, B again returns D, unless it in the meantime itself has noticed that D is inaccessible.
+In figure \ref{figureChordFailedLookup}, we see what happens when Chord node A gets returned node D as the next hop node from B. D is not accessible and the lookup fails. If A retries the routing step, B again returns D, unless it has already noticed that D is inaccessible.
 
 In the case of Pastry (figure \ref{figurePastryFailedLookup}) node B becomes responsible for routing the request forward towards the target node. Upon realising node D is unavailable it routes it to the next closest node it knows about, in this case C. Node C happens to know about a node closer to the target than D, and this way we managed to route around the unavailable node.
 
 There are workarounds for improving Chord's routing performance. One would be for the requesting node A to inform node B about node D's death upon retrying to route the message. An alternative could also have been for node A to try to route the request through another intermediate node before D, but in this case we are not guaranteed that this intermediate node will not also return D.
 A third approach could be to look up D's predecessor, and then use that node in the same role previously filled by B. None of these methods have been used in my implementation as they would extend the core Chord routing algorithm and therefore skew the comparison in Chord's favour.
-For that matter, it might be that the solution is as simple as leaving the mechanism for maintaining routing state on for the duration of the experiments, but initial experiments run from before I decided to turn off the routing state maintenance during experiments do not seem to indicate this.
+For that matter, it might be that the solution is as simple as leaving the mechanism for maintaining routing state on for the duration of the experiments, but initial experiments run before I decided to turn off the routing state maintenance during experiments do not seem to indicate this.
 
 \begin{figure}[!htb]
 \begin{center}
@@ -252,7 +252,7 @@ For that matter, it might be that the solution is as simple as leaving the mecha
 
 \section{Effect of Pastry routing heuristics}
 % * What effect does the Pastry routing heuristics have on the performance
-In this section I will look at how the heuristics used in my implementation of Pastry affect the routing performance. 
+In this section I look at how the heuristics used in my implementation of Pastry affect the routing performance. 
 
 I have sampled the latencies from Pastry in a small set of different configurations with the heuristic enabled and then with the heuristic turned off. Please note that this is nothing but a very limited sample and by no means an exhaustive evaluation of the heuristic, or heuristics in general. One should not try to generalize the findings based on this data or read it as valid for anything but the sampled configurations.
 
@@ -264,11 +264,11 @@ The following configurations were sampled:
 \item 50 machines running 16 nodes each
 \end{itemize}
 
-The choice of configurations was made for the following reason:
+The choice of configurations was made for the following reason.
 I wanted to see how expanding the network by adding additional machines at new geographical locations affect the latency.
-I also wanted to see how running 50 nodes across a few machines compared to running 50 nodes on 50 different machines. Lastly I also wanted to see how the heuristic behaved in the more extreme case with a larger network with relatively large cliques of nodes close to each other.
+I also wanted to see how running 50 nodes across a few machines compared to running 50 nodes on 50 different machines. Lastly, I wanted to see how the heuristic behaved in the more extreme case with a larger network with relatively large cliques of nodes close to each other.
 
-The results seen in figure \ref{figPastryHeuristic} partly show what one would expect, in other words that the heuristic improves the routing performance.
+The results seen in figure \ref{figPastryHeuristic} partly show what one would expect; that the heuristic improves the routing performance.
 
 \begin{figure}[!htb]
   \begin{center}

@@ -307,14 +307,14 @@ What complicates the Erlang code slightly is that I wanted to implement the \ver
 \lstinputlisting[label=listingFindSuccessor,caption=Finding the successor of a key]{sourceCode/find_successor.erl}
 
 In code listing \ref{listingFindPredecessor}, I show the Erlang equivalent of the Chord \verb=find_predecessor= pseudo code. 
-In the pseudo code there are two remote procedure calls being done. One to get a node's successor, and only conditionally one requesting the node's closest preceding finger.
-In my implementation these two remote procedure calls have been made into one and for this reason this call has been moved to the very front of the function.
+In the pseudo code there are two remote procedure calls being done. One is to get a node's successor, and, only conditionally, one requests the node's closest preceding finger.
+In my implementation, these two remote procedure calls have been made into one and for this reason this call has been moved to the very front of the function.
 Notice how on line 11 in the Erlang implementation we use recursion rather than the while loop used in the pseudo code. The equivalent of line 8 in the Chord pseudo code had to be moved out to the \verb=find_successor= function.
 
 \lstinputlisting[label=listingFindPredecessor,caption=Finding the predecessor of a key]{sourceCode/find_predecessor.erl}
 
-The procedure for finding the \verb=closest_preceding_finger= follows below. Unfortunately it is slightly more complicated than the pseudo code equivalent. Since I for fault tolerance am storing a list of successors rather than a single successor, the case of the $ 0^{th} $ finger entry has to be handled separately. 
-I factored out the bounds checking done at line 16 in the Chord pseudo code into a helper function called \verb=check_closest_preceding_finger= to avoid having to duplicate it in the \verb=closest_preceding_finger= function.
+The procedure for finding the \verb=closest_preceding_finger= follows below. Unfortunately, it is slightly more complicated than the pseudo code equivalent. Since I am storing a list of successors for fault tolerance rather than a single successor, the case of the $ 0^{th} $ finger entry has to be handled separately. 
+The bounds checking performed on line 16 in the Chord pseudo code was moved to a helper function called \verb=check_closest_preceding_finger= to avoid having to duplicate it in the \verb=closest_preceding_finger= function.
 This function in turn makes a call back to \verb=closest_preceding_finger= if the finger entry is not a match.
 The function in listing \ref{listingClosestPrecedingFinger} recursively looks at each finger in the routing table, checking if it is valid and returning the first one it finds that is.
 
@@ -327,10 +327,10 @@ The bounds check is implemented in the helper function \verb=check_closest_prece
 \subsubsection{Routing in Pastry}
 \label{sec:routingInPastry}
 The Pastry approach differs quite significantly from Chord's approach to routing.
-The most significant difference is that while a Chord node actively looks for the node responsible for a key, and when that node has been found contacts it to have it perform whatever task needs doing, Pastry instead performs message passing, where the message itself can contain information about whatever task the node wants done.
-Also just like when sending mail through the postal system, the node loses visibility of the messages progress as soon as it has been sent. This has the benefit of reducing the communication overhead and giving the sender time to perform other tasks or aid other nodes in their message sending while making it harder to notice if a message get lost.
+The most significant difference is that Chord nodes actively look for the node responsible for a key, and when that node is found, it contacts it in order to have it perform whatever task needs doing. Instead, Pastry performs message passing, where the message itself can contain information about whatever task the node wants done.
+Also just like when sending mail through the postal system, the node loses visibility of the messages progress as soon as it has been sent. This has the benefit of reducing the communication overhead and giving the sender time to perform other tasks or aid other nodes in their message sending while making it harder to notice if a message gets lost.
 
-I illustrate the process in figure \ref{figRoutingPastry} where the requester of a key-value, node A, sends a \emph{lookup message} to the key it wants to look up. First node A checks its own routing state for the node it knows about with a key closer to the target key than its own and sends its message to it. In this case this node is node B. B in turn does the same and forwards the message to node D which in turn sends it on to the target node F. In the final step node F contacts the requester, node A, to let it know it is the node responsible for the value of the requested key. 
+I illustrate the process in figure \ref{figRoutingPastry} where the requester of a key-value, node A, sends a \emph{lookup message} to the key it wants to look up. First, node A checks its own routing state for the node it knows about with a key closer to the target key than its own and sends its message to it. In this case, the node is node B. B in turn does the same and forwards the message to node D which in turn sends it on to the target node F. In the final step node F contacts the requester, node A, to let it know it is responsible for the value of the requested key. 
 
 \begin{figure}[!htb]
 \begin{center}
@@ -343,7 +343,7 @@ I illustrate the process in figure \ref{figRoutingPastry} where the requester of
 The following Pastry routing pseudo code is a slightly adapted version of the pseudo code presented in the Pastry paper \cite{pastry}.
 It shows the method for routing a message for a target key k at a node with key n.
 
-The Pastry routing approach works as follows: The node that is about to forward the message first checks if the recipient is in its leaf set. If it is it delivers the message directly. The recipient could also be itself.
+The Pastry routing approach works as follows: The node that is about to forward the message first checks if the recipient is in its leaf set. If it is, it delivers the message directly. The recipient could also be itself.
 If there is no match in the leaf set, the routing table is used to find a node that shares an additional digit with the key with the message key compared to the node performing the routing. If there is no match in the routing table either, the Pastry node falls back to forwarding the message to any node it knows about that has a key numerically closer to the message key than the key the node itself has.
 
 \lstinputlisting[label=listingPastryPseudocode,caption=Message routing pseudo code for Pastry]{sourceCode/pastry_pseudocode.txt}
@@ -351,23 +351,23 @@ If there is no match in the leaf set, the routing table is used to find a node t
 The translation from Pastry pseudo code to Erlang implementation resembles the procedure used to implement the Chord algorithm in Erlang. It is described in more detail in Appendix \ref{sec:appendixErlangRoutingAlgorithm} on page \pageref{sec:appendixErlangRoutingAlgorithm}.
 
 \subsection{Replication of data}
-My implementations of Chord and Pastry both replicate data amongst their immediate neighbours for fault tolerance. While replication was only proposed as an extension in the Chord \cite{chord} and Pastry \cite{pastry} papers, I thought it worthwhile adding this functionality since my intended use case was a search engine where I did not want data to become unavailable if an online social network provider decided to stop using my search network.
+My implementations of Chord and Pastry both replicate data amongst their immediate neighbours for fault tolerance. While replication was only proposed as an extension in the Chord \cite{chord} and Pastry \cite{pastry} papers, I thought it worthwhile to add this functionality since my intended use was a search engine where I did not want data to become unavailable if an online social network provider decided to stop using my search network.
 
 \section{Search server}
 % Search server
 The search server is what glues together the client facing HTTP API and the Distributed Hash Tables. It receives the search queries from the clients, converts them into appropriate keys that it can lookup in the Distributed Hash Tables, and resolves link records it gets returned to full profile records that can be shown as search results.
 
-The current implementation is rather na\"ive, and while it does basic ranking of results, prioritising what it predicts are better matches, it performs no caching of results which would significantly improve the performance.
+While the current implementation does basic ranking of results, prioritising what it predicts are better matches, it performs no caching of results which would significantly improve the performance.
 
 \section{Central control hub}
 % Hub control server
 % Focus on testing and evaluation
-The central control hub is an application that runs under a domain name known by all application instances of my search engine.
+The central control hub is an application that runs under a domain name known by all instances of the search engine application.
 When the search engine application is started on a machine, it registers itself with the control hub which in turn tells it what Distributed Hash Table should be used and how many nodes and of what Distributed Hash Table type should be run.
 
 When new Distributed Hash Table nodes are started they also contact the control hub to get information about which other nodes they should try to connect to in order to join the Distributed Hash Table network.
 
-The control hub is the only single point of failure in the system. If it becomes unavailable, no new search engine hosts can join because they cannot register and get information about which Distributed Hash Table type is being used, nor can the existing hosts start new Distributed Hash Table nodes because the nodes cannot contact the central control hub to get information about nodes they could use to join the Distributed Hash Table network. All hosts that are already registered remain active, and once a Distributed Hash Table node has started it runs fully independently of the central control hub application.
+The control hub is the only single point of failure in the system. If it becomes unavailable, no new search engine hosts can join because they cannot register and get information about which Distributed Hash Table type is being used. In addition, the existing hosts cannot start new Distributed Hash Table nodes because the nodes cannot contact the central control hub to get information about nodes they could use to join the Distributed Hash Table network. All hosts that are already registered remain active, and once a Distributed Hash Table node has started it runs fully independently of the central control hub application.
 One could allow hosts to start new nodes by directly telling them about other known hosts they can connect to, but that functionality is currently not implemented.
 
 The experiments used to evaluate the system are also initiated by the central control hub through a web interface (figure \ref{figHubApp}) that allows me to set the rate at which requests should be issued and the duration of the experiment. The requests themselves are issued individually by each host running the Distributed Hash Table nodes.
@@ -380,14 +380,14 @@ The experiments used to evaluate the system are also initiated by the central co
 \end{center}
 \end{figure}
 
-Initially fully automated experiments were supported as outlined in my project briefing, but later, while evaluating my system, I removed the feature as it was impractical and didn't give me enough flexibility to run the experiments I needed.
+Initially fully automated experiments were supported as outlined in my project briefing, but later, while evaluating my system, I removed the feature as it was impractical and didn't allow enough flexibility to run the experiments needed.
 
 \section{Supervision for fault tolerance}
 One of Erlang's main strengths is process supervision.
 The supervision behaviour which is a part of the standard library makes it trivial to write processes supervising others. These processes are responsible for the lifetime behaviour of the processes they supervise, starting them when needed, restarting them if they terminate prematurely and stopping them when the application terminates. All supervisors with the exception of the root supervisor are themselves also supervised.
 
 Process supervision is an important feature as it encourages designing minimal and isolated modules with individual life cycle control that can fail independently without bringing down the system. As failing modules are automatically restarted without impact on other components, one can easily build systems with high availability.
-Another direct benefit also encouraged by Erlang and it's designers is to write optimistic code handling what you as a designer think of as the optimal case, rather than practising defensive coding where you constantly have to check for malformed inputs. This is possible as malformed input which would cause a process to crash does not affect the systems availability since the crashed process is automatically and immediately restarted. The direct benefit of this approach is that the code base becomes smaller and much easier to read and maintain.
+Another direct benefit also encouraged by Erlang and it's designers is to write optimistic code handling what you as a designer think of as the optimal case, rather than practising defensive coding where you constantly have to check for malformed inputs. Malformed input, which would cause a process to crash, does not affect the systems availability since the crashed process is automatically and immediately restarted. The direct benefit of this approach is that the code base becomes smaller and much easier to read and maintain.
 
 Figure \ref{figSupervisionTree} shows the supervisors and the servers used in the main friend search application I developed.
 
@@ -400,16 +400,16 @@ Figure \ref{figSupervisionTree} shows the supervisors and the servers used in th
 \end{figure}
 
 The root supervisor, represented by the box in the middle of figure \ref{figSupervisionTree}, supervises a wide range of other supervisors, all of which, with the exception of the Distributed Hash Table supervisors, supervise servers that are started at the same time as the application. 
-The Chord and Pastry supervisors are a special kind of supervisor. They do not initially start any children, but can be signalled to start and maintain an arbitrary amount of children. This feature allows my system to at runtime dynamically adjust the number of Distributed Hash Table nodes that are run.
+The Chord and Pastry supervisors are a special kind of supervisor. They do not initially start any children, but can be signalled to start and maintain an arbitrary amount of children. This feature allows my system to, at runtime, dynamically adjust the number of Distributed Hash Table nodes that are run.
 
 
 \section{Hot code reloading}
 The Erlang virtual machine supports hot code reloading.
-I built a code distribution service on top of this functionality, that automatically updates the binary code of all running nodes whenever I pushed code changes to my code repository.
+I built a code distribution service on top of this functionality that automatically updates the binary code of all running nodes whenever I pushed code changes to my code repository.
 
 This greatly reduced the time it took to change small bugs and experiment with changes after I had deployed my code to a large network of machines.
 
 \mbox{}
 
 In this chapter we have looked at how I developed my system. We looked at high level components and went into details of how routing differs between Chord and Pastry. We then looked at the other central components of my project, the central controlling hub and the search server.
-Finally we had a brief look at Erlang's supervisors and hot code reloading.
+Finally, we had a brief look at Erlang's supervisors and hot code reloading.
