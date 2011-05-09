@@ -1,4 +1,4 @@
-This is pdfTeXk, Version 3.1415926-1.40.9 (Web2C 7.5.7) (format=pdflatex 2009.3.30)  9 MAY 2011 16:32
+This is pdfTeXk, Version 3.1415926-1.40.9 (Web2C 7.5.7) (format=pdflatex 2009.3.30)  9 MAY 2011 16:58
 entering extended mode
 \write18 enabled.
  %&-line parsing enabled.
@@ -325,24 +325,24 @@ Chapter 3.
 ]
 system(epstopdf illustrations/ComponentOverview.eps)...executed.
 
- <illustrations/ComponentOverview.pdf, id=56, 557.08125pt x 322.20375pt>
+ <illustrations/ComponentOverview.pdf, id=55, 557.08125pt x 322.20375pt>
 File: illustrations/ComponentOverview.pdf Graphic file (type pdf)
 
 <use illustrations/ComponentOverview.pdf> [10 <./illustrations/ComponentOvervie
-w.pdf>] [11] <illustrations/ChordKeySpace.png, id=69, 215.1237pt x 81.4242pt>
+w.pdf>] [11] <illustrations/ChordKeySpace.png, id=68, 215.1237pt x 81.4242pt>
 File: illustrations/ChordKeySpace.png Graphic file (type png)
 
 <use illustrations/ChordKeySpace.png>
-<illustrations/PastryKeySpace.png, id=71, 215.1237pt x 81.4242pt>
+<illustrations/PastryKeySpace.png, id=70, 215.1237pt x 81.4242pt>
 File: illustrations/PastryKeySpace.png Graphic file (type png)
 
 <use illustrations/PastryKeySpace.png> [12 <./illustrations/ChordKeySpace.png>]
 [13 <./illustrations/PastryKeySpace.png>] [14]
-<illustrations/KeyspaceExample.png, id=88, 243.5499pt x 251.7405pt>
+<illustrations/KeyspaceExample.png, id=87, 243.5499pt x 251.7405pt>
 File: illustrations/KeyspaceExample.png Graphic file (type png)
 
 <use illustrations/KeyspaceExample.png> [15]
-<illustrations/ChordRoutingSuccess.png, id=92, 215.1237pt x 223.3143pt>
+<illustrations/ChordRoutingSuccess.png, id=91, 215.1237pt x 223.3143pt>
 File: illustrations/ChordRoutingSuccess.png Graphic file (type png)
 
 <use illustrations/ChordRoutingSuccess.png>
@@ -663,34 +663,35 @@ Appendix E.
 
 ] [66] [67] [68] [69]) [70] (./dissertation.aux) ) 
 Here is how much of TeX's memory you used:
- 4630 strings out of 493876
- 71681 string characters out of 1150568
- 252514 words of memory out of 3000000
- 7743 multiletter control sequences out of 10000+50000
- 12887 words of font info for 46 fonts, out of 3000000 for 5000
+ 4632 strings out of 493876
+ 71705 string characters out of 1150568
+ 252502 words of memory out of 3000000
+ 7744 multiletter control sequences out of 10000+50000
+ 13246 words of font info for 47 fonts, out of 3000000 for 5000
  714 hyphenation exceptions out of 8191
  36i,12n,39p,922b,1495s stack positions out of 5000i,500n,10000p,200000b,50000s
 {/usr/local/texlive/2008/texm
 f-dist/fonts/enc/dvips/base/8r.enc}</usr/local/texlive/2008/texmf-dist/fonts/ty
 pe1/bluesky/cm/cmbx10.pfb></usr/local/texlive/2008/texmf-dist/fonts/type1/blues
 ky/cm/cmbx12.pfb></usr/local/texlive/2008/texmf-dist/fonts/type1/bluesky/cm/cmb
-x8.pfb></usr/local/texlive/2008/texmf-dist/fonts/type1/bluesky/cm/cmex10.pfb></
-usr/local/texlive/2008/texmf-dist/fonts/type1/bluesky/cm/cmmi12.pfb></usr/local
-/texlive/2008/texmf-dist/fonts/type1/bluesky/cm/cmmi8.pfb></usr/local/texlive/2
-008/texmf-dist/fonts/type1/bluesky/cm/cmr10.pfb></usr/local/texlive/2008/texmf-
-dist/fonts/type1/bluesky/cm/cmr12.pfb></usr/local/texlive/2008/texmf-dist/fonts
-/type1/bluesky/cm/cmr17.pfb></usr/local/texlive/2008/texmf-dist/fonts/type1/blu
-esky/cm/cmr6.pfb></usr/local/texlive/2008/texmf-dist/fonts/type1/bluesky/cm/cmr
-7.pfb></usr/local/texlive/2008/texmf-dist/fonts/type1/bluesky/cm/cmr8.pfb></usr
-/local/texlive/2008/texmf-dist/fonts/type1/bluesky/cm/cmsl12.pfb></usr/local/te
-xlive/2008/texmf-dist/fonts/type1/bluesky/cm/cmss10.pfb></usr/local/texlive/200
-8/texmf-dist/fonts/type1/bluesky/cm/cmsy10.pfb></usr/local/texlive/2008/texmf-d
-ist/fonts/type1/bluesky/cm/cmsy8.pfb></usr/local/texlive/2008/texmf-dist/fonts/
-type1/bluesky/cm/cmti12.pfb></usr/local/texlive/2008/texmf-dist/fonts/type1/urw
-/courier/ucrr8a.pfb>
-Output written on dissertation.pdf (75 pages, 3212293 bytes).
+x8.pfb></usr/local/texlive/2008/texmf-dist/fonts/type1/bluesky/cm/cmbxti10.pfb>
+</usr/local/texlive/2008/texmf-dist/fonts/type1/bluesky/cm/cmex10.pfb></usr/loc
+al/texlive/2008/texmf-dist/fonts/type1/bluesky/cm/cmmi12.pfb></usr/local/texliv
+e/2008/texmf-dist/fonts/type1/bluesky/cm/cmmi8.pfb></usr/local/texlive/2008/tex
+mf-dist/fonts/type1/bluesky/cm/cmr10.pfb></usr/local/texlive/2008/texmf-dist/fo
+nts/type1/bluesky/cm/cmr12.pfb></usr/local/texlive/2008/texmf-dist/fonts/type1/
+bluesky/cm/cmr17.pfb></usr/local/texlive/2008/texmf-dist/fonts/type1/bluesky/cm
+/cmr6.pfb></usr/local/texlive/2008/texmf-dist/fonts/type1/bluesky/cm/cmr7.pfb><
+/usr/local/texlive/2008/texmf-dist/fonts/type1/bluesky/cm/cmr8.pfb></usr/local/
+texlive/2008/texmf-dist/fonts/type1/bluesky/cm/cmsl12.pfb></usr/local/texlive/2
+008/texmf-dist/fonts/type1/bluesky/cm/cmss10.pfb></usr/local/texlive/2008/texmf
+-dist/fonts/type1/bluesky/cm/cmsy10.pfb></usr/local/texlive/2008/texmf-dist/fon
+ts/type1/bluesky/cm/cmsy8.pfb></usr/local/texlive/2008/texmf-dist/fonts/type1/b
+luesky/cm/cmti12.pfb></usr/local/texlive/2008/texmf-dist/fonts/type1/urw/courie
+r/ucrr8a.pfb>
+Output written on dissertation.pdf (75 pages, 3213847 bytes).
 PDF statistics:
- 414 PDF objects out of 1000 (max. 8388607)
+ 418 PDF objects out of 1000 (max. 8388607)
  0 named destinations out of 1000 (max. 131072)
  111 words of extra memory for PDF output out of 10000 (max. 10000000)
 

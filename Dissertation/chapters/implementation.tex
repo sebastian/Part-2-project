@@ -41,7 +41,7 @@ Figure \ref{figComponents} shows an overview of the components in the search ser
 \begin{figure}[!htb]
 \begin{center}
 	\includegraphics[width=0.9\linewidth]{illustrations/ComponentOverview.eps}
-\caption{High level overview of the components of the search application. The arrows show the part a component relies on.}
+\caption{High level overview of the components of the search application. The arrows show the parts a component relies on.}
 \label{figComponents}
 \end{center}
 \end{figure}
@@ -160,7 +160,7 @@ In figure \ref{figKeyspaceExample}, I show a reference 8-bit key-space with node
 Table \ref{tableChordRoutingTableImpl} shows the routing state held by the Chord node with key 99, while table \ref{tablePastryRoutingTableImpl} shows the corresponding routing state for the same dot but as a Pastry node with key 1203.
 
 \begin{table}[!htb]
-\caption{Chord routing table for nodes in figure \ref{figKeyspaceExample}}
+\caption{Chord routing table for node 99 in figure \ref{figKeyspaceExample}.}
 \begin{center}
 \begin{tabular}{ | l | l | }
   \hline                       
@@ -231,7 +231,7 @@ Table \ref{tableChordRoutingTableImpl} shows the routing state held by the Chord
 \end{table}
 
 \begin{table}[!htb]
-\caption{The Pastry routing state from the Pastry nodes in figure \ref{figKeyspaceExample}. The bold digits in the routing table indicate at which digit the node keys differ from the node's own key.}
+\caption{The Pastry routing state for Pastry node 1203 in figure \ref{figKeyspaceExample}. The emphasized digits in the routing table indicate at which digit the node keys differ from the node's own key.}
 \begin{center}
 \begin{tabular}{ | l | l | l | }
   \hline
@@ -256,13 +256,13 @@ Table \ref{tableChordRoutingTableImpl} shows the routing state held by the Chord
   \multicolumn{4}{|c|}{Routing table} \\ 
   \hline
   \hline                       
-  \cellcolor{green} none & \textbf{0}010 & \textbf{2}200 & \textbf{3}301 \\
+  \cellcolor{green} none & \emph{\textbf{0}}010 & \emph{\textbf{2}}200 & \emph{\textbf{3}}301 \\
   \hline                       
-  \cellcolor{green} 1st & 1\textbf{0}01 & 1\textbf{1}33 & 1\textbf{3}01 \\
+  \cellcolor{green} 1st & 1\emph{\textbf{0}}01 & 1\emph{\textbf{1}}33 & 1\emph{\textbf{3}}01 \\
   \hline                       
-  \cellcolor{green} 2nd & 12\textbf{1}0 & 12\textbf{3}2 & \\
+  \cellcolor{green} 2nd & 12\emph{\textbf{1}}0 & 12\emph{\textbf{3}}2 & \\
   \hline                       
-  \cellcolor{green} 3rd & 120\textbf{0} & & \\
+  \cellcolor{green} 3rd & 120\emph{\textbf{0}} & & \\
   \hline                       
 \end{tabular}
 \end{center}

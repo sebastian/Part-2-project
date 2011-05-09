@@ -87,7 +87,7 @@ Figure \ref{figRateAgainstTime} shows the instantaneous rate of requests per sec
 \begin{figure}[!htbp]
   \begin{center}
     \includegraphics[width=0.9\linewidth]{illustrations/latency_aginst_time_chord.eps}
-    \caption{This graph shows how latency vary with time in a 15 minute experimental run of Chord.}
+    \caption{This graph shows how the latency varies with time in a 15 minute experimental run of Chord.}
     \label{figLatencyAgainstTime}
   \end{center}
 \end{figure}
@@ -149,7 +149,7 @@ What we seem to see in figure \ref{figPastryLatency} is that as the number of no
 \begin{figure}[!htbp]
   \begin{center}
     \includegraphics[width=0.9\linewidth]{illustrations/success_rate_chord.eps}
-    \caption{This graph shows the percentage of successful requests for different request rates and number of nodes per host for an experimental setup with slightly more than 60 Chord nodes.}
+    \caption{This graph shows the percentage of the requests that are successful for different request rates and number of nodes per host for an experimental setup with slightly more than 60 Chord nodes.}
     \label{figChordSuccessRate}
   \end{center}
 \end{figure}
@@ -157,7 +157,7 @@ What we seem to see in figure \ref{figPastryLatency} is that as the number of no
 \begin{figure}[!htbp]
   \begin{center}
     \includegraphics[width=0.9\linewidth]{illustrations/success_rate_pastry.eps}
-    \caption{This graph shows the percentage of successful requests for different request rates and number of nodes per host for an experimental setup with slightly more than 60 Pastry nodes.}
+    \caption{This graph shows the percentage of the requests that are successful for different request rates and number of nodes per host for an experimental setup with slightly more than 60 Pastry nodes.}
     \label{figPastrySuccessRate}
   \end{center}
 \end{figure}
@@ -209,7 +209,7 @@ Whether the higher number of routing steps for Chord is an implementation specif
 \begin{figure}[!htbp]
   \begin{center}
     \includegraphics[width=0.9\linewidth]{illustrations/nodes_against_time_pastry.eps}
-    \caption{This graph shows the number of nodes involved in a key lookup in a particular experimental run for Chord.}
+    \caption{This graph shows the number of nodes involved in a key lookup in a particular experimental run for Pastry.}
     \label{figPastryNumNodes}
   \end{center}
 \end{figure}
@@ -234,7 +234,7 @@ For that matter, it might be that the solution is as simple as leaving the mecha
 \begin{figure}[!htb]
 \begin{center}
   \includegraphics[width=0.9\linewidth]{illustrations/ChordRoutingFailed.png}
-  \caption{The illustration shows what happens when routing fails in Chord. We see how when node A gets the unavailable node D returned from B, it is stuck and the routing fails.}
+  \caption{The illustration shows what happens when routing fails in Chord. We see how node A gets stuck and the routing fails when it gets returned the unavailable node D from node B.}
   \label{figureChordFailedLookup}
 \end{center}
 \end{figure}
@@ -242,7 +242,7 @@ For that matter, it might be that the solution is as simple as leaving the mecha
 \begin{figure}[!htb]
 \begin{center}
   \includegraphics[width=0.9\linewidth]{illustrations/PastryRoutingFailed.png}
-  \caption{The illustration shows how Pastry deals with node failure during message routing. The unavailable node D is routed around by node B to get to the target node.}
+  \caption{The illustration shows how Pastry deals with node failure during message routing. Node B routes around the unavailable node D to get to the target node.}
   \label{figurePastryFailedLookup}
 \end{center}
 \end{figure}
@@ -310,7 +310,7 @@ Now, let us consider the number of extra lookups that would be required for a pr
 The link records are generated from a sample of 60 million names evenly distributed in the bag of names taken off of Facebook.
 
 \begin{table}[!htb]
-\caption{Number of link new link records per additional character in the search term Archaya Pruedsakaran and the size of the link records for the cases where link records are generate for each additional 3, 4, 5 and 6 characters in a name. Green cells indicate that one of the new link records points to the profile record we are looking for.}
+\caption{Number of new link records per additional character in the search term Archaya Pruedsakaran and the size of the link records for the cases where link records are generate for each additional 3, 4, 5 and 6 characters in a name. Green cells indicate that one of the new link records points to the profile record we are looking for.}
 \begin{center}
 \scriptsize{
   \begin{tabular}{ | l | r | r | r | r | r | r | r | r | }
@@ -367,7 +367,7 @@ The link records are generated from a sample of 60 million names evenly distribu
 
 
 \begin{table}[!htb]
-\caption{Number of link new link records per additional character in the search term Brad Catron and the size of the link records for the cases where link records are generate for each additional 3, 4, 5 and 6 characters in a name. Green cells indicate that one of the new link records points to the profile record we are looking for.}
+\caption{Number of new link records per additional character in the search term Brad Catron and the size of the link records for the cases where link records are generate for each additional 3, 4, 5 and 6 characters in a name. Green cells indicate that one of the new link records points to the profile record we are looking for.}
 \begin{center}
 \scriptsize{
   \begin{tabular}{ | l | r | r | r | r | r | r | r | r | }
