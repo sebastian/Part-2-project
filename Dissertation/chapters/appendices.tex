@@ -1,7 +1,7 @@
 \chapter{Routing state as Erlang data structures}
 \label{sec:appendixErlangRoutingState}
 I use Erlang records for the Chord and Pastry routing state.
-When regular tuples are used to pass data-structures between functions, the amount of code that needs updating when the data structure evolves is often substantial.
+When regular tuples are used to pass data structures between functions, the amount of code that needs updating when the data structure evolves is often substantial.
 While you need to write out the full structure of a tuple to pattern match on one of its values, records give you direct access to named members of the structure, abstracting away the physical layout of the data.
 Under the hood, records are still compiled down to regular tuples, but this is handled transparently  without the programmer needing to know about it or update code where the data-structure is being used.
 
@@ -28,7 +28,7 @@ This section compliments section \ref{sec:routingInPastry} on page \pageref{sec:
 My Erlang implementation of the Pastry routing algorithm, rather than being a direct translation of the pseudo code (listing \ref{listingPastryPseudocode} on page \pageref{listingPastryPseudocode}), takes the essence of what the Pastry routing algorithm tries to accomplish, and implements that.
 
 The code in listing \ref{listingRouteMsg} shows my main Erlang \verb=route_msg= function. 
-Just like the pseudo code in pseudo code listing \ref{listingPastryPseudocode} on page \pageref{listingPastryPseudocode} it tries routing via the leaf set, then the routing table and if all else fails to any node that is closer to the target key.
+Just like the pseudo code in listing \ref{listingPastryPseudocode} on page \pageref{listingPastryPseudocode} it tries routing via the leaf set, then the routing table and if all else fails to any node that is closer to the target key.
 
 \lstinputlisting[label=listingRouteMsg,caption=Routes a message towards a recipient]{sourceCode/route_msg.erl}
 
@@ -38,12 +38,12 @@ In listing \ref{listingRouteToLeafSet} we see that if the match in the leaf set 
 
 If routing to the leaf set fails (line 3 in listing \ref{listingRouteToLeafSet}), the node tries routing the message to a node in the routing table sharing more digits in the key with the message key than what itself does. Again, just like when routing to the leaf set, if the best match is itself, the message is delivered. This function is shown in code listing \ref{listingRouteToNodeInRoutingTable}.
 
-It is not quite as easy to see how this code listing corresponds to the pseudo code in listing \ref{listingPastryPseudocode} on page \pageref{listingPastryPseudocode}. For example, in the listing \ref{listingRouteToNodeInRoutingTable} there is nothing that directly correspond to getting the length of the shared key path as we see on line 9 in the Pastry pseudo code in listing \ref{listingPastryPseudocode} on page \pageref{listingPastryPseudocode}. Instead what the Erlang implementation does is find all the nodes in the routing table that share as many key digits with the message key as the node itself does (line 2) in addition to the \verb=PreferredKeyMatch= (also line 2) which is the shared key-segment plus the first digit in the message key that differs from the key of the node itself.
+It is not quite as easy to see how this code listing corresponds to the pseudo code in listing \ref{listingPastryPseudocode} on page \pageref{listingPastryPseudocode}. For example, in the listing \ref{listingRouteToNodeInRoutingTable} there is nothing that directly corresponds to getting the length of the shared key path as we see on line 9 in the Pastry pseudo code in listing \ref{listingPastryPseudocode} on page \pageref{listingPastryPseudocode}. Instead what the Erlang implementation does is find all the nodes in the routing table that share as many key digits with the message key as the node itself does (line 2) in addition to the \verb=PreferredKeyMatch= (also line 2) which is the shared key-segment plus the first digit in the message key that differs from the key of the node itself.
 On line 4 we look for a node in the list of nodes which shares all the digits in the \verb=PreferredKeyMatch=. If there is one then the message is passed on to that node and if there is none, we return empty handed.
 
 \lstinputlisting[label=listingRouteToNodeInRoutingTable,caption=Routes a message to a node in the routing table]{sourceCode/route_to_node_in_routing_table.erl}
 
-If all other routing approaches fail, the last resort the Pastry node has is to find any node that is numerically closer to the key than what itself is. Code listing \ref{listingRouteToCloserNode} shows the Erlang implementation finding the key segment shared between the message key and the node's key (line 2) and then finding all the nodes it knows about that share this key segment (line 3). On line 7 the node numerically closest to the message key is found and the message either forwarded or delivered.
+If all other routing approaches fail, the last resort the Pastry node has is to find any node that is numerically closer to the key than what itself is. Code listing \ref{listingRouteToCloserNode} shows the Erlang implementation of finding the key segment shared between the message key and the node's key (line 2) and then finding all the nodes it knows about that share this key segment (line 3). On line 7 the node numerically closest to the message key is found and the message either forwarded or delivered.
 
 \lstinputlisting[label=listingRouteToCloserNode,caption=Routes a message to any closer node]{sourceCode/route_to_closer_node.erl}
 

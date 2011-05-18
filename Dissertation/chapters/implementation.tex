@@ -26,16 +26,16 @@ The Distributed Hash Tables Chord and Pastry are central parts of my design and 
 \section{High level system components}
 % What components does the system consist of?
 % Want design that is DHT agnostic
-It is important that one understands the difference between a host and a node in terms of this project. A host is defined to be a physical machine with a publicly accessible IP-address. 
-Each host runs a single instance of the application, but each application instance can itself contain several Distributed Hash Table nodes running independently of each other. I can therefore scale the number of nodes in the my Distributed Hash Table networks, and by extension the search engine, by keeping the number of hosts, in other words machines, fixed, and just change how many Distributed Hash Table nodes each physical machine runs.
+It is important that one understands the difference between a host and a node in terms of this project. A host is defined to be an entity running an operating system that has a publicly accessible IP-address. 
+Each host runs a single instance of the application, but each application instance can itself contain several Distributed Hash Table nodes running independently of each other. I can therefore scale the number of nodes in the my Distributed Hash Table networks, and by extension the search engine, by keeping the number of hosts fixed, and changing how many Distributed Hash Table nodes each host runs.
 
 \mbox{}
 
 My project consists of two separate applications: the search server using the Distributed Hash Tables I developed, and a central control hub coordinating the search server instances.
-The central control hub also acts as a system-wide dashboard giving an overview of the number of machines participating in the search network in addition to how many Distributed Hash Table nodes are run by each machine and if they are Chord or Pastry nodes. The central control hub is also the application coordinating experiments across the network of search server nodes.
+The central control hub also acts as a system-wide dashboard giving an overview of the number of hosts participating in the search network in addition to how many Distributed Hash Table nodes are run by each host and if they are Chord or Pastry nodes. The central control hub is also the application coordinating experiments across the network of search server nodes.
 As the central control hub plays more of an ancillary part in the project, its implementation will not be discussed further.
 
-Figure \ref{figComponents} shows an overview of the components in the search server application running on the machines that are part of the search network. With small modifications in the controller component such as removing parts that are specific to the experimental setup and adding security features to the Distributed Hash Tables, the same setup could be used in a final release of the software.
+Figure \ref{figComponents} shows an overview of the components in the search server application running on the hosts that are part of the search network. With small modifications in the controller component such as removing parts that are specific to the experimental setup and adding security features to the Distributed Hash Tables, the same setup could be used in a final release of the software.
 
 % Component overview
 \begin{figure}[!htb]
@@ -59,14 +59,14 @@ While a logger would certainly be included in the final release of the search en
 The Friend Search Web API in figure \ref{figComponents} uses an Erlang library called Webmachine for correctly handling HTTP requests. Webmachine in turn relies on another Erlang library called Mochiweb which the Friend Search Web API also uses in order to serialize the search results into JSON for consumption by the clients.
 
 \section{Distributed Hash Tables}
-Distributed Hash Tables are nothing but key-value stores where the data is stored across an array of machines --- yet I am implementing two of them. The reason is that Chord and Pastry differ quite significantly in the way they approach finding out on which nodes data-items are stored. Not only do they differ in the way they organize and store their routing information, but unlike Chord, Pastry uses a proximity heuristic to favour nodes geographically closer to itself when routing. These differences in routing directly translate into differences in performance as is discussed in the evaluation chapter.
+Distributed Hash Tables are nothing but key-value stores where the data is stored across an array of hosts --- yet I am implementing two of them. The reason is that Chord and Pastry differ quite significantly in the way they approach finding out on which nodes data-items are stored. Not only do they differ in the way they organize and store their routing information, but unlike Chord, Pastry uses a proximity heuristic to favour nodes geographically closer to itself when routing. These differences in routing directly translate into differences in performance as is discussed in the evaluation chapter.
 
 My implementation used a bag approach where I allow multiple items to be stored under the same key. This is necessary to avoid link records with common keys replacing each other.
 
 The Chord key-space is an integer key-space ranging from 0 up to $2^{160} - 1$. It wraps around such that $2^{160} - 1$ immediately precedes 0. It can be useful to think of the key-space as circular. Just like the Chord key-space the Pastry key-space is also an integer key-space. While the Pastry paper \cite{pastry} suggests using keys in the range of 0 up to $2^{128} - 1$, I decided to let the Pastry key-space range from 0 to $2^{160} - 1$ just like for Chord, to increase code reuse between my Chord and Pastry implementations.
 128-bit keys, as suggested in the Pastry paper \cite{pastry}, are easier to store efficiently in memory on 64-bit machines, which are common today, but other than that there is no evidence in the paper indicating that the performance of the Pastry algorithm should be any worse using 160-bit rather than 128-bit keys.
 
-All data in Chord and Pastry is stored under 160-bit keys. The Chord and Pastry nodes themselves are also associated with keys in the same key-space as the data items. I use a hash of the machines public IP-address and the port number a given node is listening to in order to determine a Distributed Hash Table node's key.
+All data in Chord and Pastry is stored under 160-bit keys. The Chord and Pastry nodes themselves are also associated with keys in the same key-space as the data items. I use a hash of the hosts public IP-address and the port number a given node is listening to in order to determine a Distributed Hash Table node's key.
 
 A node's key plays a significant role in splitting up the key-space between the nodes in the Distributed Hash Table. For this reason it is important that the keys are evenly distributed in the key-space so the amount of key-space each node is responsible for is roughly the same.
 
@@ -105,7 +105,7 @@ The node stored in the $ 0^{th} $ entry of the finger array is the node's succes
 The routing table stores a total of 160 entries, one for each bit in the key.
 
 Table \ref{tableChordRoutingTable} shows the Chord routing table and how each finger entry is calculated. It is taken from the Chord paper \cite{chord}. The values n, m and k are the node key, number of bits used for the key and index into the finger table array, respectively. 
-The $ k^{th} $ finger entry has a start value that is half of the key-space greater than the node's own key-value. The $ k-1^{th} $ entry a node quarter of the key-space further away, and so on until the nodes immediately preceding the node are found.
+The $ k^{th} $ finger entry has a start value that is half of the key-space greater than the node's own key-value, the $ k-1^{th} $ entry a node quarter of the key-space further away, and so on until the nodes immediately preceding the node are found.
 This construction allows nodes to quickly close in on any given key-value by contacting another node which itself is at most half the key-space away from the key-value.
 In this implementation m is always 160. Note that the array starts at 1 and not 0.
 
@@ -134,9 +134,9 @@ In this implementation m is always 160. Note that the array starts at 1 and not 
 \subsubsection{Pastry's routing state}
 \label{sec:pastryRoutingState}
 How does Pastry's routing table differ from that used by Chord?
-A Pastry node maintains three separate data structures: a tuple called the leaf set containing a list of the nodes preceding and a list of nodes succeeding it in the key-space, a list of nodes called the neighbourhood set that are it's neighbours in terms of the proximity heuristic used by Pastry, and a routing table. 
+A Pastry node maintains three separate data structures: a tuple called the leaf set containing a list of the nodes preceding and a list of nodes succeeding it in the key-space, a list of nodes called the neighbourhood set that are its neighbours in terms of the proximity heuristic used by Pastry, and a routing table. 
 To make sense of the routing table let us first realize that while Chord looks at the key-space as an integer key-space in base 10, a Pastry node looks at the key-space as an integer key-space in an arbitrary base b.
-The routing table is a list of lists of nodes that share increasing number of digits in the key with the node itself. The first level entry in the routing table stores a list of nodes whose keys share no digits with the node. The second level entry stores nodes that share the first digit, and so on up until the last level entry where nodes share all but the very last digit.
+The routing table is a list of lists of nodes that share an increasing number of digits in the key with the node itself. The first level entry in the routing table stores a list of nodes whose keys share no digits with the node. The second level entry stores nodes that share the first digit, and so on up until the last level entry where nodes share all but the very last digit.
 In a sparsely populated network, most of the entries in the routing table will be left blank.
 On the $ n^{th} $ level of the routing table, a node stores a list of nodes with keys that do not differ in any of the most significant digits up until the $ n^{th} $ key-digit.
 A node will try to store nodes for all possible values of the $ n^{th} $ digit, so ideally a node that itself has an $ n^{th} $ digit of 0 will have entries for nodes with values 1 through b - 1 in their $ n^{th} $ digit key positions.
@@ -272,7 +272,7 @@ Table \ref{tableChordRoutingTableImpl} shows the routing state held by the Chord
 \subsection{Routing}
 %   What is different between Chord and Pastry?
 %   How is routing done?
-The routing algorithms for both Chord and Pastry are reasonably compact. I will give you an example of how the routing works before showing the pseudo-code from the Chord \cite{chord} and Pastry \cite{pastry} papers. Then, I show show the corresponding Erlang implementations.
+The routing algorithms for both Chord and Pastry are reasonably compact. I will give you an example of how the routing works before showing the pseudo-code from the Chord \cite{chord} and Pastry \cite{pastry} papers. Then, I show the corresponding Erlang implementations.
 
 I have omitted supporting functions from the Erlang sample code that do not add to the understanding of the routing procedure in order to keep the source code listings concise.
 
@@ -295,13 +295,15 @@ The syntax \verb=n.method_name()= indicates that the method with name \verb=meth
 
 Code listing \ref{listingChordPseudocode} shows the routing algorithm used by Chord as pseudo code. On line 10 in the code listing we see the method \verb=closest_preceding_finger= being invoked on node \verb=n'=. Using the routing example in figure \ref{figRoutingChord} \verb=n'= starts out as A, then changes to B etc.
 
+\newpage
+
 \lstinputlisting[label=listingChordPseudocode,caption=Chord routing pseudo code]{sourceCode/chord_pseudocode.txt}
 
 Let us now take a quick look at each of the three methods from listing \ref{listingChordPseudocode} in turn and compare them to their Erlang equivalents.
 
 The \verb=find_successor= method takes a key and finds its predecessor before returning the predecessor's successor.
 Listing \ref{listingFindSuccessor} shows my Erlang implementation.
-We see there is a very clear correspondence with the pseudo code implementation. First, the predecessor node is found on line 7 and it's successor then returned on line 9.
+We see there is a very clear correspondence with the pseudo code implementation. First, the predecessor node is found on line 7 and its successor then returned on line 9.
 What complicates the Erlang code slightly is that I wanted to implement the \verb=find_predecessor= while-loop using recursion. I therefore had to move the assignment on line 8 in the Chord pseudo code out to the \verb=find_successor= function.
 
 \lstinputlisting[label=listingFindSuccessor,caption=Finding the successor of a key]{sourceCode/find_successor.erl}
@@ -328,7 +330,7 @@ The bounds check is implemented in the helper function \verb=check_closest_prece
 \label{sec:routingInPastry}
 The Pastry approach differs quite significantly from Chord's approach to routing.
 The most significant difference is that Chord nodes actively look for the node responsible for a key, and when that node is found, it contacts it in order to have it perform whatever task needs doing. Instead, Pastry performs message passing, where the message itself can contain information about whatever task the node wants done.
-Also just like when sending mail through the postal system, the node loses visibility of the messages progress as soon as it has been sent. This has the benefit of reducing the communication overhead and giving the sender time to perform other tasks or aid other nodes in their message sending while making it harder to notice if a message gets lost.
+Also just like when sending mail through the postal system, the node loses visibility of the progress of the message as soon as it has been sent. This has the benefit of reducing the communication overhead and giving the sender time to perform other tasks or aid other nodes in their message sending while making it harder to notice if a message gets lost.
 
 I illustrate the process in figure \ref{figRoutingPastry} where the requester of a key-value, node A, sends a \emph{lookup message} to the key it wants to look up. First, node A checks its own routing state for the node it knows about with a key closer to the target key than its own and sends its message to it. In this case, the node is node B. B in turn does the same and forwards the message to node D which in turn sends it on to the target node F. In the final step node F contacts the requester, node A, to let it know it is responsible for the value of the requested key. 
 
@@ -340,7 +342,7 @@ I illustrate the process in figure \ref{figRoutingPastry} where the requester of
 \end{center}
 \end{figure}
 
-The following Pastry routing pseudo code is a slightly adapted version of the pseudo code presented in the Pastry paper \cite{pastry}.
+The following Pastry routing pseudo code is the pseudo code presented in the Pastry paper \cite{pastry}. 
 It shows the method for routing a message for a target key k at a node with key n.
 
 The Pastry routing approach works as follows: The node that is about to forward the message first checks if the recipient is in its leaf set. If it is, it delivers the message directly. The recipient could also be itself.
@@ -363,12 +365,12 @@ While the current implementation does basic ranking of results, prioritising wha
 % Hub control server
 % Focus on testing and evaluation
 The central control hub is an application that runs under a domain name known by all instances of the search engine application.
-When the search engine application is started on a machine, it registers itself with the control hub which in turn tells it how many nodes and of what Distributed Hash Table type should be run.
+When the search engine application is started on a host, it registers itself with the control hub which in turn tells it how many nodes and of what Distributed Hash Table type should be run.
 
 When new Distributed Hash Table nodes are started they also contact the control hub to get information about which other nodes they should try to connect to in order to join the Distributed Hash Table network.
 
 The control hub is the only single point of failure in the system. If it becomes unavailable, no new search engine hosts can join because they cannot register and get information about which Distributed Hash Table type is being used. In addition, the existing hosts cannot start new Distributed Hash Table nodes because the nodes cannot contact the central control hub to get information about nodes they could use to join the Distributed Hash Table network. All hosts that are already registered remain active, and once a Distributed Hash Table node has started it runs fully independently of the central control hub application.
-One could allow hosts to start new nodes by directly telling them about other known hosts they can connect to, but that functionality is currently not implemented.
+One could allow hosts to start new nodes by directly telling them about other known nodes they can connect to, but that functionality is currently not implemented.
 
 The experiments used to evaluate the system are also initiated by the central control hub through a web interface (figure \ref{figHubApp}) that allows me to set the rate at which requests should be issued and the duration of the experiment. The requests themselves are issued individually by each host running the Distributed Hash Table nodes.
 
@@ -387,7 +389,7 @@ One of Erlang's main strengths is process supervision.
 The supervision behaviour which is a part of the standard library makes it trivial to write processes supervising others. These processes are responsible for the lifetime behaviour of the processes they supervise, starting them when needed, restarting them if they terminate prematurely and stopping them when the application terminates. All supervisors with the exception of the root supervisor are themselves also supervised.
 
 Process supervision is an important feature as it encourages designing minimal and isolated modules with individual life cycle control that can fail independently without bringing down the system. As failing modules are automatically restarted without impact on other components, one can easily build systems with high availability.
-Another direct benefit also encouraged by Erlang and it's designers is to write optimistic code handling what you as a designer think of as the optimal case, rather than practising defensive coding where you constantly have to check for malformed inputs. Malformed input, which would cause a process to crash, does not affect the systems availability since the crashed process is automatically and immediately restarted. The direct benefit of this approach is that the code base becomes smaller and much easier to read and maintain.
+Another direct benefit also encouraged by Erlang and its designers is to write optimistic code handling what you as a designer think of as the optimal case, rather than practising defensive coding where you constantly have to check for malformed inputs. Malformed input, which would cause a process to crash, does not affect the availability of the system since the crashed process is automatically and immediately restarted. The direct benefit of this approach is that the code base becomes smaller and much easier to read and maintain.
 
 Figure \ref{figSupervisionTree} shows the supervisors and the servers used in the main friend search application I developed.
 
@@ -407,7 +409,7 @@ The Chord and Pastry supervisors are a special kind of supervisor. They do not i
 The Erlang virtual machine supports hot code reloading.
 I built a code distribution service on top of this functionality that automatically updates the binary code of all running nodes whenever I pushed code changes to my code repository.
 
-This greatly reduced the time it took to change small bugs and experiment with changes after I had deployed my code to a large network of machines.
+This greatly reduced the time it took to fix small bugs and experiment with changes after I had deployed my code to a large network of machines.
 
 \mbox{}
 

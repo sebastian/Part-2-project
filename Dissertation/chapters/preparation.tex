@@ -22,12 +22,12 @@ In this chapter we look at what considerations dictated the design choices made,
 % Requirements
 % Fit into into existing services? (webservice)
 % Ease of integration
-My goal was to write a very particular kind of search engine, a search engine which, in the end, would work very much like a distributed oversized address book.
-Directory services providing address book functionality at scale already exist, but there are several benefits in making such a system distributed. As soon as there are more than one party contributing nodes to the distributed network, there will be no single entity owning all of the data, nor any single entity having to foot the bill for running the service. In addition, a well designed distributed system scales horizontally rather than vertically, meaning you can increase the system's performance by adding more cheap nodes run on commodity hardware. In turn, one can avoid buying new and more powerful machines to replace existing ones, cutting costs.
+My goal was to write a very particular kind of search engine, a search engine which, in the end, would work very much like a distributed address book.
+Directory services providing address book functionality at scale already exist, but there is several benefits in making such a system distributed. As soon as there are more than one party contributing nodes to the distributed network, there will be no single entity owning all of the data, nor any single entity having to foot the bill for running the service. In addition, a well designed distributed system scales horizontally rather than vertically, meaning you can increase the system's performance by adding more cheap nodes run on commodity hardware. In turn, one can avoid buying new and more powerful machines to replace existing ones, cutting costs.
 
-The idea of not having a central authority with ownership over the data resonates especially well with independent distributed online social networks, most of which where inspired by the idea of allowing their users to themselves maintain ownership of their own data and have detailed control over what is made visible to the world at large.
+The idea of not having a central authority with ownership over the data resonates especially well with independent distributed online social networks, most of which were inspired by the idea of allowing their users to themselves maintain ownership of their own data and have detailed control over what is made visible to the world at large.
 
-Having established a distributed system is desirable, I needed to build it in such a way that nodes in the search engine could easily be hosted by independent providers of distributed online social networks. Not only would the search engine have to be easy to install and run, but it should also be easy to integrate into a wide variety of different services, all built by different teams. The search engine would also need to handle nodes joining and leaving without interruption to the service.
+Having established that a distributed system is desirable, I needed to build it in such a way that nodes in the search engine could easily be hosted by independent providers of distributed online social networks. Not only would the search engine have to be easy to install and run, but it should also be easy to integrate into a wide variety of different services, all built by different teams. The search engine would also need to handle nodes joining and leaving without interruption to the service.
 Handling high node churn in distributed environments without sacrificing reliability and speed is what Distributed Hash Tables are designed for. I therefore decided I wanted to use Distributed Hash Tables as the back end data store for my search engine.
 
 From experience, I know that web developers find it convenient to integrate services that expose an HTTP interface, so in order to meet the requirement of easy integration, I decided my search engine would expose its functionality through a HTTP based API and that the data would be sent as JSON (JavaScript Object Notation) for easy manipulation and consumption.
@@ -44,7 +44,7 @@ What makes Distributed Hash Tables different from regular hash tables, or dictio
 
 There are quite a few well known Distributed Hash Tables. After initial research I decided to implement and compare Chord, Pastry and Kademilia. I soon realized Kademilia differs from Chord in ways similar to what Pastry already does, and decided to drop it from my implementation. This allowed the time for a more thorough evaluation of the relative performance of Chord and Pastry.
 
-Distributed Hash Tables are key-value stores. In other words, unless you know the specific key under which a data item is stored, you will not be able to find it by other means than by doing a linear search through the system.
+Because Distributed Hash Tables are key-value stores, unless you know the specific key under which a data item is stored, you will not be able to find it by other means than by doing a linear search through the system.
 
 Having established that I wanted to support predictive search, as well as fuzzy searches, where you are allowed to misspell the name of the person you are trying to find, I had to come up with a mapping scheme that allowed me to predict correct keys with insufficient data. 
 Schemes for looking up keywords in inverse indexes through flooding and random walks on top of structured and unstructured peer to peer networks have been proposed \cite{myths}, but do not give performance in the sub-second latency range that I require in order to provide predictive search.
@@ -53,9 +53,9 @@ I came up with the following solution:
 
 Just like in regular address books, I store records containing all the information a user wants to disclose to the network. These \emph{profile records}, stored under a key created by hashing the whole profile record data structure, would include the user's full name, a link to the user's profile page hosted by his or her distributed online social network provider and preferably the address of a profile image that could be displayed alongside the search results.
 
-In order to to find a profile record given incomplete or misspelled names, I also store \emph{link records}. A link record contains the user's full name and the key of the full profile record, but are stored under keys generated by hashing fragments of a user's name. 
+In order to to find a profile record given incomplete or misspelled names, I also store \emph{link records}. A link record contains the user's full name and the key of the full profile record, but is stored under keys generated by hashing fragments of a user's name. 
 
-I decided to generate link records separately for each of a user's names, n addition to generating a link record for each additional three characters in a user's name. A person with the name \emph{Abcdefghijk} would get a link record for the first three characters of his name, \emph{abc}, a link record created by adding the next the characters, \emph{abcdef}, another link record adding the subsequent three characters, \emph{abcdefghi}, and finally a link record for the whole name, \emph{abcdefghijk}.
+I decided to generate link records separately for each of a user's names, in addition to generating a link record for each additional three characters in a user's name. A person with the name \emph{Abcdefghijk} would get a link record for the first three characters of his name, \emph{abc}, a link record created by adding the next the characters, \emph{abcdef}, another link record adding the subsequent three characters, \emph{abcdefghi}, and finally a link record for the whole name, \emph{abcdefghijk}.
 As can be seen in figure \ref{figLinkRecord}, my surname \emph{Eide} would result in link records for \emph{eid} and \emph{eide} while my first name \emph{Sebastian} would result in link records for \emph{seb}, \emph{sebast} and \emph{sebastian}.
 
 % How link records are generated
@@ -95,6 +95,8 @@ Following the initial development cycle, I changed into short iterative bursts w
 The implementation of the Distributed Hash Tables allowed for a very structured approach. The theory is well understood allowing me to write specifications in the form of tests based on the examples given in the Chord \cite{chord} and Pastry \cite{pastry} papers to ensure my implementations behaved as expected.
 
 I applied test driver practises where I write tests before writing any code for all major parts of the system.
+
+\mbox{}
 
 % Summary:
 %   Which steps I took
